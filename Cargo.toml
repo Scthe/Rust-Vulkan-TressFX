@@ -1,0 +1,79 @@
+[package]
+name = "rs-vulkan"
+version = "0.1.0"
+authors = ["Scthe <marcin1113C@gmail.com>"]
+edition = "2018"
+description = ""
+repository = "https://github.com/scthe/rs-vulkan"
+license = "MIT"
+
+# [workspace]
+# members = ["src/game", "src/renderer"]
+
+[profile.release]
+lto = true
+codegen-units = 1
+
+[profile.dev]
+# I don't use debugger and it cuts .exe size in half
+debug = 0
+
+
+[dependencies]
+# --LOGGING
+log = "^0.4"
+simple_logger = "1.6.0"
+# --DESERIALIZE
+# serde = { version = "^1.0.8", features = ["derive"] }
+# --CONFIG
+# config = "^0.10.1"
+# --CLI
+# clap = "2.33.1"
+# --MATH
+# glam = { version = "^0.8.7", features = ["debug-glam-assert"] }
+# --FILE WATCHER
+# inotify = "0.8.2"
+# --DOT ENV
+# dotenv = "0.15.0"
+# --DYNAMIC LUBRARY LINKING
+# libloading
+# --ERROR HANDLING
+# snafu
+anyhow = "1.0.31"
+# --PROFILER
+# superluminal-perf = "0.1.0"
+# --IMPLEMENTS SIMPLE CONSTRUCTOR FUNCTIONS FOR STRUCTS AND ENUMS
+# derive-new = "0.5.8"
+# --IMPLEMENT DEBUG/DEFAULT/CLONE ETC.
+# derivative = "2.1.1"
+
+
+# --WINDOW INIT
+winit = "^0.22.2"
+# --WINDOWS API
+winapi = "0.3.5"
+# --LIBC
+libc = "0.2.71"
+# --IMGUI
+# imgui-sys
+# imgui
+# --COLOR MANAGEMENT
+# palette_derive = "0.5.0"
+# --model loading/creation
+# gltf = "0.15"
+# obj = "0.2.2"
+# genmesh = "0.6.2"
+
+
+# --VULKAN
+ash = "0.31.0"
+# -- layout(std140) GENERATE STRUCT
+# glsl_layout
+# -- RUST BINDINGS FOR AMD VULKAN MEMORY ALLOCATOR (VMA)
+# vk-mem-rs
+# -- SPIR-V REFLECTION
+# https://github.com/gwihlidal/spirv-reflect-rs
+# -- VULKAN SYNC UTILITY
+# vk-sync = "0.1.6"
+# -- SHADERC - VULKAN/SPIR-V SHADER UTILS
+# https://github.com/google/shaderc-rs
