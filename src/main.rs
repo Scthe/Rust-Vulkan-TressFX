@@ -34,6 +34,9 @@ fn main() {
     renderer::main::main(&window).unwrap();
   }
 
+  // glslangValidator.exe -V src/shaders/triangle.frag.glsl src/shaders/triangle.vert.glsl
+  // spirv-dis.exe vert.spv
+
   // start event loop
   event_loop.run(move |event, _, control_flow| {
     *control_flow = ControlFlow::Wait;

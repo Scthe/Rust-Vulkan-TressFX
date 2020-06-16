@@ -12,6 +12,8 @@ use ash::vk;
 #[cfg(target_os = "windows")]
 use ash::extensions::khr::Win32Surface;
 
+// ---------------
+
 fn to_u32(s: &str) -> u32 {
   s.parse::<u32>().unwrap()
 }
@@ -185,18 +187,25 @@ fn create_swapchain_khr(
   device: &ash::Device,
   queue_familiy_idx: u32,
   window: &winit::window::Window,
-) -> vk::SwapchainKHR {
+) -> (vk::SwapchainKHR, vk::Extent2D, vk::Format) {
   let window_size = unsafe { get_window_size(window) };
   // println!("{:?}", window_size);
 
-  /*// surface_format
-  let surface_formats = surface_meta
-    .get_physical_device_surface_formats(*p_device, *surface_khr)
-    .unwrap();
-  surface_formats.iter().for_each(|f| println!("surface format: {:?}", f));
-  let surface_format = surface_formats.first()
-    .expect("Failed to find swapchain surface format.");
-  */
+  // surface_format. Only B8G8R8A8_UNORM, SRGB_NONLINEAR supported
+  let surface_formats = unsafe {
+    surface_meta
+      .get_physical_device_surface_formats(*p_device, *surface_khr)
+      .unwrap()
+  };
+  let only_one_i_personally_know = surface_formats.iter().find(|surface_fmt| {
+    let fmt_ok = surface_fmt.format == vk::Format::B8G8R8A8_UNORM;
+    let color_space_ok = surface_fmt.color_space == vk::ColorSpaceKHR::SRGB_NONLINEAR;
+    fmt_ok && color_space_ok
+  });
+  let surface_format = match only_one_i_personally_know {
+    Some(x) => x,
+    _ => panic!("Failed to find swapchain surface format."),
+  };
 
   let surface_capabilities = unsafe {
     surface_meta
@@ -217,10 +226,8 @@ fn create_swapchain_khr(
   let create_info = vk::SwapchainCreateInfoKHR::builder()
     .surface(*surface_khr)
     .min_image_count(2) // double buffer
-    .image_format(vk::Format::B8G8R8A8_UNORM) // not all devices support this e.g. BGRA only
-    .image_color_space(vk::ColorSpaceKHR::SRGB_NONLINEAR)
-    // .image_format(surface_format.format) // TODO change in swapchain_image_views too
-    // .image_color_space(surface_format.color_space)
+    .image_format(surface_format.format) // TODO change in swapchain_image_views too
+    .image_color_space(surface_format.color_space)
     .image_extent(window_size)
     .image_array_layers(1)
     .image_usage(vk::ImageUsageFlags::COLOR_ATTACHMENT)
@@ -238,13 +245,14 @@ fn create_swapchain_khr(
       .expect("Failed to create swapchain")
   };
 
-  swapchain
+  (swapchain, window_size, surface_format.format)
 }
 
 fn create_swapchain_images(
   swapchain_meta: &Swapchain,
   swapchain: &vk::SwapchainKHR,
   device: &ash::Device,
+  image_format: vk::Format,
 ) -> (Vec<vk::Image>, Vec<vk::ImageView>) {
   let swapchain_images = unsafe {
     swapchain_meta // auto destroyed with swapchain
@@ -270,7 +278,7 @@ fn create_swapchain_images(
       let create_info = vk::ImageViewCreateInfo::builder() // TODO destroy views manually
         .image(swapch_image)
         .view_type(vk::ImageViewType::TYPE_2D)
-        .format(vk::Format::B8G8R8A8_UNORM) // TODO: hardcoded, use from swapchain_create_info
+        .format(image_format)
         .components(swapchain_image_view_components_mapping)
         .subresource_range(swapchain_image_view_subresource_range)
         .build();
@@ -376,6 +384,286 @@ fn pick_device_and_queue(
   (device, queue)
 }
 
+fn create_render_pass(device: &ash::Device, image_format: vk::Format) -> vk::RenderPass {
+  // 1. define render pass to compile shader against
+  let attachment = vk::AttachmentDescription::builder()
+    .format(image_format)
+    .samples(vk::SampleCountFlags::TYPE_1) // single sampled
+    .load_op(vk::AttachmentLoadOp::LOAD) // do not clear triangle bacakground
+    .store_op(vk::AttachmentStoreOp::STORE)
+    .stencil_load_op(vk::AttachmentLoadOp::DONT_CARE)
+    .stencil_store_op(vk::AttachmentStoreOp::DONT_CARE)
+    .initial_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
+    .final_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
+    .build();
+
+  let subpass_output_attachment = vk::AttachmentReference {
+    attachment: 0, // from the array above
+    layout: vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+  };
+  let subpass = vk::SubpassDescription::builder()
+    // .flags(flags) // No values in vk?
+    .input_attachments(&[]) // INPUT: layout(input_attachment_index=X, set=Y, binding=Z)
+    .color_attachments(&[subpass_output_attachment]) // OUTPUT
+    // .depth_stencil_attachment(depth_stencil_attachment)
+    .pipeline_bind_point(vk::PipelineBindPoint::GRAPHICS) //
+    // .preserve_attachments(preserve_attachments)
+    // .resolve_attachments(resolve_attachments)
+    .build();
+
+  let create_info = vk::RenderPassCreateInfo::builder()
+    // .flags(vk::RenderPassCreateFlags::) // some BS about rotation 90dgr?
+    // .dependencies() // ?
+    // .pCorrelatedViewMasks() // ?
+    .attachments(&[attachment])
+    .subpasses(&[subpass])
+    .build();
+  let render_pass = unsafe {
+    device
+      .create_render_pass(&create_info, None)
+      .expect("Failed creating render pass")
+  };
+
+  render_pass
+}
+
+fn create_framebuffer(
+  device: &ash::Device,
+  render_pass: &vk::RenderPass,
+  image_view: &vk::ImageView,
+  size: &vk::Extent2D,
+) -> vk::Framebuffer {
+  let create_info = vk::FramebufferCreateInfo::builder()
+    .render_pass(*render_pass)
+    .attachments(&[*image_view])
+    .width(size.width)
+    .height(size.height)
+    .layers(1)
+    .build();
+  let framebuffer = unsafe {
+    device
+      .create_framebuffer(&create_info, None)
+      .expect("Failed to create framebuffer")
+  };
+
+  framebuffer
+}
+
+fn load_shader(device: &ash::Device, path: &std::path::Path) -> vk::ShaderModule {
+  let content = std::fs::read(path).expect(&format!(
+    "Failed opening shader file '{}'",
+    path.to_string_lossy()
+  ));
+  // reinterpret ([u8,u8,u8,u8][u8,u8,u8,u8]...) => (u32, u32, ...)
+  // do not use map, as this fills with 0s the rest of the byte
+
+  let create_info = vk::ShaderModuleCreateInfo {
+    p_code: content.as_ptr() as *const u32,
+    code_size: content.len(),
+    ..Default::default()
+  };
+  // TODO why this does not crash?
+  let shader_module = unsafe {
+    device
+      .create_shader_module(&create_info, None)
+      .expect(&format!(
+        "Failed to create shader module from file '{}'",
+        path.to_string_lossy()
+      ))
+  };
+
+  shader_module
+}
+
+fn create_pipeline(
+  device: &ash::Device,
+  shader_vs: &vk::ShaderModule,
+  shader_fs: &vk::ShaderModule,
+  render_pass: &vk::RenderPass,
+) -> vk::Pipeline {
+  let create_info = vk::PipelineCacheCreateInfo::builder().build();
+  let pipeline_cache = unsafe {
+    device
+      .create_pipeline_cache(&create_info, None)
+      .expect("Failed to create pipeline cache")
+  };
+
+  let shader_fn_name = unsafe { std::ffi::CStr::from_ptr("main".as_ptr() as *const i8) };
+  let stage_vs = vk::PipelineShaderStageCreateInfo::builder()
+    .stage(vk::ShaderStageFlags::VERTEX)
+    .module(*shader_vs)
+    .name(shader_fn_name)
+    .build();
+  let stage_fs = vk::PipelineShaderStageCreateInfo::builder()
+    .stage(vk::ShaderStageFlags::FRAGMENT)
+    .module(*shader_fs)
+    .name(shader_fn_name)
+    .build();
+
+  let vertex_input_state = vk::PipelineVertexInputStateCreateInfo::builder()
+    // TODO vertex desc here!
+    .build();
+  let input_assembly_state = vk::PipelineInputAssemblyStateCreateInfo::builder()
+    .topology(vk::PrimitiveTopology::TRIANGLE_LIST)
+    .build();
+  // let viewport_state = vk::PipelineViewportStateCreateInfo::builder() // TODO dynamic, not baked in!
+  // .viewports()
+  // .scissors()
+  // .build();
+  // TODO dynamic, not baked in!
+  let viewport_state = vk::PipelineViewportStateCreateInfo {
+    viewport_count: 1,
+    scissor_count: 1,
+    ..Default::default()
+  };
+  let rasterization_state = vk::PipelineRasterizationStateCreateInfo::builder()
+    .depth_clamp_enable(false) // when would You ever want it to be true?
+    // .rasterizer_discard_enable(rasterizer_discard_enable)
+    .polygon_mode(vk::PolygonMode::FILL)
+    .cull_mode(vk::CullModeFlags::NONE) // for now
+    .front_face(vk::FrontFace::CLOCKWISE) // TODO I don't remember OpenGL
+    // .depth_bias_...
+    .line_width(1.0) // validation layers: has to be 1.0 if not dynamic
+    .build();
+  let multisample_state = vk::PipelineMultisampleStateCreateInfo::builder()
+    .rasterization_samples(vk::SampleCountFlags::TYPE_1)
+    .sample_shading_enable(false) // fragment shader per sample? Yes, please do! Oh wait, validation layers..
+    // other sample coverage stuff
+    // other alpha to coverage stuff
+    .build();
+  let depth_stencil_state = vk::PipelineDepthStencilStateCreateInfo::builder()
+    .depth_test_enable(false)
+    .depth_write_enable(false)
+    .depth_compare_op(vk::CompareOp::LESS) // IIRC?
+    .depth_bounds_test_enable(false) // additional artificial depth test - has other variables here too
+    .stencil_test_enable(false)
+    .front(vk::StencilOpState {
+      // compare_op etc..
+      ..Default::default()
+    })
+    .back(vk::StencilOpState {
+      // compare_op etc..
+      ..Default::default()
+    })
+    .build();
+  let color_blend_state = vk::PipelineColorBlendStateCreateInfo::builder()
+    // I always hated blend state
+    .attachments(&[vk::PipelineColorBlendAttachmentState{
+      color_write_mask: vk::ColorComponentFlags::A | vk::ColorComponentFlags::R | vk::ColorComponentFlags::G | vk::ColorComponentFlags::B,
+      ..Default::default()
+    }])
+    // .blend_constants(blend_constants)
+    .build();
+  let dynamic_state = vk::PipelineDynamicStateCreateInfo::builder()
+    .dynamic_states(&[
+      vk::DynamicState::VIEWPORT,
+      vk::DynamicState::SCISSOR,
+      // other: depth, stencil, blend etc.
+    ])
+    .build();
+
+  // TODO move from here?
+  let create_info = vk::PipelineLayoutCreateInfo::builder()
+    // texture/buffer bindings
+    .build();
+  let layout = unsafe {
+    device
+      .create_pipeline_layout(&create_info, None)
+      .expect("Failed to create pipeline layout")
+  };
+
+  let create_info = vk::GraphicsPipelineCreateInfo::builder()
+    // .flags(vk::PipelineCreateFlags::)
+    .stages(&[stage_vs, stage_fs])
+    .vertex_input_state(&vertex_input_state)
+    .input_assembly_state(&input_assembly_state)
+    // .tessellation_state(tessellation_state)
+    .viewport_state(&viewport_state)
+    .rasterization_state(&rasterization_state)
+    .multisample_state(&multisample_state)
+    .depth_stencil_state(&depth_stencil_state)
+    .color_blend_state(&color_blend_state)
+    .dynamic_state(&dynamic_state)
+    .layout(layout)
+    .render_pass(*render_pass)
+    // .subpass()
+    // .base_pipeline_handle(base_pipeline_handle)
+    // .base_pipeline_index(base_pipeline_index)
+    .build();
+  unsafe {
+    let pipelines = device
+      .create_graphics_pipelines(pipeline_cache, &[create_info], None)
+      .ok();
+    match pipelines {
+      Some(ps) if ps.len() > 0 => *ps.first().unwrap(),
+      _ => panic!("Failed to create graphic pipeline"),
+    }
+  }
+}
+
+fn cmd_draw_triangle(
+  device: &ash::Device,
+  command_buffer: &vk::CommandBuffer,
+  image_view: &vk::ImageView,
+  size: &vk::Extent2D,
+  image_format: vk::Format,
+) -> () {
+  let render_pass = create_render_pass(device, image_format);
+  // TODO create this as array, just like image_views
+  let framebuffer = create_framebuffer(device, &render_pass, image_view, size);
+  let triangle_shader_vs = load_shader(&device, std::path::Path::new("./vert.spv"));
+  let triangle_shader_fs = load_shader(&device, std::path::Path::new("./frag.spv"));
+
+  let triangle_pipeline = create_pipeline(
+    device,
+    &triangle_shader_vs,
+    &triangle_shader_fs,
+    &render_pass,
+  );
+
+  let render_area = vk::Rect2D {
+    offset: vk::Offset2D { x: 0, y: 0 },
+    extent: *size,
+  };
+  let render_pass_begin_info = vk::RenderPassBeginInfo::builder()
+    .render_pass(render_pass)
+    .framebuffer(framebuffer)
+    .render_area(render_area)
+    // .clear_values(clear_values) // clear color if needed
+    .build();
+  unsafe {
+    device.cmd_begin_render_pass(
+      *command_buffer,
+      &render_pass_begin_info,
+      vk::SubpassContents::INLINE,
+    );
+
+    // draw calls go here
+    device.cmd_set_viewport(
+      *command_buffer,
+      0,
+      &[vk::Viewport {
+        x: 0f32,
+        y: size.height as f32, // flip vulkan coord system - important!
+        width: size.width as f32,
+        height: -(size.height as f32), // flip vulkan coord system - important!
+        min_depth: 0f32,
+        max_depth: 0f32,
+        ..Default::default()
+      }],
+    );
+    device.cmd_set_scissor(*command_buffer, 0, &[render_area]);
+    device.cmd_bind_pipeline(
+      *command_buffer,
+      vk::PipelineBindPoint::GRAPHICS,
+      triangle_pipeline,
+    );
+    device.cmd_draw(*command_buffer, 3, 1, 0, 0);
+
+    device.cmd_end_render_pass(*command_buffer)
+  }
+}
+
 // https://github.com/MaikKlein/ash/blob/master/examples/src/lib.rs#L332
 pub unsafe fn main(window: &winit::window::Window) -> anyhow::Result<()> {
   let entry = ash::Entry::new().expect("Failed creating ash::Entry");
@@ -393,7 +681,7 @@ pub unsafe fn main(window: &winit::window::Window) -> anyhow::Result<()> {
 
   // swapchain
   let swapchain_meta = Swapchain::new(&instance, &device); // I guess some generic OS-independent thing?
-  let swapchain = create_swapchain_khr(
+  let (swapchain, window_size, image_format) = create_swapchain_khr(
     &instance,
     &surface_meta,
     &surface_khr,
@@ -403,7 +691,7 @@ pub unsafe fn main(window: &winit::window::Window) -> anyhow::Result<()> {
     window,
   );
   let (swapchain_images, swapchain_image_views) =
-    create_swapchain_images(&swapchain_meta, &swapchain, &device);
+    create_swapchain_images(&swapchain_meta, &swapchain, &device, image_format);
 
   ///////////////////////////////////////
   let cmd_pool_create_info = vk::CommandPoolCreateInfo::builder()
@@ -437,6 +725,8 @@ pub unsafe fn main(window: &winit::window::Window) -> anyhow::Result<()> {
   let (swapchain_image_index, _) = swapchain_meta
     .acquire_next_image(swapchain, u64::MAX, acquire_semaphore, vk::Fence::null())
     .expect("Failed to acquire next swapchain image");
+  let swapchain_image = swapchain_images[swapchain_image_index as usize];
+  let swapchain_image_view = swapchain_image_views[swapchain_image_index as usize];
 
   //
   // start record command buffer
@@ -445,8 +735,9 @@ pub unsafe fn main(window: &winit::window::Window) -> anyhow::Result<()> {
     .begin_command_buffer(*cmd_buf, &cmd_buf_begin_info)
     .expect("Failed - begin_command_buffer");
   let clear_color = vk::ClearColorValue {
-    float32: [0f32, 1f32, 0f32, 1f32],
+    float32: [0.2f32, 0.2f32, 0.2f32, 1f32],
   };
+  // TODO not needed if we use clear color during pass begin
   let clear_image_range = vk::ImageSubresourceRange::builder()
     .aspect_mask(vk::ImageAspectFlags::COLOR)
     .base_array_layer(0)
@@ -456,10 +747,18 @@ pub unsafe fn main(window: &winit::window::Window) -> anyhow::Result<()> {
     .build();
   device.cmd_clear_color_image(
     *cmd_buf,
-    swapchain_images[swapchain_image_index as usize],
+    swapchain_image,
     vk::ImageLayout::GENERAL,
     &clear_color,
     &[clear_image_range],
+  );
+
+  cmd_draw_triangle(
+    &device,
+    cmd_buf,
+    &swapchain_image_view,
+    &window_size,
+    image_format,
   );
 
   device
@@ -495,7 +794,9 @@ pub unsafe fn main(window: &winit::window::Window) -> anyhow::Result<()> {
       .queue_present(queue, &present_info)
       .expect("Failed to execute queue present.");
   }
-  device.device_wait_idle();
+  device
+    .device_wait_idle()
+    .expect("Failed - device_wait_idle");
 
   Ok(())
 }
