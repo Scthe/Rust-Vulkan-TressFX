@@ -1,31 +1,27 @@
-use log::{error, info, warn};
+use log::info;
 use winit::{
-  event::{Event, WindowEvent},
+  dpi::LogicalSize,
+  event::{Event, VirtualKeyCode, WindowEvent},
   event_loop::{ControlFlow, EventLoop},
   window::WindowBuilder,
 };
 
-// mod _shared;
 mod renderer;
 
+// glslangValidator.exe -V src/shaders/triangle.frag.glsl src/shaders/triangle.vert.glsl
+// spirv-dis.exe vert.spv
+
 fn main() {
-  println!("Start!");
-
-  simple_logger::init().unwrap(); // .filter_level(log::LevelFilter::Debug).init();
-
-  // pretty_env_logger::init();
+  simple_logger::SimpleLogger::new().init().unwrap();
   log::set_max_level(log::LevelFilter::Trace);
-  // log::set_max_level(log::LevelFilter::Error);
-  info!("log::infor");
-  warn!("log::warn");
-  error!("log::error");
+  info!("-- Start --");
 
   // init window
   let event_loop = EventLoop::new();
   let window = WindowBuilder::new()
-    .with_title("App 1")
+    .with_title("Rust TressFX")
     .with_resizable(false)
-    .with_inner_size(winit::dpi::LogicalSize::new(f64::from(800), f64::from(600)))
+    .with_inner_size(LogicalSize::new(800f64, 600f64))
     .build(&event_loop)
     .unwrap();
 
@@ -33,9 +29,6 @@ fn main() {
   unsafe {
     renderer::main::main(&window).unwrap();
   }
-
-  // glslangValidator.exe -V src/shaders/triangle.frag.glsl src/shaders/triangle.vert.glsl
-  // spirv-dis.exe vert.spv
 
   // start event loop
   event_loop.run(move |event, _, control_flow| {
@@ -54,7 +47,7 @@ fn main() {
         event: WindowEvent::KeyboardInput { input, .. },
         ..
       } => {
-        if input.virtual_keycode == Some(winit::event::VirtualKeyCode::Escape) {
+        if input.virtual_keycode == Some(VirtualKeyCode::Escape) {
           *control_flow = ControlFlow::Exit;
         }
       }

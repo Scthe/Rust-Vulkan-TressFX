@@ -70,12 +70,12 @@ unsafe extern "system" fn vulkan_debug_callback(
   _user_data: *mut std::os::raw::c_void,
 ) -> vk::Bool32 {
   let callback_data = *p_callback_data;
-  let message_id_number: i32 = callback_data.message_id_number as i32;
-  let message_id_name = CStr::from_ptr(callback_data.p_message_id_name).to_string_lossy();
+  // let message_id_number: i32 = callback_data.message_id_number as i32;
+  // let message_id_name = CStr::from_ptr(callback_data.p_message_id_name).to_string_lossy();
   let message = CStr::from_ptr(callback_data.p_message).to_string_lossy();
 
   let message_str = format!(
-    "[VK, {:?}]: {}", // "[VK, {:?}]: [{} ({})] : {}\n",
+    "[VK_dbg_callback, {:?}]: {}", // "[VK, {:?}]: [{} ({})] : {}\n",
     message_type,
     // message_id_name,
     // &message_id_number.to_string(),
@@ -99,13 +99,13 @@ unsafe extern "system" fn vulkan_debug_callback(
 fn create_instance(entry: &ash::Entry) -> ash::Instance {
   let app_name = to_c_str(env!("CARGO_PKG_NAME"));
   let app_info = vk::ApplicationInfo {
-    api_version: vk::make_version(1, 1, 0),
+    api_version: vk::make_version(1, 1, 0), // Vulkan 1.1.0, TODO update Nvidia driver and use 1.2.X
     application_version: get_app_version(),
     p_application_name: app_name,
     ..Default::default()
   };
 
-  let layer_names = [CString::new("VK_LAYER_KHRONOS_validation").unwrap()];
+  let layer_names = [CString::new("VK_LAYER_KHRONOS_validation").unwrap()]; // TODO not in prod
   let layers_names_raw: Vec<*const i8> = layer_names
     .iter()
     .map(|raw_name| raw_name.as_ptr())
@@ -129,21 +129,22 @@ fn create_instance(entry: &ash::Entry) -> ash::Instance {
       .expect("Failed to create instance!")
   };
 
+  trace!("Ash instance created");
   instance
 }
 
 fn setup_debug_reporting(entry: &ash::Entry, instance: &ash::Instance) -> () {
   let debug_info = vk::DebugUtilsMessengerCreateInfoEXT::builder()
     .message_severity(
-      // | vk::DebugUtilsMessageSeverityFlagsEXT::VERBOSE
-      // vk::DebugUtilsMessageSeverityFlagsEXT::INFO,
-      vk::DebugUtilsMessageSeverityFlagsEXT::WARNING | vk::DebugUtilsMessageSeverityFlagsEXT::ERROR,
+      vk::DebugUtilsMessageSeverityFlagsEXT::ERROR
+        | vk::DebugUtilsMessageSeverityFlagsEXT::WARNING
+        | vk::DebugUtilsMessageSeverityFlagsEXT::INFO,
+      // | vk::DebugUtilsMessageSeverityFlagsEXT::VERBOSE // will cause spam about extensions
     )
     .message_type(vk::DebugUtilsMessageTypeFlagsEXT::all())
     .pfn_user_callback(Some(vulkan_debug_callback));
 
   let debug_utils_loader = DebugUtils::new(entry, instance);
-  /*let debug_call_back =*/
   unsafe {
     debug_utils_loader
       .create_debug_utils_messenger(&debug_info, None)
@@ -189,7 +190,7 @@ fn create_swapchain_khr(
   window: &winit::window::Window,
 ) -> (vk::SwapchainKHR, vk::Extent2D, vk::Format) {
   let window_size = unsafe { get_window_size(window) };
-  // println!("{:?}", window_size);
+  trace!("window_size {:?}", window_size);
 
   // surface_format. Only B8G8R8A8_UNORM, SRGB_NONLINEAR supported
   let surface_formats = unsafe {
@@ -197,6 +198,9 @@ fn create_swapchain_khr(
       .get_physical_device_surface_formats(*p_device, *surface_khr)
       .unwrap()
   };
+  for &x in &surface_formats {
+    trace!("Surface fmt: {:?}", x);
+  }
   let only_one_i_personally_know = surface_formats.iter().find(|surface_fmt| {
     let fmt_ok = surface_fmt.format == vk::Format::B8G8R8A8_UNORM;
     let color_space_ok = surface_fmt.color_space == vk::ColorSpaceKHR::SRGB_NONLINEAR;
@@ -212,6 +216,7 @@ fn create_swapchain_khr(
       .get_physical_device_surface_capabilities(*p_device, *surface_khr)
       .unwrap()
   };
+  trace!("surface_capabilities {:?}", surface_capabilities);
 
   // pre_transform
   let can_identity = surface_capabilities
@@ -245,6 +250,7 @@ fn create_swapchain_khr(
       .expect("Failed to create swapchain")
   };
 
+  trace!("Swapchain created");
   (swapchain, window_size, surface_format.format)
 }
 
@@ -259,6 +265,7 @@ fn create_swapchain_images(
       .get_swapchain_images(*swapchain)
       .expect("Failed to get swapchain images from swapchain")
   };
+  trace!("Will create {} swapchain images", swapchain_images.len());
   let swapchain_image_view_components_mapping = vk::ComponentMapping::builder()
     .r(vk::ComponentSwizzle::R)
     .g(vk::ComponentSwizzle::G)
@@ -291,6 +298,7 @@ fn create_swapchain_images(
     })
     .collect();
 
+  trace!("Swapchain images created");
   (swapchain_images, swapchain_image_views)
 }
 
@@ -316,16 +324,20 @@ fn pick_physical_device_queue_family_idx(
     let phys_devices = instance
       .enumerate_physical_devices()
       .expect("Failed to enumerate physical devices");
-    info!("Found compatible devices: {}", phys_devices.len());
+    trace!("Found {} physical devices", phys_devices.len());
 
+    // list of devices that satisfy our conditions
     let mut result = phys_devices.iter().filter_map(|&p_device| {
       let props = instance.get_physical_device_properties(p_device);
       let is_discrete = props.device_type == vk::PhysicalDeviceType::DISCRETE_GPU;
-      // debug!("{:?}", props);
+      // trace!("Physical device{:?}", props);
 
       let q_props = instance.get_physical_device_queue_family_properties(p_device);
       let mut graphic_fam_q_idx = q_props.iter().enumerate().filter_map(|(index, &q)| {
-        let is_gfx = q.queue_flags.contains(vk::QueueFlags::GRAPHICS);
+        trace!("Physical device :: queueFamily {:?}", props);
+        let is_gfx = q.queue_flags.contains(vk::QueueFlags::GRAPHICS)
+          && q.queue_flags.contains(vk::QueueFlags::COMPUTE)
+          && q.queue_flags.contains(vk::QueueFlags::TRANSFER);
         let is_present_support = surface_meta
           .get_physical_device_surface_support(p_device, index as u32, *surface_khr)
           .expect("Failed checking if physical device can present on our surface");
@@ -341,7 +353,7 @@ fn pick_physical_device_queue_family_idx(
     });
 
     match result.next() {
-      None => panic!("No devices for Vulkan 1.2 found"),
+      None => panic!("No devices for Vulkan 1.1 found"),
       Some((p_device, idx)) => {
         let props = instance.get_physical_device_properties(p_device);
         info!(
@@ -376,10 +388,11 @@ fn pick_device_and_queue(
   let device: ash::Device = unsafe {
     instance
       .create_device(*phys_device, &device_create_info, None)
-      .expect("Failed to create device")
+      .expect("Failed to create (logical) device")
   };
 
   let queue = unsafe { device.get_device_queue(queue_family_index, 0) }; // only one queue created above
+  trace!("Logical device selected");
 
   (device, queue)
 }
@@ -389,7 +402,7 @@ fn create_render_pass(device: &ash::Device, image_format: vk::Format) -> vk::Ren
   let attachment = vk::AttachmentDescription::builder()
     .format(image_format)
     .samples(vk::SampleCountFlags::TYPE_1) // single sampled
-    .load_op(vk::AttachmentLoadOp::LOAD) // do not clear triangle bacakground
+    .load_op(vk::AttachmentLoadOp::LOAD) // do not clear triangle background
     .store_op(vk::AttachmentStoreOp::STORE)
     .stencil_load_op(vk::AttachmentLoadOp::DONT_CARE)
     .stencil_store_op(vk::AttachmentStoreOp::DONT_CARE)
@@ -410,6 +423,7 @@ fn create_render_pass(device: &ash::Device, image_format: vk::Format) -> vk::Ren
     // .preserve_attachments(preserve_attachments)
     // .resolve_attachments(resolve_attachments)
     .build();
+  trace!("Subpass created, will be used to create render pass");
 
   let create_info = vk::RenderPassCreateInfo::builder()
     // .flags(vk::RenderPassCreateFlags::) // some BS about rotation 90dgr?
@@ -433,6 +447,7 @@ fn create_framebuffer(
   image_view: &vk::ImageView,
   size: &vk::Extent2D,
 ) -> vk::Framebuffer {
+  trace!("Will create framebuffer {}x{}", size.width, size.height);
   let create_info = vk::FramebufferCreateInfo::builder()
     .render_pass(*render_pass)
     .attachments(&[*image_view])
@@ -445,11 +460,13 @@ fn create_framebuffer(
       .create_framebuffer(&create_info, None)
       .expect("Failed to create framebuffer")
   };
+  trace!("Framebuffer created");
 
   framebuffer
 }
 
 fn load_shader(device: &ash::Device, path: &std::path::Path) -> vk::ShaderModule {
+  trace!("Loading shader from {}", path.to_string_lossy());
   let content = std::fs::read(path).expect(&format!(
     "Failed opening shader file '{}'",
     path.to_string_lossy()
@@ -457,12 +474,12 @@ fn load_shader(device: &ash::Device, path: &std::path::Path) -> vk::ShaderModule
   // reinterpret ([u8,u8,u8,u8][u8,u8,u8,u8]...) => (u32, u32, ...)
   // do not use map, as this fills with 0s the rest of the byte
 
+  // vk::ShaderModuleCreateInfo::builder().code(content).build(); // TODO try
   let create_info = vk::ShaderModuleCreateInfo {
     p_code: content.as_ptr() as *const u32,
     code_size: content.len(),
     ..Default::default()
   };
-  // TODO why this does not crash?
   let shader_module = unsafe {
     device
       .create_shader_module(&create_info, None)
@@ -472,6 +489,7 @@ fn load_shader(device: &ash::Device, path: &std::path::Path) -> vk::ShaderModule
       ))
   };
 
+  trace!("Shader created OK (from {})", path.to_string_lossy());
   shader_module
 }
 
@@ -481,6 +499,7 @@ fn create_pipeline(
   shader_fs: &vk::ShaderModule,
   render_pass: &vk::RenderPass,
 ) -> vk::Pipeline {
+  trace!("Will create pipeline for a device, render pass based on shaders");
   let create_info = vk::PipelineCacheCreateInfo::builder().build();
   let pipeline_cache = unsafe {
     device
@@ -488,6 +507,8 @@ fn create_pipeline(
       .expect("Failed to create pipeline cache")
   };
 
+  // create shaders from respective shader modules
+  // TODO move to load_shader
   let shader_fn_name = unsafe { std::ffi::CStr::from_ptr("main".as_ptr() as *const i8) };
   let stage_vs = vk::PipelineShaderStageCreateInfo::builder()
     .stage(vk::ShaderStageFlags::VERTEX)
@@ -499,6 +520,7 @@ fn create_pipeline(
     .module(*shader_fs)
     .name(shader_fn_name)
     .build();
+  // TODO dispose of shader modules?
 
   let vertex_input_state = vk::PipelineVertexInputStateCreateInfo::builder()
     // TODO vertex desc here!
@@ -554,6 +576,7 @@ fn create_pipeline(
     }])
     // .blend_constants(blend_constants)
     .build();
+  // We will provide during runtime
   let dynamic_state = vk::PipelineDynamicStateCreateInfo::builder()
     .dynamic_states(&[
       vk::DynamicState::VIEWPORT,
@@ -608,6 +631,7 @@ fn cmd_draw_triangle(
   size: &vk::Extent2D,
   image_format: vk::Format,
 ) -> () {
+  // TODO move create_ code from cmd_draw_triangle, only draw_commands here
   let render_pass = create_render_pass(device, image_format);
   // TODO create this as array, just like image_views
   let framebuffer = create_framebuffer(device, &render_pass, image_view, size);
@@ -626,12 +650,25 @@ fn cmd_draw_triangle(
     extent: *size,
   };
   let render_pass_begin_info = vk::RenderPassBeginInfo::builder()
-    .render_pass(render_pass)
-    .framebuffer(framebuffer)
-    .render_area(render_area)
-    // .clear_values(clear_values) // clear color if needed
-    .build();
+  .render_pass(render_pass)
+  .framebuffer(framebuffer)
+  .render_area(render_area)
+  // .clear_values(clear_values) // clear color if needed
+  .build();
+
+  trace!("Registering commands to draw triangle");
   unsafe {
+    /*
+    device.cmd_pipeline_barrier(
+      *command_buffer,
+      vk::PipelineStageFlags::ALL_GRAPHICS,
+      vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
+      dependency_flags,
+      memory_barriers,
+      buffer_memory_barriers,
+      image_memory_barriers
+    );*/
+
     device.cmd_begin_render_pass(
       *command_buffer,
       &render_pass_begin_info,
@@ -648,7 +685,7 @@ fn cmd_draw_triangle(
         width: size.width as f32,
         height: -(size.height as f32), // flip vulkan coord system - important!
         min_depth: 0f32,
-        max_depth: 0f32,
+        max_depth: 1.0f32,
         ..Default::default()
       }],
     );
@@ -717,7 +754,7 @@ pub unsafe fn main(window: &winit::window::Window) -> anyhow::Result<()> {
     .first()
     .expect("Failed - no command buffers were actually created?!");
 
-  // TODO depth buffer: https://github.com/MaikKlein/ash/blob/master/examples/src/lib.rs#L548
+  // TODO depth buffer: https://github.com/MaikKlein/ash/blob/master/examples/src/lib.rs#L490
 
   //
   // PER FRAME STARTS HERE
