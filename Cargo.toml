@@ -20,6 +20,8 @@ debug = 0
 # --LOGGING
 log = "^0.4"
 simple_logger = "^1.11.0"
+# --CONSTS WITH INITIALIZATION
+lazy_static = "1.4.0"
 # --DESERIALIZE
 # serde = { version = "^1.0.8", features = ["derive"] }
 # --CONFIG
@@ -35,7 +37,7 @@ glam = { version = "^0.11.0", features = ["debug-glam-assert"] }
 # --DYNAMIC LUBRARY LINKING
 # libloading
 # --ERROR HANDLING
-# snafu
+# snafu - TODO remove
 anyhow = "^1.0.34"
 # --PROFILER
 # superluminal-perf = "0.1.0"

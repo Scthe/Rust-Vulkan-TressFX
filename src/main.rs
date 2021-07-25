@@ -1,4 +1,4 @@
-use log::info;
+use log::{error, info};
 use winit::{
   dpi::LogicalSize,
   event::{Event, VirtualKeyCode, WindowEvent},
@@ -7,6 +7,7 @@ use winit::{
 };
 
 mod renderer;
+mod vk_utils;
 
 // glslangValidator.exe -V src/shaders/triangle.frag.glsl src/shaders/triangle.vert.glsl
 // spirv-dis.exe vert.spv
@@ -23,11 +24,22 @@ fn main() {
     .with_resizable(false)
     .with_inner_size(LogicalSize::new(800f64, 600f64))
     .build(&event_loop)
+    // TODO do not show window yet
     .unwrap();
 
   // init renderer
   unsafe {
-    renderer::main::main(&window).unwrap();
+    let result = renderer::main::main(&window);
+    match result {
+      Err(err) => {
+        error!("Render init error - something went wrong");
+        eprintln!("error: {:?}", err);
+        std::process::exit(1);
+      }
+      _ => {
+        info!("Render init went OK!");
+      }
+    }
   }
 
   // start event loop
@@ -42,6 +54,7 @@ fn main() {
       } => {
         *control_flow = ControlFlow::Exit;
       }
+
       // on keyboard
       Event::WindowEvent {
         event: WindowEvent::KeyboardInput { input, .. },
@@ -51,6 +64,17 @@ fn main() {
           *control_flow = ControlFlow::Exit;
         }
       }
+
+      Event::MainEventsCleared => {
+        // TODO draw here
+        // https://github.com/expenses/vulkan-base/blob/main/src/main.rs#L379
+      }
+
+      // before destroy
+      Event::LoopDestroyed => {
+        info!("EventLoop is shutting down");
+      }
+
       // default
       _ => (),
     }

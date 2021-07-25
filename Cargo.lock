@@ -774,6 +774,7 @@ dependencies = [
  "anyhow",
  "ash",
  "glam",
+ "lazy_static",
  "libc",
  "log",
  "simple_logger",

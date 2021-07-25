@@ -10,6 +10,7 @@
     },
     {
       "label": "run",
+      "dependsOn": ["debug-clean"],
       "type": "shell",
       "command": "cargo run"
     },
@@ -27,6 +28,11 @@
       "label": "test",
       "type": "shell",
       "command": "cargo test"
+    },
+    {
+      "label": "debug-clean",
+      "type": "shell",
+      "command": "rm target/debug/rs-tressfx.exe ; rm target/debug/rs-tressfx.d ; rm target/debug/rs_tressfx.pdb ; echo 'cleaned!'"
     }
   ]
 }
