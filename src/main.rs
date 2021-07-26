@@ -9,6 +9,7 @@ use winit::{
 
 mod renderer;
 mod vk_app;
+mod vk_init;
 mod vk_utils;
 
 // glslangValidator.exe -V src/shaders/triangle.frag.glsl src/shaders/triangle.vert.glsl
@@ -29,7 +30,7 @@ fn main() {
     .unwrap();
 
   // init renderer
-  let vk_app = renderer::main::main(&window);
+  let vk_app = vk_init::vk_init(&window);
   info!("Render init went OK!");
   unsafe {
     info!("Starting render loop");
