@@ -34,7 +34,10 @@ unsafe extern "system" fn vulkan_debug_callback(
   vk::FALSE
 }
 
-pub fn setup_debug_reporting(entry: &ash::Entry, instance: &ash::Instance) {
+pub fn setup_debug_reporting(
+  entry: &ash::Entry,
+  instance: &ash::Instance,
+) -> (DebugUtils, vk::DebugUtilsMessengerEXT) {
   let debug_info = vk::DebugUtilsMessengerCreateInfoEXT::builder()
     .message_severity(
       vk::DebugUtilsMessageSeverityFlagsEXT::ERROR
@@ -43,12 +46,15 @@ pub fn setup_debug_reporting(entry: &ash::Entry, instance: &ash::Instance) {
       // | vk::DebugUtilsMessageSeverityFlagsEXT::VERBOSE // will cause spam about extensions
     )
     .message_type(vk::DebugUtilsMessageTypeFlagsEXT::all())
-    .pfn_user_callback(Some(vulkan_debug_callback));
+    .pfn_user_callback(Some(vulkan_debug_callback))
+    .build();
 
   let debug_utils_loader = DebugUtils::new(entry, instance);
   unsafe {
-    debug_utils_loader
+    let debug_messenger = debug_utils_loader
       .create_debug_utils_messenger(&debug_info, None)
       .unwrap();
-  };
+
+    (debug_utils_loader, debug_messenger)
+  }
 }

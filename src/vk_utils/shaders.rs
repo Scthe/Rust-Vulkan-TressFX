@@ -6,7 +6,6 @@ use ash::vk;
 
 // https://github.com/zeux/niagara/blob/master/src/shaders.cpp
 
-// TODO this can be freed once bound to pipeline
 fn load_shader_module(device: &ash::Device, path: &std::path::Path) -> vk::ShaderModule {
   trace!("Loading shader from {}", path.to_string_lossy());
 

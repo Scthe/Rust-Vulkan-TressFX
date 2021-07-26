@@ -1,4 +1,5 @@
-use log::{error, info};
+use ash::version::DeviceV1_0;
+use log::info;
 use winit::{
   dpi::LogicalSize,
   event::{Event, VirtualKeyCode, WindowEvent},
@@ -7,6 +8,7 @@ use winit::{
 };
 
 mod renderer;
+mod vk_app;
 mod vk_utils;
 
 // glslangValidator.exe -V src/shaders/triangle.frag.glsl src/shaders/triangle.vert.glsl
@@ -24,23 +26,24 @@ fn main() {
     .with_resizable(false)
     .with_inner_size(LogicalSize::new(800f64, 600f64))
     .build(&event_loop)
-    // TODO do not show window yet
     .unwrap();
 
   // init renderer
+  let vk_app = renderer::main::main(&window);
+  info!("Render init went OK!");
   unsafe {
-    let result = renderer::main::main(&window);
-    match result {
-      Err(err) => {
-        error!("Render init error - something went wrong");
-        eprintln!("error: {:?}", err);
-        std::process::exit(1);
-      }
-      _ => {
-        info!("Render init went OK!");
-      }
-    }
-  }
+    info!("Starting render loop");
+    renderer::main::render_loop(&vk_app);
+
+    info!("Sync: device_wait_idle()");
+    vk_app
+      .device
+      .device
+      .device_wait_idle()
+      .expect("Failed device_wait_idle()");
+  };
+
+  info!("Starting event loop");
 
   // start event loop
   event_loop.run(move |event, _, control_flow| {
@@ -73,6 +76,7 @@ fn main() {
       // before destroy
       Event::LoopDestroyed => {
         info!("EventLoop is shutting down");
+        unsafe { vk_app.destroy() };
       }
 
       // default

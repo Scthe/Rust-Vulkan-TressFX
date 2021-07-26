@@ -24,8 +24,8 @@ pub fn ps_ia_triangle_list() -> vk::PipelineInputAssemblyStateCreateInfo {
 }
 
 /** Hardcoded size, does not require PipelineDynamicStateCreateInfo later on */
+#[allow(dead_code)]
 pub fn ps_viewport_fill_rect(size: &vk::Extent2D) -> vk::PipelineViewportStateCreateInfo {
-  // TODO dynamic, not baked in!
   let vp = create_viewport(&size);
   let scissors_rect = size_to_rect_vk(size);
 
@@ -67,6 +67,7 @@ pub fn ps_raster_polygons() -> vk::PipelineRasterizationStateCreateInfo {
 Depth test: LESS<br/>
 Stencil: ALWAYS_PASS
 */
+#[allow(dead_code)]
 pub fn ps_depth_less_stencil_always() -> vk::PipelineDepthStencilStateCreateInfo {
   vk::PipelineDepthStencilStateCreateInfo::builder()
     .depth_test_enable(true)

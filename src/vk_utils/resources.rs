@@ -19,7 +19,6 @@ pub fn create_image_view(
     .level_count(mip_level_count)
     .build();
 
-  // TODO destroy views manually
   let create_info = vk::ImageViewCreateInfo::builder()
     .image(*image)
     .view_type(vk::ImageViewType::TYPE_2D)
@@ -41,7 +40,16 @@ pub fn create_semaphore(device: &ash::Device) -> vk::Semaphore {
   unsafe {
     device
       .create_semaphore(&semaphore_create_info, None)
-      .expect("Failed to create acquire semaphore")
+      .expect("Failed to create semaphore")
+  }
+}
+
+pub fn create_fence(device: &ash::Device) -> vk::Fence {
+  let create_info = vk::FenceCreateInfo::builder().flags(vk::FenceCreateFlags::SIGNALED);
+  unsafe {
+    device
+      .create_fence(&create_info, None)
+      .expect("Failed to create fence")
   }
 }
 
