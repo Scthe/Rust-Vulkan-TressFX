@@ -70,10 +70,10 @@ pub fn create_instance() -> (ash::Entry, ash::Instance) {
 unsafe fn find_queue_family(
   instance: &ash::Instance,
   surface_loader: &Surface,
-  surface_khr: &vk::SurfaceKHR,
-  phys_device: &vk::PhysicalDevice,
+  surface_khr: vk::SurfaceKHR,
+  phys_device: vk::PhysicalDevice,
 ) -> Option<usize> {
-  let q_props = instance.get_physical_device_queue_family_properties(*phys_device);
+  let q_props = instance.get_physical_device_queue_family_properties(phys_device);
 
   let mut graphic_fam_q_idx = q_props.iter().enumerate().filter_map(|(index, &q)| {
     trace!("Physical device :: queueFamily {:?}", q_props);
@@ -82,7 +82,7 @@ unsafe fn find_queue_family(
       && q.queue_flags.contains(vk::QueueFlags::TRANSFER);
 
     let is_present_support = surface_loader
-      .get_physical_device_surface_support(*phys_device, index as u32, *surface_khr)
+      .get_physical_device_surface_support(phys_device, index as u32, surface_khr)
       .expect("Failed checking if physical device can present on our surface");
 
     if is_gfx && is_present_support {
@@ -100,7 +100,7 @@ unsafe fn find_queue_family(
 pub fn pick_physical_device_and_queue_family_idx(
   instance: &ash::Instance,
   surface_loader: &Surface,
-  surface_khr: &vk::SurfaceKHR,
+  surface_khr: vk::SurfaceKHR,
 ) -> (vk::PhysicalDevice, u32) {
   unsafe {
     let phys_devices = instance
@@ -114,8 +114,7 @@ pub fn pick_physical_device_and_queue_family_idx(
       // trace!("Physical device{:?}", props);
       let is_discrete = props.device_type == vk::PhysicalDeviceType::DISCRETE_GPU;
 
-      let graphic_fam_q_idx =
-        find_queue_family(instance, surface_loader, surface_khr, &phys_device);
+      let graphic_fam_q_idx = find_queue_family(instance, surface_loader, surface_khr, phys_device);
       match graphic_fam_q_idx {
         Some(idx) if is_discrete => Some((phys_device, idx)),
         _ => None,
@@ -137,7 +136,7 @@ pub fn pick_physical_device_and_queue_family_idx(
 /// Pick logical device
 pub fn pick_device_and_queue(
   instance: &ash::Instance,
-  phys_device: &vk::PhysicalDevice,
+  phys_device: vk::PhysicalDevice,
   queue_family_index: u32,
 ) -> (ash::Device, vk::Queue) {
   trace!("Will pick logical device");
@@ -159,7 +158,7 @@ pub fn pick_device_and_queue(
   trace!("Will pick logical device (just before create_device())");
   let device: ash::Device = unsafe {
     instance
-      .create_device(*phys_device, &device_create_info, None)
+      .create_device(phys_device, &device_create_info, None)
       .expect("Failed to create (logical) device")
   };
   trace!("Logical device selected");

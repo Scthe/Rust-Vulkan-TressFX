@@ -109,8 +109,8 @@ fn create_render_pass(device: &ash::Device, image_format: vk::Format) -> vk::Ren
 
 fn create_pipeline(
   device: &ash::Device,
-  pipeline_cache: &vk::PipelineCache,
-  render_pass: &vk::RenderPass,
+  pipeline_cache: vk::PipelineCache,
+  render_pass: vk::RenderPass,
 ) -> (vk::Pipeline, vk::PipelineLayout) {
   trace!("Will create pipeline for a (device, render pass) based on shaders");
   let attachement_count: usize = 1;
@@ -164,7 +164,7 @@ fn create_pipeline(
     .color_blend_state(&color_blend_state)
     .dynamic_state(&dynamic_state)
     .layout(layout)
-    .render_pass(*render_pass)
+    .render_pass(render_pass)
     // .subpass()
     // .base_pipeline_handle(base_pipeline_handle)
     // .base_pipeline_index(base_pipeline_index)
@@ -172,7 +172,7 @@ fn create_pipeline(
 
   unsafe {
     let pipelines = device
-      .create_graphics_pipelines(*pipeline_cache, &[create_info], None)
+      .create_graphics_pipelines(pipeline_cache, &[create_info], None)
       .ok();
     device.destroy_shader_module(module_vs, None);
     device.destroy_shader_module(module_fs, None);
@@ -194,21 +194,21 @@ pub fn vk_init(window: &winit::window::Window) -> AppVk {
 
   // devices
   let (phys_device, queue_family_index) =
-    pick_physical_device_and_queue_family_idx(&instance, &surface_loader, &surface_khr);
-  let (device, queue) = pick_device_and_queue(&instance, &phys_device, queue_family_index);
+    pick_physical_device_and_queue_family_idx(&instance, &surface_loader, surface_khr);
+  let (device, queue) = pick_device_and_queue(&instance, phys_device, queue_family_index);
 
   // swapchain - prepare
   let window_size = get_window_size(window);
   trace!("window_size {:?}", window_size);
-  let swapchain_format = get_swapchain_format(&surface_loader, &surface_khr, &phys_device)
+  let swapchain_format = get_swapchain_format(&surface_loader, surface_khr, phys_device)
     .expect("Could not find valid surface format");
-  let surface_capabilities = get_surface_capabilities(&phys_device, &surface_loader, &surface_khr);
+  let surface_capabilities = get_surface_capabilities(phys_device, &surface_loader, surface_khr);
 
   // swapchain
   let swapchain_loader = Swapchain::new(&instance, &device); // I guess some generic OS-independent thing?
   let swapchain = create_swapchain_khr(
     &swapchain_loader,
-    &surface_khr,
+    surface_khr,
     &swapchain_format,
     surface_capabilities,
     &window_size,
@@ -216,7 +216,7 @@ pub fn vk_init(window: &winit::window::Window) -> AppVk {
   );
   let (swapchain_images, swapchain_image_views) = create_swapchain_images(
     &swapchain_loader,
-    &swapchain,
+    swapchain,
     &device,
     swapchain_format.format,
   );
@@ -237,12 +237,12 @@ pub fn vk_init(window: &winit::window::Window) -> AppVk {
   // framebuffers
   let framebuffers = swapchain_image_views
     .iter()
-    .map(|&iv| create_framebuffer(&device, &render_pass, &[iv], &window_size))
+    .map(|&iv| create_framebuffer(&device, render_pass, &[iv], &window_size))
     .collect();
 
   // pipeline
   let pipeline_cache = create_pipeline_cache(&device);
-  let (triangle_pipeline, layout) = create_pipeline(&device, &pipeline_cache, &render_pass);
+  let (triangle_pipeline, layout) = create_pipeline(&device, pipeline_cache, render_pass);
 
   AppVk {
     entry,

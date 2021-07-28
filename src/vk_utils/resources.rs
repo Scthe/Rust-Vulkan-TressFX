@@ -5,7 +5,7 @@ use ash::vk;
 
 pub fn create_image_view(
   device: &ash::Device,
-  image: &vk::Image,
+  image: vk::Image,
   image_format: vk::Format,
   aspect_mask_flags: vk::ImageAspectFlags,
   base_mip_level: u32,
@@ -20,7 +20,7 @@ pub fn create_image_view(
     .build();
 
   let create_info = vk::ImageViewCreateInfo::builder()
-    .image(*image)
+    .image(image)
     .view_type(vk::ImageViewType::TYPE_2D)
     .format(image_format)
     .subresource_range(subresource_range)

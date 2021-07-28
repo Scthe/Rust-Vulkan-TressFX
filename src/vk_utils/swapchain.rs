@@ -54,13 +54,13 @@ pub unsafe fn create_surface_khr(
 
 pub fn get_swapchain_format(
   surface_loader: &Surface,
-  surface_khr: &vk::SurfaceKHR,
-  phys_device: &vk::PhysicalDevice,
+  surface_khr: vk::SurfaceKHR,
+  phys_device: vk::PhysicalDevice,
 ) -> Option<vk::SurfaceFormatKHR> {
   // surface_format. Only B8G8R8A8_UNORM, SRGB_NONLINEAR supported
   let surface_formats = unsafe {
     surface_loader
-      .get_physical_device_surface_formats(*phys_device, *surface_khr)
+      .get_physical_device_surface_formats(phys_device, surface_khr)
       .unwrap()
   };
   for &x in &surface_formats {
@@ -80,13 +80,13 @@ pub fn get_swapchain_format(
 }
 
 pub fn get_surface_capabilities(
-  device: &vk::PhysicalDevice,
+  device: vk::PhysicalDevice,
   surface_loader: &Surface,
-  surface_khr: &vk::SurfaceKHR,
+  surface_khr: vk::SurfaceKHR,
 ) -> vk::SurfaceCapabilitiesKHR {
   let surface_capabilities = unsafe {
     surface_loader
-      .get_physical_device_surface_capabilities(*device, *surface_khr)
+      .get_physical_device_surface_capabilities(device, surface_khr)
       .unwrap()
   };
   trace!("surface_capabilities {:?}", surface_capabilities);
@@ -110,7 +110,7 @@ fn get_pre_transform(
 /// Creates OS-dependent swapchain
 pub fn create_swapchain_khr(
   swapchain_loader: &Swapchain,
-  surface_khr: &vk::SurfaceKHR,
+  surface_khr: vk::SurfaceKHR,
   surface_format: &vk::SurfaceFormatKHR,
   surface_capabilites: vk::SurfaceCapabilitiesKHR,
   size: &vk::Extent2D,
@@ -121,7 +121,7 @@ pub fn create_swapchain_khr(
     .min(surface_capabilites.min_image_count + 1);
 
   let create_info = vk::SwapchainCreateInfoKHR::builder()
-    .surface(*surface_khr)
+    .surface(surface_khr)
     .min_image_count(image_count)
     .image_format(surface_format.format)
     .image_color_space(surface_format.color_space)
@@ -149,14 +149,14 @@ pub fn create_swapchain_khr(
 
 pub fn create_swapchain_images(
   swapchain_loader: &Swapchain,
-  swapchain: &vk::SwapchainKHR,
+  swapchain: vk::SwapchainKHR,
   device: &ash::Device,
   image_format: vk::Format,
 ) -> (Vec<vk::Image>, Vec<vk::ImageView>) {
   // auto destroyed with swapchain
   let swapchain_images = unsafe {
     swapchain_loader
-      .get_swapchain_images(*swapchain)
+      .get_swapchain_images(swapchain)
       .expect("Failed to get swapchain images from swapchain")
   };
   trace!("Will create {} swapchain images", swapchain_images.len());
@@ -170,7 +170,7 @@ pub fn create_swapchain_images(
     .map(|&swapchain_image| {
       create_image_view(
         device,
-        &swapchain_image,
+        swapchain_image,
         image_format,
         aspect_mask_flags,
         base_mip_level,
