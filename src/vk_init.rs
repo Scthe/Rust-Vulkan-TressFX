@@ -170,16 +170,17 @@ fn create_pipeline(
     // .base_pipeline_index(base_pipeline_index)
     .build();
 
-  unsafe {
+  let pipelines = unsafe {
     let pipelines = device
       .create_graphics_pipelines(pipeline_cache, &[create_info], None)
       .ok();
     device.destroy_shader_module(module_vs, None);
     device.destroy_shader_module(module_fs, None);
-    match pipelines {
-      Some(ps) if ps.len() > 0 => (*ps.first().unwrap(), layout),
-      _ => panic!("Failed to create graphic pipeline"),
-    }
+    pipelines
+  };
+  match pipelines {
+    Some(ps) if ps.len() > 0 => (*ps.first().unwrap(), layout),
+    _ => panic!("Failed to create graphic pipeline"),
   }
 }
 
@@ -190,7 +191,7 @@ pub fn vk_init(window: &winit::window::Window) -> AppVk {
 
   // surface data
   let surface_loader = Surface::new(&entry, &instance); // I guess some generic OS-independent thing?
-  let surface_khr = unsafe { create_surface_khr(&entry, &instance, window) }; // real OS-backed thing
+  let surface_khr = create_surface_khr(&entry, &instance, window); // real OS-backed thing
 
   // devices
   let (phys_device, queue_family_index) =

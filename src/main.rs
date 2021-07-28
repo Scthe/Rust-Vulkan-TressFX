@@ -32,17 +32,15 @@ fn main() {
   let vk_app = vk_init::vk_init(&window);
   info!("Render init went OK!");
   /*
-  unsafe {
-    info!("Starting render loop");
-    renderer::main::render_loop(&vk_app);
+  info!("Starting render loop");
+  renderer::main::render_loop(&vk_app);
 
-    info!("Sync: device_wait_idle()");
-    vk_app
-      .device
-      .device
-      .device_wait_idle()
-      .expect("Failed device_wait_idle()");
-  };
+  info!("Sync: device_wait_idle()");
+  vk_app
+    .device
+    .device
+    .device_wait_idle()
+    .expect("Failed device_wait_idle()");
   */
 
   info!("Starting event loop");
@@ -73,15 +71,13 @@ fn main() {
       Event::MainEventsCleared => {
         // TODO draw here
         // https://github.com/expenses/vulkan-base/blob/main/src/main.rs#L379
-        unsafe {
-          renderer::main::render_loop(&vk_app);
-        }
+        renderer::main::render_loop(&vk_app);
       }
 
       // before destroy
       Event::LoopDestroyed => {
         info!("EventLoop is shutting down");
-        unsafe { vk_app.destroy() };
+        vk_app.destroy();
       }
 
       // default

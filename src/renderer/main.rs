@@ -15,6 +15,7 @@ fn cmd_draw_triangle(
   size: vk::Extent2D,
 ) -> () {
   let render_area = size_to_rect_vk(&size);
+  let viewport = create_viewport(&size);
   let clear_color = vk::ClearColorValue {
     float32: [0.2f32, 0.2f32, 0.2f32, 1f32],
   };
@@ -46,7 +47,7 @@ fn cmd_draw_triangle(
     );
 
     // draw calls go here
-    device.cmd_set_viewport(command_buffer, 0, &[create_viewport(&size)]);
+    device.cmd_set_viewport(command_buffer, 0, &[viewport]);
     device.cmd_set_scissor(command_buffer, 0, &[render_area]);
     device.cmd_bind_pipeline(command_buffer, vk::PipelineBindPoint::GRAPHICS, pipeline);
     device.cmd_draw(command_buffer, 3, 1, 0, 0);
@@ -55,7 +56,7 @@ fn cmd_draw_triangle(
   }
 }
 
-pub unsafe fn render_loop(vk_app: &AppVk) {
+pub fn render_loop(vk_app: &AppVk) {
   let device = &vk_app.device.device;
   let swapchain = &vk_app.swapchain;
   let synchronize = &vk_app.synchronize;
@@ -79,26 +80,29 @@ pub unsafe fn render_loop(vk_app: &AppVk) {
   */
 
   // get next swapchain image (view and framebuffer)
-  let (swapchain_image_index, _) = swapchain
-    .swapchain_loader
-    .acquire_next_image(
-      swapchain.swapchain,
-      u64::MAX,
-      synchronize.present_complete_semaphore, // 'acquire_semaphore'
-      vk::Fence::null(),
-    )
-    .expect("Failed to acquire next swapchain image");
+  let (swapchain_image_index, _) = unsafe {
+    swapchain
+      .swapchain_loader
+      .acquire_next_image(
+        swapchain.swapchain,
+        u64::MAX,
+        synchronize.present_complete_semaphore, // 'acquire_semaphore'
+        vk::Fence::null(),
+      )
+      .expect("Failed to acquire next swapchain image")
+  };
   let frame_data = vk_app.data_per_swapchain_image(swapchain_image_index as usize);
   let cmd_buf = frame_data.command_buffer;
   // println!("swapchain_image_index={}", swapchain_image_index);
 
-  device
-    .wait_for_fences(&[frame_data.draw_command_fence], true, u64::MAX)
-    .unwrap();
-
-  device
-    .reset_fences(&[frame_data.draw_command_fence])
-    .unwrap();
+  unsafe {
+    device
+      .wait_for_fences(&[frame_data.draw_command_fence], true, u64::MAX)
+      .unwrap();
+    device
+      .reset_fences(&[frame_data.draw_command_fence])
+      .unwrap();
+  }
 
   //
   // start record command buffer
@@ -106,9 +110,11 @@ pub unsafe fn render_loop(vk_app: &AppVk) {
   // can be one time submit bit for optimization We will rerecord cmds before next submit
   .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT)
   .build();
-  device
+  unsafe {
+    device
     .begin_command_buffer(cmd_buf, &cmd_buf_begin_info) // also resets command buffer
     .expect("Failed - begin_command_buffer");
+  }
 
   cmd_draw_triangle(
     &device,
@@ -119,9 +125,11 @@ pub unsafe fn render_loop(vk_app: &AppVk) {
     swapchain.size,
   );
 
-  device
-    .end_command_buffer(cmd_buf)
-    .expect("Failed - end_command_buffer(");
+  unsafe {
+    device
+      .end_command_buffer(cmd_buf)
+      .expect("Failed - end_command_buffer(");
+  }
   // end record command buffer
   //
 
@@ -132,9 +140,11 @@ pub unsafe fn render_loop(vk_app: &AppVk) {
     .command_buffers(&[cmd_buf])
     .signal_semaphores(&[synchronize.rendering_complete_semaphore]) // release_semaphore
     .build();
-  device
-    .queue_submit(queue, &[submit_info], frame_data.draw_command_fence)
-    .expect("Failed queue_submit()");
+  unsafe {
+    device
+      .queue_submit(queue, &[submit_info], frame_data.draw_command_fence)
+      .expect("Failed queue_submit()");
+  }
 
   // present queue result
   let present_info = vk::PresentInfoKHR::builder()
@@ -144,8 +154,10 @@ pub unsafe fn render_loop(vk_app: &AppVk) {
     .wait_semaphores(&[synchronize.rendering_complete_semaphore])
     .build();
 
-  swapchain
-    .swapchain_loader
-    .queue_present(queue, &present_info)
-    .expect("Failed queue_present()");
+  unsafe {
+    swapchain
+      .swapchain_loader
+      .queue_present(queue, &present_info)
+      .expect("Failed queue_present()");
+  }
 }

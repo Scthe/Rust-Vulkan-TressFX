@@ -48,13 +48,13 @@ pub fn create_fences(device: &ash::Device, count: usize) -> Vec<vk::Fence> {
   let create_info = vk::FenceCreateInfo::builder().flags(vk::FenceCreateFlags::SIGNALED);
   let mut result = Vec::<vk::Fence>::with_capacity(count);
 
-  unsafe {
-    for _ in 0..count {
-      let fence = device
+  for _ in 0..count {
+    let fence = unsafe {
+      device
         .create_fence(&create_info, None)
-        .expect("Failed to create fence");
-      result.push(fence);
-    }
+        .expect("Failed to create fence")
+    };
+    result.push(fence);
   }
 
   result
@@ -79,17 +79,19 @@ pub fn create_command_pool(device: &ash::Device, queue_family_index: u32) -> vk:
     .flags(vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER)
     .build();
 
-  unsafe {
-    let cmd_pool = device
+  let cmd_pool = unsafe {
+    device
       .create_command_pool(&cmd_pool_create_info, None)
-      .expect("Failed creating command pool");
+      .expect("Failed creating command pool")
+  };
 
-    // device
-    // .reset_command_pool(cmd_pool, vk::CommandPoolResetFlags::empty())
-    // .expect("Failed reseting command pool for 1st time");
-
-    cmd_pool
+  unsafe {
+    device
+      .reset_command_pool(cmd_pool, vk::CommandPoolResetFlags::empty())
+      .expect("Failed reseting command pool for 1st time");
   }
+
+  cmd_pool
 }
 
 pub fn create_command_buffers(

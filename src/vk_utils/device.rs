@@ -67,13 +67,13 @@ pub fn create_instance() -> (ash::Entry, ash::Instance) {
   (entry, instance)
 }
 
-unsafe fn find_queue_family(
+fn find_queue_family(
   instance: &ash::Instance,
   surface_loader: &Surface,
   surface_khr: vk::SurfaceKHR,
   phys_device: vk::PhysicalDevice,
 ) -> Option<usize> {
-  let q_props = instance.get_physical_device_queue_family_properties(phys_device);
+  let q_props = unsafe { instance.get_physical_device_queue_family_properties(phys_device) };
 
   let mut graphic_fam_q_idx = q_props.iter().enumerate().filter_map(|(index, &q)| {
     trace!("Physical device :: queueFamily {:?}", q_props);
@@ -81,9 +81,11 @@ unsafe fn find_queue_family(
       && q.queue_flags.contains(vk::QueueFlags::COMPUTE)
       && q.queue_flags.contains(vk::QueueFlags::TRANSFER);
 
-    let is_present_support = surface_loader
-      .get_physical_device_surface_support(phys_device, index as u32, surface_khr)
-      .expect("Failed checking if physical device can present on our surface");
+    let is_present_support = unsafe {
+      surface_loader
+        .get_physical_device_surface_support(phys_device, index as u32, surface_khr)
+        .expect("Failed checking if physical device can present on our surface")
+    };
 
     if is_gfx && is_present_support {
       Some(index)
@@ -102,33 +104,33 @@ pub fn pick_physical_device_and_queue_family_idx(
   surface_loader: &Surface,
   surface_khr: vk::SurfaceKHR,
 ) -> (vk::PhysicalDevice, u32) {
-  unsafe {
-    let phys_devices = instance
+  let phys_devices = unsafe {
+    instance
       .enumerate_physical_devices()
-      .expect("Failed to enumerate physical devices");
-    trace!("Found {} physical devices", phys_devices.len());
+      .expect("Failed to enumerate physical devices")
+  };
+  trace!("Found {} physical devices", phys_devices.len());
 
-    // list of devices that satisfy our conditions
-    let mut result = phys_devices.iter().filter_map(|&phys_device| {
-      let props = instance.get_physical_device_properties(phys_device);
-      // trace!("Physical device{:?}", props);
-      let is_discrete = props.device_type == vk::PhysicalDeviceType::DISCRETE_GPU;
+  // list of devices that satisfy our conditions
+  let mut result = phys_devices.iter().filter_map(|&phys_device| {
+    let props = unsafe { instance.get_physical_device_properties(phys_device) };
+    // trace!("Physical device{:?}", props);
+    let is_discrete = props.device_type == vk::PhysicalDeviceType::DISCRETE_GPU;
 
-      let graphic_fam_q_idx = find_queue_family(instance, surface_loader, surface_khr, phys_device);
-      match graphic_fam_q_idx {
-        Some(idx) if is_discrete => Some((phys_device, idx)),
-        _ => None,
-      }
-    });
+    let graphic_fam_q_idx = find_queue_family(instance, surface_loader, surface_khr, phys_device);
+    match graphic_fam_q_idx {
+      Some(idx) if is_discrete => Some((phys_device, idx)),
+      _ => None,
+    }
+  });
 
-    match result.next() {
-      None => panic!("No devices for Vulkan 1.2 found"),
-      Some((p_device, idx)) => {
-        let props = instance.get_physical_device_properties(p_device);
-        let device_name = from_c_str(&props.device_name);
-        info!("Using physical device: {:?}", device_name);
-        (p_device, idx as u32)
-      }
+  match result.next() {
+    None => panic!("No devices for Vulkan 1.2 found"),
+    Some((p_device, idx)) => {
+      let props = unsafe { instance.get_physical_device_properties(p_device) };
+      let device_name = from_c_str(&props.device_name);
+      info!("Using physical device: {:?}", device_name);
+      (p_device, idx as u32)
     }
   }
 }

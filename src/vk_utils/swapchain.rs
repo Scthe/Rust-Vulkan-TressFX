@@ -29,7 +29,7 @@ pub fn size_to_rect_vk(size: &vk::Extent2D) -> vk::Rect2D {
 
 /// Gets surface from OS window
 #[cfg(target_os = "windows")]
-pub unsafe fn create_surface_khr(
+pub fn create_surface_khr(
   entry: &ash::Entry,
   instance: &ash::Instance,
   window: &winit::window::Window,
@@ -40,16 +40,18 @@ pub unsafe fn create_surface_khr(
   use winit::platform::windows::WindowExtWindows;
 
   let hwnd = window.hwnd() as HWND;
-  let hinstance = GetModuleHandleW(ptr::null()) as *const libc::c_void;
+  let hinstance = unsafe { GetModuleHandleW(ptr::null()) as *const libc::c_void };
   let win32_create_info = vk::Win32SurfaceCreateInfoKHR::builder()
     .hinstance(hinstance)
     .hwnd(hwnd as *const libc::c_void)
     .build();
 
   let win32_surface_factory = Win32Surface::new(entry, instance);
-  win32_surface_factory
-    .create_win32_surface(&win32_create_info, None)
-    .expect("Failed to create win32 surface for khr::Win32Surface extension")
+  unsafe {
+    win32_surface_factory
+      .create_win32_surface(&win32_create_info, None)
+      .expect("Failed to create win32 surface for khr::Win32Surface extension")
+  }
 }
 
 pub fn get_swapchain_format(

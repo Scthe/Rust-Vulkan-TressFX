@@ -179,29 +179,31 @@ impl AppVk {
     }
   }
 
-  pub unsafe fn destroy(&self) {
+  pub fn destroy(&self) {
     info!("AppVk::destroy()");
     let device = &self.device.device;
-    device.device_wait_idle().unwrap();
+    unsafe {
+      device.device_wait_idle().unwrap();
 
-    self.synchronize.destroy(device);
-    // depth_buffer.destroy(&device, &allocator).unwrap();
-    // vertex_buffer.destroy(&allocator).unwrap();
-    // index_buffer.destroy(&allocator).unwrap();
-    self.command_buffers.destroy(device);
-    self.swapchain.destroy(device);
-    self.pipelines.destroy(device);
-    self.render_passes.destroy(device);
-    self.surface_loader.destroy_surface(self.surface_khr, None);
+      self.synchronize.destroy(device);
+      // depth_buffer.destroy(&device, &allocator).unwrap();
+      // vertex_buffer.destroy(&allocator).unwrap();
+      // index_buffer.destroy(&allocator).unwrap();
+      self.command_buffers.destroy(device);
+      self.swapchain.destroy(device);
+      self.pipelines.destroy(device);
+      self.render_passes.destroy(device);
+      self.surface_loader.destroy_surface(self.surface_khr, None);
 
-    self
-      .debug_utils_loader
-      .destroy_debug_utils_messenger(self.debug_messenger, None);
+      self
+        .debug_utils_loader
+        .destroy_debug_utils_messenger(self.debug_messenger, None);
 
-    // allocator.destroy();
-    self.device.destroy();
+      // allocator.destroy();
+      self.device.destroy();
 
-    self.instance.destroy_instance(None);
+      self.instance.destroy_instance(None);
+    }
     info!("AppVk::destroy() finished");
   }
 }
