@@ -15,8 +15,9 @@ use crate::vk_utils::device::{
 };
 use crate::vk_utils::fbo::create_framebuffer;
 use crate::vk_utils::pipeline::{
-  create_pipeline_cache, ps_color_write_all, ps_depth_always_stencil_always, ps_dynamic_state,
-  ps_ia_triangle_list, ps_multisample_disabled, ps_raster_polygons, ps_viewport_single_dynamic,
+  create_pipeline_cache, ps_color_attachments_write_all, ps_depth_always_stencil_always,
+  ps_dynamic_state, ps_ia_triangle_list, ps_multisample_disabled, ps_raster_polygons,
+  ps_viewport_single_dynamic,
 };
 use crate::vk_utils::resources::{create_command_buffers, create_command_pool};
 use crate::vk_utils::shaders::load_shader;
@@ -130,7 +131,11 @@ fn create_pipeline(
   // TODO vertex desc here!
   .build();
 
-  // DO NOT INLINE INTO .builder(), GPU CRASHED ON ME
+  let color_attachments_write_all = ps_color_attachments_write_all(attachement_count);
+  let color_blend_state = vk::PipelineColorBlendStateCreateInfo::builder()
+    .attachments(&color_attachments_write_all)
+    .build();
+
   let dynamic_state = ps_dynamic_state(&[
     vk::DynamicState::VIEWPORT,
     vk::DynamicState::SCISSOR,
@@ -156,7 +161,7 @@ fn create_pipeline(
     .rasterization_state(&ps_raster_polygons())
     .multisample_state(&ps_multisample_disabled())
     .depth_stencil_state(&ps_depth_always_stencil_always())
-    .color_blend_state(&ps_color_write_all(attachement_count))
+    .color_blend_state(&color_blend_state)
     .dynamic_state(&dynamic_state)
     .layout(layout)
     .render_pass(*render_pass)

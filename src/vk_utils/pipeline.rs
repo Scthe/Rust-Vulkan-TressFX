@@ -118,7 +118,9 @@ pub fn ps_multisample_disabled() -> vk::PipelineMultisampleStateCreateInfo {
     .build()
 }
 
-pub fn ps_color_write_all(attachment_count: usize) -> vk::PipelineColorBlendStateCreateInfo {
+pub fn ps_color_attachments_write_all(
+  attachment_count: usize,
+) -> Vec<vk::PipelineColorBlendAttachmentState> {
   // VULKAN SPEC:
   // > If the independent blending feature is not enabled on the device,
   // all VkPipelineColorBlendAttachmentState elements in the pAttachments
@@ -136,10 +138,7 @@ pub fn ps_color_write_all(attachment_count: usize) -> vk::PipelineColorBlendStat
     attachments.push(write_all);
   }
 
-  vk::PipelineColorBlendStateCreateInfo::builder()
-    .attachments(&attachments)
-    // .blend_constants(blend_constants)
-    .build()
+  attachments
 }
 
 /* List of things that will be provided as separate command before draw (actuall 'runtime') */
