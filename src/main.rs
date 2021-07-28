@@ -1,4 +1,3 @@
-use ash::version::DeviceV1_0;
 use log::info;
 use winit::{
   dpi::LogicalSize,
@@ -32,6 +31,7 @@ fn main() {
   // init renderer
   let vk_app = vk_init::vk_init(&window);
   info!("Render init went OK!");
+  /*
   unsafe {
     info!("Starting render loop");
     renderer::main::render_loop(&vk_app);
@@ -43,6 +43,7 @@ fn main() {
       .device_wait_idle()
       .expect("Failed device_wait_idle()");
   };
+  */
 
   info!("Starting event loop");
 
@@ -72,6 +73,9 @@ fn main() {
       Event::MainEventsCleared => {
         // TODO draw here
         // https://github.com/expenses/vulkan-base/blob/main/src/main.rs#L379
+        unsafe {
+          renderer::main::render_loop(&vk_app);
+        }
       }
 
       // before destroy

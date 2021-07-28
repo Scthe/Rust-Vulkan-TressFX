@@ -1,5 +1,3 @@
-use log::trace;
-
 use ash;
 pub use ash::version::{DeviceV1_0, EntryV1_0, InstanceV1_0};
 use ash::vk;
@@ -28,7 +26,6 @@ fn cmd_draw_triangle(
     .clear_values(&[vk::ClearValue { color: clear_color }])
     .build();
 
-  trace!("Registering commands to draw triangle");
   unsafe {
     /*
     device.cmd_pipeline_barrier(
@@ -38,10 +35,10 @@ fn cmd_draw_triangle(
       dependency_flags,
       memory_barriers,
       buffer_memory_barriers,
-      image_memory_barriers
-    );*/
+      image_memory_barriers,
+    );
+    */
 
-    trace!("cmd_begin_render_pass");
     device.cmd_begin_render_pass(
       command_buffer,
       &render_pass_begin_info,
@@ -51,12 +48,9 @@ fn cmd_draw_triangle(
     // draw calls go here
     device.cmd_set_viewport(command_buffer, 0, &[create_viewport(&size)]);
     device.cmd_set_scissor(command_buffer, 0, &[render_area]);
-    trace!("cmd_bind_pipeline");
     device.cmd_bind_pipeline(command_buffer, vk::PipelineBindPoint::GRAPHICS, pipeline);
-    trace!("cmd_draw");
     device.cmd_draw(command_buffer, 3, 1, 0, 0);
 
-    trace!("cmd_end_render_pass");
     device.cmd_end_render_pass(command_buffer)
   }
 }
@@ -66,10 +60,23 @@ pub unsafe fn render_loop(vk_app: &AppVk) {
   let swapchain = &vk_app.swapchain;
   let synchronize = &vk_app.synchronize;
 
-  let cmd_buf = vk_app.command_buffers.cmd_buf_triangle;
+  // let cmd_buf = vk_app.command_buffers.cmd_buf_triangle; // TODO one per frame-in-flight
   let queue = vk_app.device.queue;
   let render_pass = vk_app.render_passes.render_pass_triangle;
   let pipeline = vk_app.pipelines.pipeline_triangle;
+
+  /*
+  if (command_buffer_submitted[current_command_buffer])
+    {
+      err = vkWaitForFences(vulkan_globals.device, 1, &command_buffer_fences[current_command_buffer], VK_TRUE, UINT64_MAX);
+      if (err != VK_SUCCESS)
+        Sys_Error("vkWaitForFences failed");
+    }
+
+    err = vkResetFences(vulkan_globals.device, 1, &command_buffer_fences[current_command_buffer]);
+    if (err != VK_SUCCESS)
+      Sys_Error("vkResetFences failed");
+  */
 
   // get next swapchain image (view and framebuffer)
   let (swapchain_image_index, _) = swapchain
@@ -81,36 +88,36 @@ pub unsafe fn render_loop(vk_app: &AppVk) {
       vk::Fence::null(),
     )
     .expect("Failed to acquire next swapchain image");
-
-  let framebuffer = swapchain.framebuffers[swapchain_image_index as usize];
+  let frame_data = vk_app.data_per_swapchain_image(swapchain_image_index as usize);
+  let cmd_buf = frame_data.command_buffer;
+  // println!("swapchain_image_index={}", swapchain_image_index);
 
   device
-    .wait_for_fences(&[synchronize.draw_commands_fence], true, u64::MAX)
+    .wait_for_fences(&[frame_data.draw_command_fence], true, u64::MAX)
     .unwrap();
 
   device
-    .reset_fences(&[synchronize.draw_commands_fence])
+    .reset_fences(&[frame_data.draw_command_fence])
     .unwrap();
+
   //
   // start record command buffer
   let cmd_buf_begin_info = vk::CommandBufferBeginInfo::builder()
-  // can be one time submit bit for optimization
+  // can be one time submit bit for optimization We will rerecord cmds before next submit
   .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT)
   .build();
   device
-    .begin_command_buffer(cmd_buf, &cmd_buf_begin_info)
+    .begin_command_buffer(cmd_buf, &cmd_buf_begin_info) // also resets command buffer
     .expect("Failed - begin_command_buffer");
 
-  trace!("BEFORE cmd_draw_triangle()");
   cmd_draw_triangle(
     &device,
     cmd_buf,
     render_pass,
     pipeline,
-    framebuffer,
+    frame_data.framebuffer,
     swapchain.size,
   );
-  trace!("AFTER cmd_draw_triangle()");
 
   device
     .end_command_buffer(cmd_buf)
@@ -126,7 +133,7 @@ pub unsafe fn render_loop(vk_app: &AppVk) {
     .signal_semaphores(&[synchronize.rendering_complete_semaphore]) // release_semaphore
     .build();
   device
-    .queue_submit(queue, &[submit_info], synchronize.draw_commands_fence)
+    .queue_submit(queue, &[submit_info], frame_data.draw_command_fence)
     .expect("Failed queue_submit()");
 
   // present queue result

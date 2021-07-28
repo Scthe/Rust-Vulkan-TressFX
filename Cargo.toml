@@ -36,9 +36,6 @@ glam = { version = "^0.11.0", features = ["debug-glam-assert"] }
 # dotenv = "0.15.0"
 # --DYNAMIC LUBRARY LINKING
 # libloading
-# --ERROR HANDLING
-# snafu - TODO remove
-anyhow = "^1.0.34"
 # --PROFILER
 # superluminal-perf = "0.1.0"
 # --IMPLEMENTS SIMPLE CONSTRUCTOR FUNCTIONS FOR STRUCTS AND ENUMS
@@ -68,8 +65,8 @@ libc = "^0.2.80"
 ash = "^0.31.0"
 # -- layout(std140) GENERATE STRUCT
 # glsl_layout
-# -- RUST BINDINGS FOR AMD VULKAN MEMORY ALLOCATOR (VMA)
-# vk-mem-rs
+# -- RUST BINDINGS FOR AMD VULKAN MEMORY ALLOCATOR (VMA) - by gwihlidal
+# vk-mem = "0.2.2"
 # -- SPIR-V REFLECTION
 # https://github.com/gwihlidal/spirv-reflect-rs
 # -- VULKAN SYNC UTILITY

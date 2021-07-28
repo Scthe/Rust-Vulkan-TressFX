@@ -22,12 +22,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "anyhow"
-version = "1.0.42"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "595d3cfa7a60d4555cb5067b99f07142a08ea778de5cf993f7b75c7d8fabc486"
-
-[[package]]
 name = "ash"
 version = "0.31.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -771,7 +765,6 @@ dependencies = [
 name = "rs-tressfx"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "ash",
  "glam",
  "lazy_static",

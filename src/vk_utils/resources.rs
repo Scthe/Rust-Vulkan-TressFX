@@ -44,13 +44,20 @@ pub fn create_semaphore(device: &ash::Device) -> vk::Semaphore {
   }
 }
 
-pub fn create_fence(device: &ash::Device) -> vk::Fence {
+pub fn create_fences(device: &ash::Device, count: usize) -> Vec<vk::Fence> {
   let create_info = vk::FenceCreateInfo::builder().flags(vk::FenceCreateFlags::SIGNALED);
+  let mut result = Vec::<vk::Fence>::with_capacity(count);
+
   unsafe {
-    device
-      .create_fence(&create_info, None)
-      .expect("Failed to create fence")
+    for _ in 0..count {
+      let fence = device
+        .create_fence(&create_info, None)
+        .expect("Failed to create fence");
+      result.push(fence);
+    }
   }
+
+  result
 }
 
 pub fn create_viewport(size: &vk::Extent2D) -> vk::Viewport {
@@ -85,20 +92,20 @@ pub fn create_command_pool(device: &ash::Device, queue_family_index: u32) -> vk:
   }
 }
 
-pub fn create_command_buffer(device: &ash::Device, cmd_pool: vk::CommandPool) -> vk::CommandBuffer {
+pub fn create_command_buffers(
+  device: &ash::Device,
+  cmd_pool: vk::CommandPool,
+  count: usize,
+) -> Vec<vk::CommandBuffer> {
   let cmd_buf_create_info = vk::CommandBufferAllocateInfo::builder()
-    .command_buffer_count(1) // one command buffer
+    .command_buffer_count(count as u32)
     .command_pool(cmd_pool)
     .level(vk::CommandBufferLevel::PRIMARY)
     .build();
 
   unsafe {
-    let cmd_bufs = device
+    device
       .allocate_command_buffers(&cmd_buf_create_info)
-      .expect("Failed allocating command buffer");
-    cmd_bufs
-      .first()
-      .expect("Failed - no command buffers were actually created?!")
-      .to_owned()
+      .expect("Failed allocating command buffer")
   }
 }

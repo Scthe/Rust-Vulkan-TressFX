@@ -1,4 +1,4 @@
-use log::trace;
+use log::{info, trace};
 
 use ash;
 use ash::extensions::khr::{Surface, Swapchain};
@@ -18,7 +18,7 @@ use crate::vk_utils::pipeline::{
   create_pipeline_cache, ps_color_write_all, ps_depth_always_stencil_always, ps_dynamic_state,
   ps_ia_triangle_list, ps_multisample_disabled, ps_raster_polygons, ps_viewport_single_dynamic,
 };
-use crate::vk_utils::resources::{create_command_buffer, create_command_pool};
+use crate::vk_utils::resources::{create_command_buffers, create_command_pool};
 use crate::vk_utils::shaders::load_shader;
 use crate::vk_utils::swapchain::{
   create_surface_khr, create_swapchain_images, create_swapchain_khr, get_surface_capabilities,
@@ -215,10 +215,12 @@ pub fn vk_init(window: &winit::window::Window) -> AppVk {
     &device,
     swapchain_format.format,
   );
+  let frames_in_flight = swapchain_images.len();
+  info!("Will use {} frames in flight", frames_in_flight);
 
   // command buffers
   let cmd_pool = create_command_pool(&device, queue_family_index);
-  let cmd_buf = create_command_buffer(&device, cmd_pool);
+  let cmd_bufs = create_command_buffers(&device, cmd_pool, frames_in_flight);
 
   ///////////////////////////////////////
   ///////////////////////////////////////
@@ -248,7 +250,7 @@ pub fn vk_init(window: &winit::window::Window) -> AppVk {
       image_views: swapchain_image_views,
       images: swapchain_images,
     },
-    synchronize: AppVkSynchronize::new(&device),
+    synchronize: AppVkSynchronize::new(&device, frames_in_flight),
     device: AppVkDevice {
       phys_device,
       queue_family_index,
@@ -257,7 +259,7 @@ pub fn vk_init(window: &winit::window::Window) -> AppVk {
     },
     command_buffers: AppVkCommandBuffers {
       pool: cmd_pool,
-      cmd_buf_triangle: cmd_buf,
+      cmd_buffers: cmd_bufs,
     },
     pipelines: AppVkPipelines {
       pipeline_cache,
