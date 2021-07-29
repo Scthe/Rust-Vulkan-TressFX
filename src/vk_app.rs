@@ -6,7 +6,7 @@ use ash::extensions::khr::{Surface, Swapchain};
 pub use ash::version::{DeviceV1_0, EntryV1_0, InstanceV1_0};
 use ash::vk;
 
-use crate::vk_utils::resources::{create_fences, create_semaphore};
+use crate::vk_utils::resources::{create_fences, create_semaphores};
 
 ///
 /// This file contains kitchen sink for Vulkan stuff
@@ -45,27 +45,32 @@ impl AppVkSwapchain {
 https://www.khronos.org/assets/uploads/developers/library/2016-vulkan-devday-uk/7-Keeping-your-GPU-fed.pdf
 */
 pub struct AppVkSynchronize {
-  pub present_complete_semaphore: vk::Semaphore, // TODO per swapchain image?
-  pub rendering_complete_semaphore: vk::Semaphore,
-
   // one per each swapchain image:
+  pub present_complete_semaphore: Vec<vk::Semaphore>,
+  pub rendering_complete_semaphore: Vec<vk::Semaphore>,
   pub draw_commands_fences: Vec<vk::Fence>,
 }
 
 impl AppVkSynchronize {
   pub fn new(device: &ash::Device, frames_in_flight: usize) -> Self {
     Self {
-      present_complete_semaphore: create_semaphore(device),
-      rendering_complete_semaphore: create_semaphore(device),
+      present_complete_semaphore: create_semaphores(device, frames_in_flight),
+      rendering_complete_semaphore: create_semaphores(device, frames_in_flight),
       draw_commands_fences: create_fences(device, frames_in_flight),
     }
   }
 
   unsafe fn destroy(&self, device: &ash::Device) {
-    device.destroy_semaphore(self.present_complete_semaphore, None);
-    device.destroy_semaphore(self.rendering_complete_semaphore, None);
-    for fence in &self.draw_commands_fences {
-      device.destroy_fence(*fence, None)
+    for obj in &self.present_complete_semaphore {
+      device.destroy_semaphore(*obj, None)
+    }
+
+    for obj in &self.rendering_complete_semaphore {
+      device.destroy_semaphore(*obj, None)
+    }
+
+    for obj in &self.draw_commands_fences {
+      device.destroy_fence(*obj, None)
     }
   }
 }
@@ -123,9 +128,25 @@ impl AppVkPipelines {
 
 /** Data per each frame-in-flight */
 pub struct AppVkPerSwapchainImageData {
-  pub framebuffer: vk::Framebuffer,
-  pub draw_command_fence: vk::Fence,
   pub command_buffer: vk::CommandBuffer,
+
+  // synchronize
+  pub present_complete_semaphore: vk::Semaphore,
+  pub rendering_complete_semaphore: vk::Semaphore,
+  pub draw_command_fence: vk::Fence,
+}
+
+fn get_resource_at_idx<T: std::marker::Copy>(res_name: &str, arr: &Vec<T>, idx: usize) -> T {
+  let obj = arr.get(idx);
+  assert!(
+    obj.is_some(),
+    "Requested {} for {}th in-flight frame, there are only {}",
+    res_name,
+    idx,
+    arr.len()
+  );
+
+  obj.unwrap().clone()
 }
 
 /** Kitchen sink for Vulkan stuff */
@@ -149,33 +170,31 @@ pub struct AppVk {
 }
 
 impl AppVk {
-  pub fn data_per_swapchain_image(
-    &self,
-    swapchain_image_index: usize,
-  ) -> AppVkPerSwapchainImageData {
+  pub fn frames_in_flight(&self) -> usize {
+    self.swapchain.image_views.len()
+  }
+
+  pub fn framebuffer_for_swapchain_image(&self, swapchain_image_index: u32) -> vk::Framebuffer {
+    self.swapchain.framebuffers[swapchain_image_index as usize]
+  }
+
+  pub fn data_per_frame(&self, frame_idx: usize) -> AppVkPerSwapchainImageData {
     let cmd_bufs = &self.command_buffers.cmd_buffers;
-    let fences = &self.synchronize.draw_commands_fences;
-
-    let command_buffer = cmd_bufs.get(swapchain_image_index);
-    assert!(
-      command_buffer.is_some(),
-      "Requested command buffer for {}th in-flight frame, there are only {}",
-      swapchain_image_index,
-      cmd_bufs.len()
-    );
-
-    let draw_command_fence = fences.get(swapchain_image_index);
-    assert!(
-      command_buffer.is_some(),
-      "Requested fence for {}th in-flight frame, there are only {}",
-      swapchain_image_index,
-      fences.len()
-    );
+    let syncs = &self.synchronize;
 
     AppVkPerSwapchainImageData {
-      framebuffer: self.swapchain.framebuffers[swapchain_image_index as usize],
-      command_buffer: command_buffer.unwrap().clone(),
-      draw_command_fence: draw_command_fence.unwrap().clone(),
+      command_buffer: get_resource_at_idx("command_buffer", cmd_bufs, frame_idx),
+      draw_command_fence: get_resource_at_idx("fence", &syncs.draw_commands_fences, frame_idx),
+      present_complete_semaphore: get_resource_at_idx(
+        "present_complete_semaphore",
+        &syncs.present_complete_semaphore,
+        frame_idx,
+      ),
+      rendering_complete_semaphore: get_resource_at_idx(
+        "rendering_complete_semaphore",
+        &syncs.rendering_complete_semaphore,
+        frame_idx,
+      ),
     }
   }
 

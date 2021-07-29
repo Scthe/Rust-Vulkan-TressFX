@@ -56,28 +56,19 @@ fn cmd_draw_triangle(
   }
 }
 
-pub fn render_loop(vk_app: &AppVk) {
+pub fn render_loop(vk_app: &AppVk, frame_idx: usize) {
+  // 'heavy' ash's objects
   let device = &vk_app.device.device;
   let swapchain = &vk_app.swapchain;
-  let synchronize = &vk_app.synchronize;
 
-  // let cmd_buf = vk_app.command_buffers.cmd_buf_triangle; // TODO one per frame-in-flight
+  // 'light' vulkan objects (just pointers really)
   let queue = vk_app.device.queue;
   let render_pass = vk_app.render_passes.render_pass_triangle;
   let pipeline = vk_app.pipelines.pipeline_triangle;
 
-  /*
-  if (command_buffer_submitted[current_command_buffer])
-    {
-      err = vkWaitForFences(vulkan_globals.device, 1, &command_buffer_fences[current_command_buffer], VK_TRUE, UINT64_MAX);
-      if (err != VK_SUCCESS)
-        Sys_Error("vkWaitForFences failed");
-    }
-
-    err = vkResetFences(vulkan_globals.device, 1, &command_buffer_fences[current_command_buffer]);
-    if (err != VK_SUCCESS)
-      Sys_Error("vkResetFences failed");
-  */
+  // per frame data so we can have many frames in processing at the same time
+  let frame_data = vk_app.data_per_frame(frame_idx % vk_app.frames_in_flight());
+  let cmd_buf = frame_data.command_buffer;
 
   // get next swapchain image (view and framebuffer)
   let (swapchain_image_index, _) = unsafe {
@@ -86,22 +77,20 @@ pub fn render_loop(vk_app: &AppVk) {
       .acquire_next_image(
         swapchain.swapchain,
         u64::MAX,
-        synchronize.present_complete_semaphore, // 'acquire_semaphore'
+        frame_data.present_complete_semaphore, // 'acquire_semaphore'
         vk::Fence::null(),
       )
       .expect("Failed to acquire next swapchain image")
   };
-  let frame_data = vk_app.data_per_swapchain_image(swapchain_image_index as usize);
-  let cmd_buf = frame_data.command_buffer;
-  // println!("swapchain_image_index={}", swapchain_image_index);
+  let framebuffer = vk_app.framebuffer_for_swapchain_image(swapchain_image_index);
 
   unsafe {
     device
       .wait_for_fences(&[frame_data.draw_command_fence], true, u64::MAX)
-      .unwrap();
+      .expect("vkWaitForFences at frame start failed");
     device
       .reset_fences(&[frame_data.draw_command_fence])
-      .unwrap();
+      .expect("vkResetFences at frame start failed");
   }
 
   //
@@ -121,7 +110,7 @@ pub fn render_loop(vk_app: &AppVk) {
     cmd_buf,
     render_pass,
     pipeline,
-    frame_data.framebuffer,
+    framebuffer,
     swapchain.size,
   );
 
@@ -135,10 +124,10 @@ pub fn render_loop(vk_app: &AppVk) {
 
   // submit command buffers to the queue
   let submit_info = vk::SubmitInfo::builder()
-    .wait_semaphores(&[synchronize.present_complete_semaphore])
+    .wait_semaphores(&[frame_data.present_complete_semaphore])
     .wait_dst_stage_mask(&[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT])
     .command_buffers(&[cmd_buf])
-    .signal_semaphores(&[synchronize.rendering_complete_semaphore]) // release_semaphore
+    .signal_semaphores(&[frame_data.rendering_complete_semaphore]) // release_semaphore
     .build();
   unsafe {
     device
@@ -151,7 +140,7 @@ pub fn render_loop(vk_app: &AppVk) {
     .image_indices(&[swapchain_image_index])
     // .results(results) // p_results: ptr::null_mut(),
     .swapchains(&[swapchain.swapchain])
-    .wait_semaphores(&[synchronize.rendering_complete_semaphore])
+    .wait_semaphores(&[frame_data.rendering_complete_semaphore])
     .build();
 
   unsafe {

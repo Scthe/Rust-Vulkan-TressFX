@@ -33,15 +33,22 @@ pub fn create_image_view(
   }
 }
 
-pub fn create_semaphore(device: &ash::Device) -> vk::Semaphore {
+pub fn create_semaphores(device: &ash::Device, count: usize) -> Vec<vk::Semaphore> {
   let semaphore_create_info = vk::SemaphoreCreateInfo::builder()
     .flags(vk::SemaphoreCreateFlags::empty())
     .build();
-  unsafe {
-    device
-      .create_semaphore(&semaphore_create_info, None)
-      .expect("Failed to create semaphore")
+  let mut result = Vec::<vk::Semaphore>::with_capacity(count);
+
+  for _ in 0..count {
+    let obj = unsafe {
+      device
+        .create_semaphore(&semaphore_create_info, None)
+        .expect("Failed to create semaphore")
+    };
+    result.push(obj);
   }
+
+  result
 }
 
 pub fn create_fences(device: &ash::Device, count: usize) -> Vec<vk::Fence> {
@@ -49,12 +56,12 @@ pub fn create_fences(device: &ash::Device, count: usize) -> Vec<vk::Fence> {
   let mut result = Vec::<vk::Fence>::with_capacity(count);
 
   for _ in 0..count {
-    let fence = unsafe {
+    let obj = unsafe {
       device
         .create_fence(&create_info, None)
         .expect("Failed to create fence")
     };
-    result.push(fence);
+    result.push(obj);
   }
 
   result
@@ -76,7 +83,7 @@ pub fn create_command_pool(device: &ash::Device, queue_family_index: u32) -> vk:
   // vk::CommandPoolCreateFlags::TRANSIENT - we are not short lived at all
   let cmd_pool_create_info = vk::CommandPoolCreateInfo::builder()
     .queue_family_index(queue_family_index)
-    .flags(vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER)
+    .flags(vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER | vk::CommandPoolCreateFlags::TRANSIENT)
     .build();
 
   let cmd_pool = unsafe {

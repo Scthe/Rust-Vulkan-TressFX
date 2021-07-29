@@ -44,6 +44,7 @@ fn main() {
   */
 
   info!("Starting event loop");
+  let mut current_frame_in_flight_idx: usize = 0;
 
   // start event loop
   event_loop.run(move |event, _, control_flow| {
@@ -69,9 +70,8 @@ fn main() {
       }
 
       Event::MainEventsCleared => {
-        // TODO draw here
-        // https://github.com/expenses/vulkan-base/blob/main/src/main.rs#L379
-        renderer::main::render_loop(&vk_app);
+        renderer::main::render_loop(&vk_app, current_frame_in_flight_idx);
+        current_frame_in_flight_idx = (current_frame_in_flight_idx + 1) % vk_app.frames_in_flight()
       }
 
       // before destroy
