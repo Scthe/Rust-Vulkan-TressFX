@@ -29,7 +29,7 @@ fn main() {
     .unwrap();
 
   // init renderer
-  let vk_app = vk_init::vk_init(&window);
+  let mut vk_app = vk_init::vk_init(&window);
   info!("Render init went OK!");
   /*
   info!("Starting render loop");

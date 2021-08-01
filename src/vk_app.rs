@@ -3,9 +3,10 @@ use log::info;
 use ash;
 use ash::extensions::ext::DebugUtils;
 use ash::extensions::khr::{Surface, Swapchain};
-pub use ash::version::{DeviceV1_0, EntryV1_0, InstanceV1_0};
+use ash::version::{DeviceV1_0, InstanceV1_0};
 use ash::vk;
 
+use crate::vk_utils::buffer::AppVkBuffer;
 use crate::vk_utils::resources::{create_fences, create_semaphores};
 
 ///
@@ -126,6 +127,16 @@ impl AppVkPipelines {
   }
 }
 
+pub struct AppVkBuffers {
+  pub triangle_vertex_buffer: AppVkBuffer,
+}
+
+impl AppVkBuffers {
+  unsafe fn destroy(&self, allocator: &vk_mem::Allocator) {
+    self.triangle_vertex_buffer.delete(allocator);
+  }
+}
+
 /** Data per each frame-in-flight */
 pub struct AppVkPerSwapchainImageData {
   pub command_buffer: vk::CommandBuffer,
@@ -159,6 +170,8 @@ pub struct AppVk {
   pub command_buffers: AppVkCommandBuffers,
   pub pipelines: AppVkPipelines,
   pub render_passes: AppVkRenderPasses,
+  pub buffers: AppVkBuffers,
+  pub allocator: vk_mem::Allocator,
 
   // surface
   pub surface_loader: Surface,
@@ -198,7 +211,7 @@ impl AppVk {
     }
   }
 
-  pub fn destroy(&self) {
+  pub fn destroy(&mut self) {
     info!("AppVk::destroy()");
     let device = &self.device.device;
     unsafe {
@@ -213,6 +226,8 @@ impl AppVk {
       self.pipelines.destroy(device);
       self.render_passes.destroy(device);
       self.surface_loader.destroy_surface(self.surface_khr, None);
+      self.buffers.destroy(&self.allocator);
+      self.allocator.destroy();
 
       self
         .debug_utils_loader

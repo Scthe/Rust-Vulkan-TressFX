@@ -42,6 +42,8 @@ glam = { version = "^0.11.0", features = ["debug-glam-assert"] }
 # derive-new = "0.5.8"
 # --IMPLEMENT DEBUG/DEFAULT/CLONE ETC.
 # derivative = "2.1.1"
+# --CAST TYPES TO RAW
+bytemuck = "1.7.2"
 
 
 # --WINDOW INIT
@@ -66,7 +68,7 @@ ash = "^0.31.0"
 # -- layout(std140) GENERATE STRUCT
 # glsl_layout
 # -- RUST BINDINGS FOR AMD VULKAN MEMORY ALLOCATOR (VMA) - by gwihlidal
-# vk-mem = "0.2.2"
+vk-mem = "0.2.2"
 # -- SPIR-V REFLECTION
 # https://github.com/gwihlidal/spirv-reflect-rs
 # -- VULKAN SYNC UTILITY

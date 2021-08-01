@@ -1,14 +1,18 @@
+use bytemuck;
+use glam::Vec4;
 use log::{info, trace};
+use vk_mem;
 
 use ash;
 use ash::extensions::khr::{Surface, Swapchain};
-pub use ash::version::{DeviceV1_0, EntryV1_0, InstanceV1_0};
+use ash::version::DeviceV1_0;
 use ash::vk;
 
 use crate::vk_app::{
-  AppVk, AppVkCommandBuffers, AppVkDevice, AppVkPipelines, AppVkRenderPasses, AppVkSwapchain,
-  AppVkSynchronize,
+  AppVk, AppVkBuffers, AppVkCommandBuffers, AppVkDevice, AppVkPipelines, AppVkRenderPasses,
+  AppVkSwapchain, AppVkSynchronize,
 };
+use crate::vk_utils::buffer::AppVkBuffer;
 use crate::vk_utils::debug::setup_debug_reporting;
 use crate::vk_utils::device::{
   create_instance, pick_device_and_queue, pick_physical_device_and_queue_family_idx,
@@ -119,17 +123,35 @@ fn create_pipeline(
   let (module_vs, stage_vs) = load_shader(
     device,
     vk::ShaderStageFlags::VERTEX,
-    std::path::Path::new("./vert.spv"),
+    std::path::Path::new("./src/shaders-compiled/triangle.vert.spv"),
   );
   let (module_fs, stage_fs) = load_shader(
     device,
     vk::ShaderStageFlags::FRAGMENT,
-    std::path::Path::new("./frag.spv"),
+    std::path::Path::new("./src/shaders-compiled/triangle.frag.spv"),
   );
 
   let vertex_input_state = vk::PipelineVertexInputStateCreateInfo::builder()
-  // TODO vertex desc here!
-  .build();
+    .vertex_attribute_descriptions(&[
+      vk::VertexInputAttributeDescription {
+        binding: 0,
+        location: 0,
+        format: vk::Format::R32G32_SFLOAT,
+        offset: 0, // offsetof(TriangleVertex, pos),
+      },
+      vk::VertexInputAttributeDescription {
+        binding: 0,
+        location: 1,
+        format: vk::Format::R32G32B32_SFLOAT,
+        offset: std::mem::size_of::<Vec4>() as u32, // offsetted by 'position' from beginning of structure
+      },
+    ])
+    .vertex_binding_descriptions(&[vk::VertexInputBindingDescription {
+      binding: 0,
+      input_rate: vk::VertexInputRate::VERTEX,
+      stride: std::mem::size_of::<TriangleVertex>() as u32,
+    }])
+    .build();
 
   let color_attachments_write_all = ps_color_attachments_write_all(attachement_count);
   let color_blend_state = vk::PipelineColorBlendStateCreateInfo::builder()
@@ -183,6 +205,24 @@ fn create_pipeline(
     _ => panic!("Failed to create graphic pipeline"),
   }
 }
+
+#[derive(Copy, Clone, Debug)] // , bytemuck::Zeroable, bytemuck::Pod
+#[repr(C)]
+struct TriangleVertex {
+  pos: Vec4, // TODO Vec2, Vec3 are enough
+  color: Vec4,
+}
+impl TriangleVertex {
+  pub fn new(pos: (f32, f32), col: (f32, f32, f32)) -> TriangleVertex {
+    TriangleVertex {
+      pos: Vec4::new(pos.0, pos.1, 0.0f32, 1.0f32),
+      color: Vec4::new(col.0, col.1, col.2, 1.0f32),
+    }
+  }
+}
+
+unsafe impl bytemuck::Zeroable for TriangleVertex {}
+unsafe impl bytemuck::Pod for TriangleVertex {}
 
 // https://github.com/MaikKlein/ash/blob/master/examples/src/lib.rs#L332
 pub fn vk_init(window: &winit::window::Window) -> AppVk {
@@ -245,9 +285,40 @@ pub fn vk_init(window: &winit::window::Window) -> AppVk {
   let pipeline_cache = create_pipeline_cache(&device);
   let (triangle_pipeline, layout) = create_pipeline(&device, pipeline_cache, render_pass);
 
+  // Triangle vertices
+  let allocator = vk_mem::Allocator::new(&vk_mem::AllocatorCreateInfo {
+    // All 3 needed by VMA
+    device: device.clone(),
+    physical_device: phys_device,
+    instance: instance.clone(),
+    // cfg:
+    flags: vk_mem::AllocatorCreateFlags::NONE, // or maybe even EXTERNALLY_SYNCHRONIZED ?
+    preferred_large_heap_block_size: 0,        // pls only <256 MiB
+    frame_in_use_count: frames_in_flight as u32,
+    heap_size_limits: None, // ugh, I guess?
+  })
+  .expect("Failed creating memory allocator (VMA lib init)");
+
+  let vertices = [
+    TriangleVertex::new((0.0, 0.5), (1.0, 0.0, 0.0)),
+    TriangleVertex::new((0.5, -0.5), (0.0, 1.0, 0.0)),
+    TriangleVertex::new((-0.5, -0.5), (0.0, 0.0, 1.0)),
+  ];
+  let vertices_bytes = bytemuck::cast_slice(&vertices);
+  info!("Vertex buffer bytes={}", vertices_bytes.len());
+  let vertex_buffer = AppVkBuffer::from_data(
+    vertices_bytes,
+    vk::BufferUsageFlags::VERTEX_BUFFER,
+    &allocator,
+    queue_family_index,
+  );
+
+  ///////////////////////////////////////
+  ///////////////////////////////////////
   AppVk {
     entry,
     instance,
+    allocator,
     swapchain: AppVkSwapchain {
       swapchain_loader,
       swapchain,
@@ -271,6 +342,9 @@ pub fn vk_init(window: &winit::window::Window) -> AppVk {
       pipeline_cache,
       pipeline_triangle: triangle_pipeline,
       pipeline_triangle_layout: layout,
+    },
+    buffers: AppVkBuffers {
+      triangle_vertex_buffer: vertex_buffer,
     },
     render_passes: AppVkRenderPasses {
       render_pass_triangle: render_pass,

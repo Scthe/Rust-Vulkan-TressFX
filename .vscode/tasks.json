@@ -10,9 +10,8 @@
     },
     {
       "label": "run",
-      "dependsOn": ["debug-clean"],
       "type": "shell",
-      "command": "cargo run"
+      "command": "make run"
     },
     {
       "label": "format",

@@ -1,5 +1,5 @@
 use ash;
-pub use ash::version::{DeviceV1_0, EntryV1_0, InstanceV1_0};
+use ash::version::DeviceV1_0;
 use ash::vk;
 
 use crate::vk_app::AppVk;
@@ -11,6 +11,7 @@ fn cmd_draw_triangle(
   command_buffer: vk::CommandBuffer,
   render_pass: vk::RenderPass,
   pipeline: vk::Pipeline,
+  vertex_buffer: vk::Buffer,
   framebuffer: vk::Framebuffer,
   size: vk::Extent2D,
 ) -> () {
@@ -50,6 +51,7 @@ fn cmd_draw_triangle(
     device.cmd_set_viewport(command_buffer, 0, &[viewport]);
     device.cmd_set_scissor(command_buffer, 0, &[render_area]);
     device.cmd_bind_pipeline(command_buffer, vk::PipelineBindPoint::GRAPHICS, pipeline);
+    device.cmd_bind_vertex_buffers(command_buffer, 0, &[vertex_buffer], &[0]);
     device.cmd_draw(command_buffer, 3, 1, 0, 0);
 
     device.cmd_end_render_pass(command_buffer)
@@ -65,6 +67,7 @@ pub fn render_loop(vk_app: &AppVk, frame_idx: usize) {
   let queue = vk_app.device.queue;
   let render_pass = vk_app.render_passes.render_pass_triangle;
   let pipeline = vk_app.pipelines.pipeline_triangle;
+  let vertex_buffer = vk_app.buffers.triangle_vertex_buffer.buffer;
 
   // per frame data so we can have many frames in processing at the same time
   let frame_data = vk_app.data_per_frame(frame_idx % vk_app.frames_in_flight());
@@ -110,6 +113,7 @@ pub fn render_loop(vk_app: &AppVk, frame_idx: usize) {
     cmd_buf,
     render_pass,
     pipeline,
+    vertex_buffer,
     framebuffer,
     swapchain.size,
   );
