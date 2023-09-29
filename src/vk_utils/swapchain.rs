@@ -6,7 +6,7 @@ use ash::vk;
 #[cfg(target_os = "windows")]
 use ash::extensions::khr::Win32Surface;
 
-use crate::vk_utils::resources::create_image_view;
+use crate::vk_utils::create_image_view;
 
 /*
 // https://github.com/zeux/niagara/blob/master/src/swapchain.cpp#L78

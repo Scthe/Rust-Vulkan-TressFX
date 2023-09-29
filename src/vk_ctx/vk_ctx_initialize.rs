@@ -8,27 +8,17 @@ use ash::extensions::khr::{Surface, Swapchain};
 use ash::version::DeviceV1_0;
 use ash::vk;
 
-use crate::vk_app::{
-  AppVk, AppVkBuffers, AppVkCommandBuffers, AppVkDevice, AppVkPipelines, AppVkRenderPasses,
-  AppVkSwapchain, AppVkSynchronize,
-};
-use crate::vk_utils::buffer::AppVkBuffer;
+use crate::vk_ctx::vk_ctx::VkApp;
+use crate::vk_ctx::vk_ctx_buffers::VkAppBuffers;
+use crate::vk_ctx::vk_ctx_command_buffers::VkAppCommandBuffers;
+use crate::vk_ctx::vk_ctx_device::VkAppDevice;
+use crate::vk_ctx::vk_ctx_pipelines::VkAppPipelines;
+use crate::vk_ctx::vk_ctx_render_passes::VkAppRenderPasses;
+use crate::vk_ctx::vk_ctx_swapchain::VkAppSwapchain;
+use crate::vk_ctx::vk_ctx_synchronize::VkAppSynchronize;
+
 use crate::vk_utils::debug::setup_debug_reporting;
-use crate::vk_utils::device::{
-  create_instance, pick_device_and_queue, pick_physical_device_and_queue_family_idx,
-};
-use crate::vk_utils::fbo::create_framebuffer;
-use crate::vk_utils::pipeline::{
-  create_pipeline_cache, ps_color_attachments_write_all, ps_depth_always_stencil_always,
-  ps_dynamic_state, ps_ia_triangle_list, ps_multisample_disabled, ps_raster_polygons,
-  ps_viewport_single_dynamic,
-};
-use crate::vk_utils::resources::{create_command_buffers, create_command_pool};
-use crate::vk_utils::shaders::load_shader;
-use crate::vk_utils::swapchain::{
-  create_surface_khr, create_swapchain_images, create_swapchain_khr, get_surface_capabilities,
-  get_swapchain_format,
-};
+use crate::vk_utils::*;
 
 #[cfg(all(windows))]
 fn get_window_size(window: &winit::window::Window) -> vk::Extent2D {
@@ -225,7 +215,7 @@ unsafe impl bytemuck::Zeroable for TriangleVertex {}
 unsafe impl bytemuck::Pod for TriangleVertex {}
 
 // https://github.com/MaikKlein/ash/blob/master/examples/src/lib.rs#L332
-pub fn vk_init(window: &winit::window::Window) -> AppVk {
+pub fn app_vk_initialize(window: &winit::window::Window) -> VkApp {
   let (entry, instance) = create_instance();
   let (debug_utils_loader, debug_messenger) = setup_debug_reporting(&entry, &instance);
 
@@ -299,6 +289,7 @@ pub fn vk_init(window: &winit::window::Window) -> AppVk {
   })
   .expect("Failed creating memory allocator (VMA lib init)");
 
+  // TODO remove VkAppBuffers
   let vertices = [
     TriangleVertex::new((0.0, 0.5), (1.0, 0.0, 0.0)),
     TriangleVertex::new((0.5, -0.5), (0.0, 1.0, 0.0)),
@@ -306,7 +297,7 @@ pub fn vk_init(window: &winit::window::Window) -> AppVk {
   ];
   let vertices_bytes = bytemuck::cast_slice(&vertices);
   info!("Vertex buffer bytes={}", vertices_bytes.len());
-  let vertex_buffer = AppVkBuffer::from_data(
+  let vertex_buffer = VkBuffer::from_data(
     vertices_bytes,
     vk::BufferUsageFlags::VERTEX_BUFFER,
     &allocator,
@@ -315,11 +306,11 @@ pub fn vk_init(window: &winit::window::Window) -> AppVk {
 
   ///////////////////////////////////////
   ///////////////////////////////////////
-  AppVk {
+  VkApp {
     entry,
     instance,
     allocator,
-    swapchain: AppVkSwapchain {
+    swapchain: VkAppSwapchain {
       swapchain_loader,
       swapchain,
       size: window_size,
@@ -327,26 +318,26 @@ pub fn vk_init(window: &winit::window::Window) -> AppVk {
       image_views: swapchain_image_views,
       images: swapchain_images,
     },
-    synchronize: AppVkSynchronize::new(&device, frames_in_flight),
-    device: AppVkDevice {
+    synchronize: VkAppSynchronize::new(&device, frames_in_flight),
+    device: VkAppDevice {
       phys_device,
       queue_family_index,
       device,
       queue,
     },
-    command_buffers: AppVkCommandBuffers {
+    command_buffers: VkAppCommandBuffers {
       pool: cmd_pool,
       cmd_buffers: cmd_bufs,
     },
-    pipelines: AppVkPipelines {
+    pipelines: VkAppPipelines {
       pipeline_cache,
       pipeline_triangle: triangle_pipeline,
       pipeline_triangle_layout: layout,
     },
-    buffers: AppVkBuffers {
+    buffers: VkAppBuffers {
       triangle_vertex_buffer: vertex_buffer,
     },
-    render_passes: AppVkRenderPasses {
+    render_passes: VkAppRenderPasses {
       render_pass_triangle: render_pass,
     },
     surface_loader,

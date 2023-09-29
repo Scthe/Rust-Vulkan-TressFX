@@ -1,3 +1,7 @@
+# vscode
+workspace.code-workspace
+
+# app
 /target
 /reference
 /assets

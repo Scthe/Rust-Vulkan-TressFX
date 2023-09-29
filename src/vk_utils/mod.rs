@@ -1,11 +1,26 @@
-// mostly inspired by:
-// - https://github.com/zeux/niagara/tree/master/src
-// - https://github.com/MaikKlein/ash/blob/master/examples/src/lib.rs#L256
-pub mod buffer;
+mod create_command_buffers;
+mod create_command_pool;
+mod create_fences;
+mod create_framebuffer;
+mod create_image_view;
+mod create_semaphores;
+mod create_viewport;
 pub mod debug;
-pub mod device;
-pub mod fbo;
-pub mod pipeline;
-pub mod resources;
-pub mod shaders;
-pub mod swapchain;
+mod device;
+mod load_shader;
+mod pipeline;
+mod swapchain;
+mod vk_buffer;
+
+pub use create_command_buffers::*;
+pub use create_command_pool::*;
+pub use create_fences::*;
+pub use create_framebuffer::*;
+pub use create_image_view::*;
+pub use create_semaphores::*;
+pub use create_viewport::*;
+pub use device::*;
+pub use load_shader::*;
+pub use pipeline::*;
+pub use swapchain::*;
+pub use vk_buffer::*;

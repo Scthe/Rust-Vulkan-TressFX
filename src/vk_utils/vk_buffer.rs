@@ -6,12 +6,12 @@ use ash::vk;
 // https://gpuopen-librariesandsdks.github.io/VulkanMemoryAllocator/html/choosing_memory_type.html
 // If you want to create a buffer or an image, allocate memory for it and bind them together, all in one call, you can use function vmaCreateBuffer(), vmaCreateImage(). This is the easiest and recommended way to use this library
 
-pub struct AppVkBuffer {
+pub struct VkBuffer {
   pub buffer: vk::Buffer,
   pub allocation: vk_mem::Allocation,
 }
 
-impl AppVkBuffer {
+impl VkBuffer {
   #[allow(dead_code)]
   pub fn empty(
     size: u64,

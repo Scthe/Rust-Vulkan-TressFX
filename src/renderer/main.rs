@@ -2,9 +2,8 @@ use ash;
 use ash::version::DeviceV1_0;
 use ash::vk;
 
-use crate::vk_app::AppVk;
-use crate::vk_utils::resources::create_viewport;
-use crate::vk_utils::swapchain::size_to_rect_vk;
+use crate::vk_ctx::VkApp;
+use crate::vk_utils::{create_viewport, size_to_rect_vk};
 
 fn cmd_draw_triangle(
   device: &ash::Device,
@@ -58,7 +57,7 @@ fn cmd_draw_triangle(
   }
 }
 
-pub fn render_loop(vk_app: &AppVk, frame_idx: usize) {
+pub fn render_loop(vk_app: &VkApp, frame_idx: usize) {
   // 'heavy' ash's objects
   let device = &vk_app.device.device;
   let swapchain = &vk_app.swapchain;

@@ -35,3 +35,6 @@ run: clean build_shaders
 
 build: clean build_shaders
 	cargo build --release
+
+release: clean build_shaders
+	cargo build --release

@@ -2,8 +2,7 @@ use ash;
 use ash::version::DeviceV1_0;
 use ash::vk;
 
-use super::resources::create_viewport;
-use super::swapchain::size_to_rect_vk;
+use super::{create_viewport, size_to_rect_vk};
 
 pub fn create_pipeline_cache(device: &ash::Device) -> vk::PipelineCache {
   let create_info = vk::PipelineCacheCreateInfo::builder().build();
