@@ -1,4 +1,3 @@
-use bytemuck;
 use glam::Vec4;
 use log::{info, trace};
 use vk_mem;
@@ -8,14 +7,14 @@ use ash::extensions::khr::{Surface, Swapchain};
 use ash::version::DeviceV1_0;
 use ash::vk;
 
-use crate::vk_ctx::vk_ctx::VkApp;
-use crate::vk_ctx::vk_ctx_buffers::VkAppBuffers;
-use crate::vk_ctx::vk_ctx_command_buffers::VkAppCommandBuffers;
-use crate::vk_ctx::vk_ctx_device::VkAppDevice;
-use crate::vk_ctx::vk_ctx_pipelines::VkAppPipelines;
-use crate::vk_ctx::vk_ctx_render_passes::VkAppRenderPasses;
-use crate::vk_ctx::vk_ctx_swapchain::VkAppSwapchain;
-use crate::vk_ctx::vk_ctx_synchronize::VkAppSynchronize;
+use crate::scene::TriangleVertex;
+use crate::vk_ctx::vk_ctx::VkCtx;
+use crate::vk_ctx::vk_ctx_command_buffers::VkCtxCommandBuffers;
+use crate::vk_ctx::vk_ctx_device::VkCtxDevice;
+use crate::vk_ctx::vk_ctx_pipelines::VkCtxPipelines;
+use crate::vk_ctx::vk_ctx_render_passes::VkCtxRenderPasses;
+use crate::vk_ctx::vk_ctx_swapchain::VkCtxSwapchain;
+use crate::vk_ctx::vk_ctx_synchronize::VkCtxSynchronize;
 
 use crate::vk_utils::debug::setup_debug_reporting;
 use crate::vk_utils::*;
@@ -196,26 +195,8 @@ fn create_pipeline(
   }
 }
 
-#[derive(Copy, Clone, Debug)] // , bytemuck::Zeroable, bytemuck::Pod
-#[repr(C)]
-struct TriangleVertex {
-  pos: Vec4, // TODO Vec2, Vec3 are enough
-  color: Vec4,
-}
-impl TriangleVertex {
-  pub fn new(pos: (f32, f32), col: (f32, f32, f32)) -> TriangleVertex {
-    TriangleVertex {
-      pos: Vec4::new(pos.0, pos.1, 0.0f32, 1.0f32),
-      color: Vec4::new(col.0, col.1, col.2, 1.0f32),
-    }
-  }
-}
-
-unsafe impl bytemuck::Zeroable for TriangleVertex {}
-unsafe impl bytemuck::Pod for TriangleVertex {}
-
 // https://github.com/MaikKlein/ash/blob/master/examples/src/lib.rs#L332
-pub fn app_vk_initialize(window: &winit::window::Window) -> VkApp {
+pub fn vk_ctx_initialize(window: &winit::window::Window) -> VkCtx {
   let (entry, instance) = create_instance();
   let (debug_utils_loader, debug_messenger) = setup_debug_reporting(&entry, &instance);
 
@@ -258,6 +239,20 @@ pub fn app_vk_initialize(window: &winit::window::Window) -> VkApp {
   let cmd_pool = create_command_pool(&device, queue_family_index);
   let cmd_bufs = create_command_buffers(&device, cmd_pool, frames_in_flight);
 
+  // gpu memory allocator
+  let allocator = vk_mem::Allocator::new(&vk_mem::AllocatorCreateInfo {
+    // All 3 needed by VMA
+    device: device.clone(),
+    physical_device: phys_device,
+    instance: instance.clone(),
+    // cfg:
+    flags: vk_mem::AllocatorCreateFlags::NONE, // or maybe even EXTERNALLY_SYNCHRONIZED ?
+    preferred_large_heap_block_size: 0,        // pls only <256 MiB
+    frame_in_use_count: frames_in_flight as u32,
+    heap_size_limits: None, // ugh, I guess?
+  })
+  .expect("Failed creating memory allocator (VMA lib init)");
+
   ///////////////////////////////////////
   ///////////////////////////////////////
   // TRIANGLE SPECIFIC STUFF STARTS HERE
@@ -275,42 +270,13 @@ pub fn app_vk_initialize(window: &winit::window::Window) -> VkApp {
   let pipeline_cache = create_pipeline_cache(&device);
   let (triangle_pipeline, layout) = create_pipeline(&device, pipeline_cache, render_pass);
 
-  // Triangle vertices
-  let allocator = vk_mem::Allocator::new(&vk_mem::AllocatorCreateInfo {
-    // All 3 needed by VMA
-    device: device.clone(),
-    physical_device: phys_device,
-    instance: instance.clone(),
-    // cfg:
-    flags: vk_mem::AllocatorCreateFlags::NONE, // or maybe even EXTERNALLY_SYNCHRONIZED ?
-    preferred_large_heap_block_size: 0,        // pls only <256 MiB
-    frame_in_use_count: frames_in_flight as u32,
-    heap_size_limits: None, // ugh, I guess?
-  })
-  .expect("Failed creating memory allocator (VMA lib init)");
-
-  // TODO remove VkAppBuffers
-  let vertices = [
-    TriangleVertex::new((0.0, 0.5), (1.0, 0.0, 0.0)),
-    TriangleVertex::new((0.5, -0.5), (0.0, 1.0, 0.0)),
-    TriangleVertex::new((-0.5, -0.5), (0.0, 0.0, 1.0)),
-  ];
-  let vertices_bytes = bytemuck::cast_slice(&vertices);
-  info!("Vertex buffer bytes={}", vertices_bytes.len());
-  let vertex_buffer = VkBuffer::from_data(
-    vertices_bytes,
-    vk::BufferUsageFlags::VERTEX_BUFFER,
-    &allocator,
-    queue_family_index,
-  );
-
   ///////////////////////////////////////
   ///////////////////////////////////////
-  VkApp {
+  VkCtx {
     entry,
     instance,
     allocator,
-    swapchain: VkAppSwapchain {
+    swapchain: VkCtxSwapchain {
       swapchain_loader,
       swapchain,
       size: window_size,
@@ -318,26 +284,23 @@ pub fn app_vk_initialize(window: &winit::window::Window) -> VkApp {
       image_views: swapchain_image_views,
       images: swapchain_images,
     },
-    synchronize: VkAppSynchronize::new(&device, frames_in_flight),
-    device: VkAppDevice {
+    synchronize: VkCtxSynchronize::new(&device, frames_in_flight),
+    device: VkCtxDevice {
       phys_device,
       queue_family_index,
       device,
       queue,
     },
-    command_buffers: VkAppCommandBuffers {
+    command_buffers: VkCtxCommandBuffers {
       pool: cmd_pool,
       cmd_buffers: cmd_bufs,
     },
-    pipelines: VkAppPipelines {
+    pipelines: VkCtxPipelines {
       pipeline_cache,
       pipeline_triangle: triangle_pipeline,
       pipeline_triangle_layout: layout,
     },
-    buffers: VkAppBuffers {
-      triangle_vertex_buffer: vertex_buffer,
-    },
-    render_passes: VkAppRenderPasses {
+    render_passes: VkCtxRenderPasses {
       render_pass_triangle: render_pass,
     },
     surface_loader,

@@ -50,6 +50,9 @@ impl VkBuffer {
       .size(bytes.len() as u64)
       .usage(usage)
       .queue_family_indices(&queue_family_indices);
+
+    // TODO create temp buffer with `vk::BufferUsageFlags::TRANSFER_SRC`, like in
+    // `kajiya-main\crates\lib\kajiya-backend\src\vulkan\buffer.rs`:134
     let alloc_info = vk_mem::AllocationCreateInfo {
       usage: vk_mem::MemoryUsage::GpuOnly,
       required_flags: vk::MemoryPropertyFlags::HOST_VISIBLE // TODO slow?

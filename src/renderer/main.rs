@@ -2,7 +2,8 @@ use ash;
 use ash::version::DeviceV1_0;
 use ash::vk;
 
-use crate::vk_ctx::VkApp;
+use crate::scene::World;
+use crate::vk_ctx::VkCtx;
 use crate::vk_utils::{create_viewport, size_to_rect_vk};
 
 fn cmd_draw_triangle(
@@ -57,7 +58,7 @@ fn cmd_draw_triangle(
   }
 }
 
-pub fn render_loop(vk_app: &VkApp, frame_idx: usize) {
+pub fn render_loop(vk_app: &VkCtx, scene: &World, frame_idx: usize) {
   // 'heavy' ash's objects
   let device = &vk_app.device.device;
   let swapchain = &vk_app.swapchain;
@@ -66,7 +67,7 @@ pub fn render_loop(vk_app: &VkApp, frame_idx: usize) {
   let queue = vk_app.device.queue;
   let render_pass = vk_app.render_passes.render_pass_triangle;
   let pipeline = vk_app.pipelines.pipeline_triangle;
-  let vertex_buffer = vk_app.buffers.triangle_vertex_buffer.buffer;
+  let vertex_buffer = scene.triangle_vertex_buffer.buffer;
 
   // per frame data so we can have many frames in processing at the same time
   let frame_data = vk_app.data_per_frame(frame_idx % vk_app.frames_in_flight());

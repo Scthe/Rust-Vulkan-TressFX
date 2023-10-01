@@ -6,9 +6,10 @@ use winit::{
   window::WindowBuilder,
 };
 
-use crate::vk_ctx::app_vk_initialize;
+use crate::{scene::load_scene, vk_ctx::vk_ctx_initialize};
 
 mod renderer;
+mod scene;
 mod vk_ctx;
 mod vk_utils;
 
@@ -30,20 +31,13 @@ fn main() {
     .unwrap();
 
   // init renderer
-  let mut vk_app = app_vk_initialize(&window);
+  let mut vk_app = vk_ctx_initialize(&window);
   info!("Render init went OK!");
-  /*
-  info!("Starting render loop");
-  renderer::main::render_loop(&vk_app);
 
-  info!("Sync: device_wait_idle()");
-  vk_app
-    .device
-    .device
-    .device_wait_idle()
-    .expect("Failed device_wait_idle()");
-  */
+  // scene
+  let scene = load_scene(&vk_app);
 
+  // last pre-run ops
   info!("Starting event loop");
   let mut current_frame_in_flight_idx: usize = 0;
 
@@ -71,13 +65,14 @@ fn main() {
       }
 
       Event::MainEventsCleared => {
-        renderer::main::render_loop(&vk_app, current_frame_in_flight_idx);
+        renderer::main::render_loop(&vk_app, &scene, current_frame_in_flight_idx);
         current_frame_in_flight_idx = (current_frame_in_flight_idx + 1) % vk_app.frames_in_flight()
       }
 
       // before destroy
       Event::LoopDestroyed => {
         info!("EventLoop is shutting down");
+        scene.destroy(&vk_app.allocator);
         vk_app.destroy();
       }
 

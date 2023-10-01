@@ -3,7 +3,7 @@ use ash::extensions::khr::Swapchain;
 use ash::version::DeviceV1_0;
 use ash::vk;
 
-pub struct VkAppSwapchain {
+pub struct VkCtxSwapchain {
   pub swapchain_loader: Swapchain,
   pub swapchain: vk::SwapchainKHR,
   pub size: vk::Extent2D,
@@ -14,7 +14,7 @@ pub struct VkAppSwapchain {
   pub images: Vec<vk::Image>,
 }
 
-impl VkAppSwapchain {
+impl VkCtxSwapchain {
   pub unsafe fn destroy(&self, device: &ash::Device) {
     for &framebuffer in &self.framebuffers {
       device.destroy_framebuffer(framebuffer, None);

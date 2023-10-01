@@ -2,7 +2,7 @@ use ash;
 use ash::vk;
 
 /** Data per each frame-in-flight */
-pub struct VkAppPerSwapchainImageData {
+pub struct VkCtxPerSwapchainImageData {
   pub command_buffer: vk::CommandBuffer,
 
   // synchronize

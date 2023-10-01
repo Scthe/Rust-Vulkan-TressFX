@@ -30,10 +30,12 @@ clean:
 		$(SHADER_OUT_DIR)/*.spv;\
 		echo CLEANED
 
-run: clean build_shaders
+# run: clean build_shaders
+run:
 	cargo run
 
-build: clean build_shaders
+# build: clean build_shaders
+build:
 	cargo build --release
 
 release: clean build_shaders
