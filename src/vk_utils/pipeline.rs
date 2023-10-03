@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use ash;
 use ash::version::DeviceV1_0;
 use ash::vk;
@@ -16,14 +17,22 @@ pub fn create_pipeline_cache(device: &ash::Device) -> vk::PipelineCache {
 // This file contains presets for `vk::GraphicsPipelineCreateInfo`.
 // Most common options, so it's actually manageable and <100LOC every time
 
+/// PipelineInputAssembly-TRIANGLE_LIST
 pub fn ps_ia_triangle_list() -> vk::PipelineInputAssemblyStateCreateInfo {
   vk::PipelineInputAssemblyStateCreateInfo::builder()
     .topology(vk::PrimitiveTopology::TRIANGLE_LIST)
     .build()
 }
 
-/** Hardcoded size, does not require PipelineDynamicStateCreateInfo later on */
-#[allow(dead_code)]
+/// PipelineInputAssembly-TRIANGLE_FAN
+pub fn ps_ia_triangle_fan() -> vk::PipelineInputAssemblyStateCreateInfo {
+  vk::PipelineInputAssemblyStateCreateInfo::builder()
+    .topology(vk::PrimitiveTopology::TRIANGLE_FAN)
+    .build()
+}
+
+/// Hardcoded size, does not require PipelineDynamicStateCreateInfo later on
+/// PipelineViewportState for viewports+scissors
 pub fn ps_viewport_fill_rect(size: &vk::Extent2D) -> vk::PipelineViewportStateCreateInfo {
   let vp = create_viewport(&size);
   let scissors_rect = size_to_rect_vk(size);
@@ -34,11 +43,9 @@ pub fn ps_viewport_fill_rect(size: &vk::Extent2D) -> vk::PipelineViewportStateCr
     .build()
 }
 
-/**
-Does not specify dimensions, requires PipelineDynamicStateCreateInfo with
-- vk::DynamicState::VIEWPORT
-- vk::DynamicState::SCISSOR,
-*/
+/// Does not specify dimensions during pipeline create, requires PipelineDynamicStateCreateInfo with
+/// - vk::DynamicState::VIEWPORT
+/// - vk::DynamicState::SCISSOR
 pub fn ps_viewport_single_dynamic() -> vk::PipelineViewportStateCreateInfo {
   vk::PipelineViewportStateCreateInfo {
     viewport_count: 1,
@@ -47,25 +54,23 @@ pub fn ps_viewport_single_dynamic() -> vk::PipelineViewportStateCreateInfo {
   }
 }
 
-/**
-Default state that you would use to display opaque cube. <br/>
-*/
-pub fn ps_raster_polygons() -> vk::PipelineRasterizationStateCreateInfo {
+/// Default state that you would use to display opaque cube
+pub fn ps_raster_polygons(
+  cull_mode: vk::CullModeFlags,
+) -> vk::PipelineRasterizationStateCreateInfo {
   vk::PipelineRasterizationStateCreateInfo::builder()
     .depth_clamp_enable(false) // when would You ever want it to be true?
     // .rasterizer_discard_enable(rasterizer_discard_enable)
     .polygon_mode(vk::PolygonMode::FILL)
-    .cull_mode(vk::CullModeFlags::NONE) // TODO cull backfaces - .cull_mode(vk::CullModeFlags::BACK)
-    // .front_face(vk::FrontFace::CLOCKWISE) // TODO I don't remember OpenGL
+    .cull_mode(cull_mode)
+    .front_face(vk::FrontFace::COUNTER_CLOCKWISE) // TODO I don't remember OpenGL
     // .depth_bias_...
     .line_width(1.0) // validation layers: has to be 1.0 if not dynamic
     .build()
 }
 
-/**
-Depth test: LESS<br/>
-Stencil: ALWAYS_PASS
-*/
+/// - Depth: test LESS, write ON
+/// - Stencil: test SKIP
 #[allow(dead_code)]
 pub fn ps_depth_less_stencil_always() -> vk::PipelineDepthStencilStateCreateInfo {
   vk::PipelineDepthStencilStateCreateInfo::builder()
@@ -85,10 +90,8 @@ pub fn ps_depth_less_stencil_always() -> vk::PipelineDepthStencilStateCreateInfo
     .build()
 }
 
-/**
-Depth test: ALWAYS_PASS<br/>
-Stencil: ALWAYS_PASS
-*/
+/// - Depth: test SKIP, write OFF
+/// - Stencil: test SKIP
 pub fn ps_depth_always_stencil_always() -> vk::PipelineDepthStencilStateCreateInfo {
   vk::PipelineDepthStencilStateCreateInfo::builder()
     .depth_test_enable(false)
@@ -117,7 +120,8 @@ pub fn ps_multisample_disabled() -> vk::PipelineMultisampleStateCreateInfo {
     .build()
 }
 
-pub fn ps_color_attachments_write_all(
+/// Write result to all color attachments, disable blending
+fn ps_color_attachments_write_all(
   attachment_count: usize,
 ) -> Vec<vk::PipelineColorBlendAttachmentState> {
   // VULKAN SPEC:
@@ -140,7 +144,16 @@ pub fn ps_color_attachments_write_all(
   attachments
 }
 
-/* List of things that will be provided as separate command before draw (actuall 'runtime') */
+/// Write result to all color attachments, disable blending
+pub fn ps_color_blend_override(attachment_count: usize) -> vk::PipelineColorBlendStateCreateInfo {
+  let color_attachments_write_all = ps_color_attachments_write_all(attachment_count);
+  vk::PipelineColorBlendStateCreateInfo::builder()
+    .attachments(&color_attachments_write_all)
+    .build()
+}
+
+/// List of things that will be provided as separate command before draw (actuall 'runtime').
+/// Used so that we do not have to specify everything during pipeline create
 pub fn ps_dynamic_state(states: &[vk::DynamicState]) -> vk::PipelineDynamicStateCreateInfo {
   vk::PipelineDynamicStateCreateInfo::builder()
     .dynamic_states(states)

@@ -7,19 +7,15 @@ pub struct VkCtxSwapchain {
   pub swapchain_loader: Swapchain,
   pub swapchain: vk::SwapchainKHR,
   pub size: vk::Extent2D,
+  pub surface_format: vk::SurfaceFormatKHR,
 
   // All fields below will be capabilites.min_images + 1
-  pub framebuffers: Vec<vk::Framebuffer>,
   pub image_views: Vec<vk::ImageView>,
   pub images: Vec<vk::Image>,
 }
 
 impl VkCtxSwapchain {
   pub unsafe fn destroy(&self, device: &ash::Device) {
-    for &framebuffer in &self.framebuffers {
-      device.destroy_framebuffer(framebuffer, None);
-    }
-
     for &image_view in &self.image_views {
       device.destroy_image_view(image_view, None);
     }

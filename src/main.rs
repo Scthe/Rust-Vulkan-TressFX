@@ -1,3 +1,4 @@
+use ash::version::DeviceV1_0;
 use log::info;
 use winit::{
   dpi::LogicalSize,
@@ -6,9 +7,9 @@ use winit::{
   window::WindowBuilder,
 };
 
-use crate::{scene::load_scene, vk_ctx::vk_ctx_initialize};
+use crate::{render_graph::RenderGraph, scene::load_scene, vk_ctx::vk_ctx_initialize};
 
-mod renderer;
+mod render_graph;
 mod scene;
 mod vk_ctx;
 mod vk_utils;
@@ -33,6 +34,7 @@ fn main() {
   // init renderer
   let mut vk_app = vk_ctx_initialize(&window);
   info!("Render init went OK!");
+  let render_graph = RenderGraph::new(&vk_app);
 
   // scene
   let scene = load_scene(&vk_app);
@@ -65,15 +67,24 @@ fn main() {
       }
 
       Event::MainEventsCleared => {
-        renderer::main::render_loop(&vk_app, &scene, current_frame_in_flight_idx);
+        render_graph.execute_render_graph(&vk_app, &scene, current_frame_in_flight_idx);
         current_frame_in_flight_idx = (current_frame_in_flight_idx + 1) % vk_app.frames_in_flight()
       }
 
       // before destroy
       Event::LoopDestroyed => {
         info!("EventLoop is shutting down");
-        scene.destroy(&vk_app.allocator);
-        vk_app.destroy();
+
+        let device = &vk_app.device.device;
+        unsafe {
+          // wait to finish current in-flight
+          device.device_wait_idle().unwrap();
+
+          // destroy resources as all frames finished rendering
+          scene.destroy(&vk_app.allocator);
+          render_graph.destroy(&vk_app.device.device);
+          vk_app.destroy();
+        }
       }
 
       // default

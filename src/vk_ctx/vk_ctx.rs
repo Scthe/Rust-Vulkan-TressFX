@@ -29,8 +29,7 @@ pub struct VkCtx {
   pub synchronize: VkCtxSynchronize,
   pub device: VkCtxDevice,
   pub command_buffers: VkCtxCommandBuffers,
-  pub pipelines: VkCtxPipelines,
-  pub render_passes: VkCtxRenderPasses,
+  pub pipeline_cache: vk::PipelineCache,
   pub allocator: vk_mem::Allocator,
 
   // surface
@@ -45,10 +44,6 @@ pub struct VkCtx {
 impl VkCtx {
   pub fn frames_in_flight(&self) -> usize {
     self.swapchain.image_views.len()
-  }
-
-  pub fn framebuffer_for_swapchain_image(&self, swapchain_image_index: u32) -> vk::Framebuffer {
-    self.swapchain.framebuffers[swapchain_image_index as usize]
   }
 
   pub fn data_per_frame(&self, frame_idx: usize) -> VkCtxPerSwapchainImageData {
@@ -71,31 +66,28 @@ impl VkCtx {
     }
   }
 
-  pub fn destroy(&mut self) {
+  pub unsafe fn destroy(&mut self) {
     info!("AppVk::destroy()");
     let device = &self.device.device;
-    unsafe {
-      device.device_wait_idle().unwrap();
+    // device.device_wait_idle().unwrap();
 
-      self.synchronize.destroy(device);
-      // depth_buffer.destroy(&device, &allocator).unwrap();
-      // vertex_buffer.destroy(&allocator).unwrap();
-      // index_buffer.destroy(&allocator).unwrap();
-      self.command_buffers.destroy(device);
-      self.swapchain.destroy(device);
-      self.pipelines.destroy(device);
-      self.render_passes.destroy(device);
-      self.surface_loader.destroy_surface(self.surface_khr, None);
-      self.allocator.destroy();
+    self.synchronize.destroy(device);
+    // depth_buffer.destroy(&device, &allocator).unwrap();
+    // vertex_buffer.destroy(&allocator).unwrap();
+    // index_buffer.destroy(&allocator).unwrap();
+    self.command_buffers.destroy(device);
+    self.swapchain.destroy(device);
+    device.destroy_pipeline_cache(self.pipeline_cache, None);
+    self.surface_loader.destroy_surface(self.surface_khr, None);
+    self.allocator.destroy();
 
-      self
-        .debug_utils_loader
-        .destroy_debug_utils_messenger(self.debug_messenger, None);
+    self
+      .debug_utils_loader
+      .destroy_debug_utils_messenger(self.debug_messenger, None);
 
-      self.device.destroy();
+    self.device.destroy();
 
-      self.instance.destroy_instance(None);
-    }
+    self.instance.destroy_instance(None);
     info!("AppVk::destroy() finished");
   }
 }
