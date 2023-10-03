@@ -1,12 +1,26 @@
 use crate::vk_utils::VkBuffer;
 
-/// TODO camera, objects{meshes, materials, tfx}[]
+pub struct WorldEntity {
+  pub name: String,
+
+  // mesh:
+  pub vertex_buffer: VkBuffer,
+  // index_buffer: VkBuffer,
+  pub vertex_count: u32,
+  // TODO material
+  // TODO tfx? Or just precalc hardcoded model matrix. We have static data here..
+}
+
 pub struct World {
-  pub triangle_vertex_buffer: VkBuffer,
+  /// TODO camera
+  pub entities: Vec<WorldEntity>,
 }
 
 impl World {
   pub fn destroy(&self, allocator: &vk_mem::Allocator) -> () {
-    self.triangle_vertex_buffer.delete(allocator);
+    for entity in &self.entities {
+      entity.vertex_buffer.delete(allocator);
+      // entity.index_buffer.delete(allocator);
+    }
   }
 }

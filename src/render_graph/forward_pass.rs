@@ -5,6 +5,7 @@ use bytemuck;
 use glam::Vec4;
 use log::trace;
 
+use crate::scene::World;
 use crate::vk_ctx::VkCtx;
 use crate::vk_utils::*;
 
@@ -176,7 +177,7 @@ impl ForwardPass {
       // .flags(vk::PipelineCreateFlags::)
       .stages(&[stage_vs, stage_fs])
       .vertex_input_state(&vertex_input_state)
-      .input_assembly_state(&ps_ia_triangle_fan())
+      .input_assembly_state(&ps_ia_triangle_fan()) // TODO not needed with indexed draw?
       // .tessellation_state(tessellation_state)
       .viewport_state(&ps_viewport_single_dynamic())
       .rasterization_state(&ps_raster_polygons(vk::CullModeFlags::NONE)) // TODO cull backfaces
@@ -209,7 +210,7 @@ impl ForwardPass {
     &self,
     device: &ash::Device,
     command_buffer: vk::CommandBuffer,
-    vertex_buffer: &VkBuffer,
+    scene: &World,
     framebuffer: vk::Framebuffer,
     size: vk::Extent2D,
   ) -> () {
@@ -253,8 +254,13 @@ impl ForwardPass {
         vk::PipelineBindPoint::GRAPHICS,
         self.pipeline,
       );
-      device.cmd_bind_vertex_buffers(command_buffer, 0, &[vertex_buffer.buffer], &[0]);
-      device.cmd_draw(command_buffer, 4, 1, 0, 0);
+
+      for entity in &scene.entities {
+        device.cmd_bind_vertex_buffers(command_buffer, 0, &[entity.vertex_buffer.buffer], &[0]);
+        // device.cmd_bind_index_buffer(command_buffer, buffer, 0, vk::IndexType::UINT32);
+        device.cmd_draw(command_buffer, entity.vertex_count, 1, 0, 0);
+        // device.cmd_draw_indexed(command_buffer, 4, 1, 0, 0, 0);
+      }
 
       device.cmd_end_render_pass(command_buffer)
     }

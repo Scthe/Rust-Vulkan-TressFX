@@ -98,13 +98,9 @@ impl RenderGraph {
       .expect("Failed - begin_command_buffer");
     }
 
-    self.forward_pass.execute(
-      &device,
-      cmd_buf,
-      &scene.triangle_vertex_buffer,
-      framebuffer,
-      swapchain.size,
-    );
+    self
+      .forward_pass
+      .execute(&device, cmd_buf, &scene, framebuffer, swapchain.size);
 
     unsafe {
       device

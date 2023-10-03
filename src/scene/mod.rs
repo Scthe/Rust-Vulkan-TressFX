@@ -6,10 +6,18 @@ use crate::vk_ctx::VkCtx;
 use crate::vk_utils::*;
 
 pub use self::world::World;
+pub use self::world::WorldEntity;
 
 mod world;
 
 pub fn load_scene(vk_ctx: &VkCtx) -> World {
+  let debug_triangle = create_debug_triangles_scene(vk_ctx);
+  World {
+    entities: vec![debug_triangle],
+  }
+}
+
+fn create_debug_triangles_scene(vk_ctx: &VkCtx) -> WorldEntity {
   let vertices = [
     TriangleVertex::new((0.0, 0.5), (1.0, 0.0, 0.0)), // red
     TriangleVertex::new((0.5, -0.5), (0.0, 1.0, 0.0)), // green
@@ -27,7 +35,10 @@ pub fn load_scene(vk_ctx: &VkCtx) -> World {
     vk_ctx.device.queue_family_index,
   );
 
-  World {
-    triangle_vertex_buffer: vertex_buffer,
+  WorldEntity {
+    name: String::from("DebugTriangles"),
+    vertex_buffer,
+    // index_buffer: VkBuffer,
+    vertex_count: 3u32,
   }
 }
