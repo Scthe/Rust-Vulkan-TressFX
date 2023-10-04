@@ -8,8 +8,8 @@
 # TODO spirv-reflect
 
 
-SHADER_SRC_DIR := src/shaders
-SHADER_OUT_DIR := src/shaders-compiled
+SHADER_SRC_DIR := assets/shaders
+SHADER_OUT_DIR := assets/shaders-compiled
 SHADER_SRC_FILES := $(wildcard $(SHADER_SRC_DIR)/*.glsl)
 SHADER_OUT_FILES := $(patsubst $(SHADER_SRC_DIR)/%.glsl,$(SHADER_OUT_DIR)/%.spv,$(SHADER_SRC_FILES))
 

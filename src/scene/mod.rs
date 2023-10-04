@@ -19,15 +19,14 @@ pub fn load_scene(vk_ctx: &VkCtx) -> World {
 
 fn create_debug_triangles_scene(vk_ctx: &VkCtx) -> WorldEntity {
   let vertices = [
-    TriangleVertex::new((0.0, 0.5), (1.0, 0.0, 0.0)), // red
-    TriangleVertex::new((0.5, -0.5), (0.0, 1.0, 0.0)), // green
-    TriangleVertex::new((-0.5, -0.5), (0.0, 0.0, 1.0)), // blue
-    TriangleVertex::new((-0.4, 0.4), (1.0, 1.0, 1.0)), // white
+    TriangleVertex::new((-0.5, -0.5), (1.0, 0.0, 0.0)), // 0, BL, red
+    TriangleVertex::new((0.5, -0.5), (0.0, 0.0, 1.0)),  // 2, BR, blue
+    TriangleVertex::new((0.5, 0.5), (1.0, 1.0, 1.0)),   // 3, TR, white
+    TriangleVertex::new((-0.5, 0.5), (0.0, 1.0, 0.0)),  // 1, TL, green
   ];
-  let vertices_bytes = bytemuck::cast_slice(&vertices);
-  info!("Vertex buffer bytes={}", vertices_bytes.len());
-
+  info!("Triangle vertex buffer: {} vertices", vertices.len());
   // allocate
+  let vertices_bytes = bytemuck::cast_slice(&vertices);
   let vertex_buffer = VkBuffer::from_data(
     vertices_bytes,
     vk::BufferUsageFlags::VERTEX_BUFFER,
@@ -35,10 +34,28 @@ fn create_debug_triangles_scene(vk_ctx: &VkCtx) -> WorldEntity {
     vk_ctx.device.queue_family_index,
   );
 
+  // index buffer
+  let indices = [
+    0u32, 1u32, 2u32, //
+    2u32, 3u32, 0u32, //
+  ];
+  info!(
+    "Triangle index buffer: {} indices, {} triangles",
+    indices.len(),
+    indices.len() / 3
+  );
+  let indices_bytes = bytemuck::cast_slice(&indices);
+  let index_buffer = VkBuffer::from_data(
+    indices_bytes,
+    vk::BufferUsageFlags::INDEX_BUFFER,
+    &vk_ctx.allocator,
+    vk_ctx.device.queue_family_index,
+  );
+
   WorldEntity {
     name: String::from("DebugTriangles"),
     vertex_buffer,
-    // index_buffer: VkBuffer,
-    vertex_count: 3u32,
+    index_buffer,
+    vertex_count: indices.len() as u32,
   }
 }

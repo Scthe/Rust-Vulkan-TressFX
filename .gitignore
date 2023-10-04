@@ -4,6 +4,4 @@ workspace.code-workspace
 # app
 /target
 /reference
-/assets
-
-/src/shaders-compiled
+/assets/shaders-compiled

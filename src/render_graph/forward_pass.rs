@@ -154,12 +154,12 @@ impl ForwardPass {
     let (module_vs, stage_vs) = load_shader(
       device,
       vk::ShaderStageFlags::VERTEX,
-      std::path::Path::new("./src/shaders-compiled/triangle.vert.spv"),
+      std::path::Path::new("./assets/shaders-compiled/triangle.vert.spv"),
     );
     let (module_fs, stage_fs) = load_shader(
       device,
       vk::ShaderStageFlags::FRAGMENT,
-      std::path::Path::new("./src/shaders-compiled/triangle.frag.spv"),
+      std::path::Path::new("./assets/shaders-compiled/triangle.frag.spv"),
     );
 
     let vertex_input_state = vk::PipelineVertexInputStateCreateInfo::builder()
@@ -177,7 +177,7 @@ impl ForwardPass {
       // .flags(vk::PipelineCreateFlags::)
       .stages(&[stage_vs, stage_fs])
       .vertex_input_state(&vertex_input_state)
-      .input_assembly_state(&ps_ia_triangle_fan()) // TODO not needed with indexed draw?
+      .input_assembly_state(&ps_ia_triangle_list())
       // .tessellation_state(tessellation_state)
       .viewport_state(&ps_viewport_single_dynamic())
       .rasterization_state(&ps_raster_polygons(vk::CullModeFlags::NONE)) // TODO cull backfaces
@@ -257,9 +257,13 @@ impl ForwardPass {
 
       for entity in &scene.entities {
         device.cmd_bind_vertex_buffers(command_buffer, 0, &[entity.vertex_buffer.buffer], &[0]);
-        // device.cmd_bind_index_buffer(command_buffer, buffer, 0, vk::IndexType::UINT32);
-        device.cmd_draw(command_buffer, entity.vertex_count, 1, 0, 0);
-        // device.cmd_draw_indexed(command_buffer, 4, 1, 0, 0, 0);
+        device.cmd_bind_index_buffer(
+          command_buffer,
+          entity.index_buffer.buffer,
+          0,
+          vk::IndexType::UINT32,
+        );
+        device.cmd_draw_indexed(command_buffer, entity.vertex_count, 1, 0, 0, 0);
       }
 
       device.cmd_end_render_pass(command_buffer)

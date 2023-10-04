@@ -5,9 +5,10 @@ pub struct WorldEntity {
 
   // mesh:
   pub vertex_buffer: VkBuffer,
-  // index_buffer: VkBuffer,
+  pub index_buffer: VkBuffer,
   pub vertex_count: u32,
   // TODO material
+  // pub uniforms_buffer: VkBuffer, // material+tfx+..., bind as descriptor set
   // TODO tfx? Or just precalc hardcoded model matrix. We have static data here..
 }
 
@@ -20,7 +21,7 @@ impl World {
   pub fn destroy(&self, allocator: &vk_mem::Allocator) -> () {
     for entity in &self.entities {
       entity.vertex_buffer.delete(allocator);
-      // entity.index_buffer.delete(allocator);
+      entity.index_buffer.delete(allocator);
     }
   }
 }
