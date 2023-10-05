@@ -10,7 +10,7 @@ pub fn create_framebuffer(
   image_views: &[vk::ImageView],
   size: &vk::Extent2D,
 ) -> vk::Framebuffer {
-  trace!("Will create framebuffer {}x{}", size.width, size.height);
+  // trace!("Will create framebuffer {}x{}", size.width, size.height);
 
   let create_info = vk::FramebufferCreateInfo::builder()
     .render_pass(render_pass)
@@ -24,7 +24,7 @@ pub fn create_framebuffer(
       .create_framebuffer(&create_info, None)
       .expect("Failed to create framebuffer")
   };
-  trace!("Framebuffer created");
+  // trace!("Framebuffer created");
 
   framebuffer
 }

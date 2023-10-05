@@ -46,6 +46,10 @@ impl VkCtx {
     self.swapchain.image_views.len()
   }
 
+  pub fn window_size(&self) -> vk::Extent2D {
+    self.swapchain.size
+  }
+
   pub fn data_per_frame(&self, frame_idx: usize) -> VkCtxPerSwapchainImageData {
     let cmd_bufs = &self.command_buffers.cmd_buffers;
     let syncs = &self.synchronize;

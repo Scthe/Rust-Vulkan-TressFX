@@ -157,7 +157,6 @@ pub fn pick_device_and_queue(
     .enabled_extension_names(&device_extension_names_raw)
     .build();
 
-  trace!("Will pick logical device (just before create_device())");
   let device: ash::Device = unsafe {
     instance
       .create_device(phys_device, &device_create_info, None)

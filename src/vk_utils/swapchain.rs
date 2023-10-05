@@ -65,9 +65,9 @@ pub fn get_swapchain_format(
       .get_physical_device_surface_formats(phys_device, surface_khr)
       .unwrap()
   };
-  for &x in &surface_formats {
-    trace!("Surface fmt: {:?}", x);
-  }
+  // for &x in &surface_formats {
+  // trace!("Surface fmt: {:?}", x);
+  // }
 
   // return surface_formats.first();
 
@@ -91,7 +91,7 @@ pub fn get_surface_capabilities(
       .get_physical_device_surface_capabilities(device, surface_khr)
       .unwrap()
   };
-  trace!("surface_capabilities {:?}", surface_capabilities);
+  trace!("Surface_capabilities {:?}", surface_capabilities);
   surface_capabilities
 }
 
