@@ -1,3 +1,4 @@
+use ash::version::DeviceV1_0;
 use log::{info, trace};
 use vk_mem;
 
@@ -40,7 +41,10 @@ fn get_window_size(window: &winit::window::Window) -> vk::Extent2D {
     .build()
 }
 
-// https://github.com/MaikKlein/ash/blob/master/examples/src/lib.rs#L332
+/// Glorified constructor for `VkCtx`, moved to separate file to be a bit cleaner.
+///
+/// Reference:
+/// - https://github.com/MaikKlein/ash/blob/master/examples/src/lib.rs#L332
 pub fn vk_ctx_initialize(window: &winit::window::Window) -> VkCtx {
   let (entry, instance) = create_instance();
   let (debug_utils_loader, debug_messenger) = setup_debug_reporting(&entry, &instance);
@@ -77,7 +81,7 @@ pub fn vk_ctx_initialize(window: &winit::window::Window) -> VkCtx {
     &device,
     swapchain_format.format,
   );
-  let frames_in_flight = swapchain_images.len();
+  let frames_in_flight = swapchain_images.len() as u32;
   info!("Will use {} frames in flight", frames_in_flight);
 
   // command buffers
@@ -93,13 +97,29 @@ pub fn vk_ctx_initialize(window: &winit::window::Window) -> VkCtx {
     // cfg:
     flags: vk_mem::AllocatorCreateFlags::NONE, // or maybe even EXTERNALLY_SYNCHRONIZED ?
     preferred_large_heap_block_size: 0,        // pls only <256 MiB
-    frame_in_use_count: frames_in_flight as u32,
+    frame_in_use_count: frames_in_flight,
     heap_size_limits: None, // ugh, I guess?
   })
   .expect("Failed creating memory allocator (VMA lib init)");
 
   // pipeline_cache
   let pipeline_cache = create_pipeline_cache(&device);
+
+  // descriptor_pool
+  // TODO util that takes `(&[vk::DescriptorType], frames_in_flight)`?
+  let descriptor_pool_size = vk::DescriptorPoolSize::builder()
+    .ty(vk::DescriptorType::UNIFORM_BUFFER)
+    .descriptor_count(frames_in_flight)
+    .build();
+  let descriptor_pool_create_info = vk::DescriptorPoolCreateInfo::builder()
+    .pool_sizes(&[descriptor_pool_size])
+    .max_sets(frames_in_flight)
+    .build();
+  let descriptor_pool = unsafe {
+    device
+      .create_descriptor_pool(&descriptor_pool_create_info, None)
+      .expect("Failed reseting command pool for 1st time")
+  };
 
   VkCtx {
     entry,
@@ -113,7 +133,7 @@ pub fn vk_ctx_initialize(window: &winit::window::Window) -> VkCtx {
       image_views: swapchain_image_views,
       images: swapchain_images,
     },
-    synchronize: VkCtxSynchronize::new(&device, frames_in_flight),
+    synchronize: VkCtxSynchronize::new(&device, frames_in_flight as usize),
     device: VkCtxDevice {
       phys_device,
       queue_family_index,
@@ -125,6 +145,7 @@ pub fn vk_ctx_initialize(window: &winit::window::Window) -> VkCtx {
       cmd_buffers: cmd_bufs,
     },
     pipeline_cache,
+    descriptor_pool,
     surface_loader,
     surface_khr,
     debug_utils_loader,

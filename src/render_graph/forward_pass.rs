@@ -4,6 +4,7 @@ use ash::vk;
 use bytemuck;
 use glam::Vec4;
 use log::trace;
+use vk_mem::ffi::VkStructureType_VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_LAYOUT_SUPPORT_EXT;
 
 use crate::scene::World;
 use crate::vk_ctx::VkCtx;
@@ -15,6 +16,8 @@ pub struct TriangleVertex {
   pos: Vec4, // TODO Vec2, Vec3 are enough
   color: Vec4,
 }
+unsafe impl bytemuck::Zeroable for TriangleVertex {}
+unsafe impl bytemuck::Pod for TriangleVertex {}
 
 impl TriangleVertex {
   pub fn new(pos: (f32, f32), col: (f32, f32, f32)) -> TriangleVertex {
@@ -50,22 +53,20 @@ impl TriangleVertex {
   }
 }
 
-unsafe impl bytemuck::Zeroable for TriangleVertex {}
-unsafe impl bytemuck::Pod for TriangleVertex {}
-
 pub struct ForwardPass {
   pub render_pass: vk::RenderPass,
   pipeline: vk::Pipeline,
   pipeline_layout: vk::PipelineLayout,
+  pub ubo_descriptors: vk::DescriptorSetLayout,
 }
 
 impl ForwardPass {
   pub fn new(vk_app: &VkCtx, image_format: vk::Format) -> Self {
-    let device = &vk_app.device.device;
+    let device = vk_app.vk_device();
     let pipeline_cache = &vk_app.pipeline_cache;
 
     let render_pass = ForwardPass::create_render_pass(device, image_format);
-    let pipeline_layout = ForwardPass::create_pipeline_layout(device);
+    let (pipeline_layout, ubo_descriptors) = ForwardPass::create_pipeline_layout(device);
     let pipeline =
       ForwardPass::create_pipeline(device, pipeline_cache, &render_pass, &pipeline_layout);
 
@@ -73,7 +74,15 @@ impl ForwardPass {
       render_pass,
       pipeline,
       pipeline_layout,
+      ubo_descriptors,
     }
+  }
+
+  pub unsafe fn destroy(&self, device: &ash::Device) {
+    device.destroy_render_pass(self.render_pass, None);
+    device.destroy_pipeline_layout(self.pipeline_layout, None);
+    device.destroy_pipeline(self.pipeline, None);
+    device.destroy_descriptor_set_layout(self.ubo_descriptors, None);
   }
 
   fn create_render_pass(device: &ash::Device, image_format: vk::Format) -> vk::RenderPass {
@@ -131,14 +140,36 @@ impl ForwardPass {
     render_pass
   }
 
-  fn create_pipeline_layout(device: &ash::Device) -> vk::PipelineLayout {
+  fn create_pipeline_layout(device: &ash::Device) -> (vk::PipelineLayout, vk::DescriptorSetLayout) {
+    // ubos
+    let scene_ubo = vk::DescriptorSetLayoutBinding::builder()
+      .binding(0)
+      .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
+      .descriptor_count(1)
+      .stage_flags(vk::ShaderStageFlags::VERTEX)
+      .build();
+
+    let ubo_descriptors_create_info = vk::DescriptorSetLayoutCreateInfo::builder()
+      .bindings(&[scene_ubo])
+      .build();
+    // TODO this is a property of ubo, not related to forward pass
+    let ubo_descriptors = unsafe {
+      device
+        .create_descriptor_set_layout(&ubo_descriptors_create_info, None)
+        .expect("Failed to create DescriptorSetLayout")
+    };
+
     // texture/buffer bindings
-    let create_info = vk::PipelineLayoutCreateInfo::builder().build();
-    unsafe {
+    let create_info = vk::PipelineLayoutCreateInfo::builder()
+      .set_layouts(&[ubo_descriptors])
+      .build();
+    let pipeline_layout = unsafe {
       device
         .create_pipeline_layout(&create_info, None)
         .expect("Failed to create pipeline layout")
-    }
+    };
+
+    (pipeline_layout, ubo_descriptors)
   }
 
   fn create_pipeline(
@@ -212,6 +243,7 @@ impl ForwardPass {
     command_buffer: vk::CommandBuffer,
     scene: &World,
     framebuffer: vk::Framebuffer,
+    descriptor_set: vk::DescriptorSet,
     size: vk::Extent2D,
   ) -> () {
     let render_area = size_to_rect_vk(&size);
@@ -254,6 +286,14 @@ impl ForwardPass {
         vk::PipelineBindPoint::GRAPHICS,
         self.pipeline,
       );
+      device.cmd_bind_descriptor_sets(
+        command_buffer,
+        vk::PipelineBindPoint::GRAPHICS,
+        self.pipeline_layout,
+        0,
+        &[descriptor_set],
+        &[],
+      );
 
       for entity in &scene.entities {
         device.cmd_bind_vertex_buffers(command_buffer, 0, &[entity.vertex_buffer.buffer], &[0]);
@@ -268,11 +308,5 @@ impl ForwardPass {
 
       device.cmd_end_render_pass(command_buffer)
     }
-  }
-
-  pub unsafe fn destroy(&self, device: &ash::Device) {
-    device.destroy_render_pass(self.render_pass, None);
-    device.destroy_pipeline_layout(self.pipeline_layout, None);
-    device.destroy_pipeline(self.pipeline, None);
   }
 }

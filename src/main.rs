@@ -7,7 +7,11 @@ use winit::{
   window::WindowBuilder,
 };
 
-use crate::{render_graph::RenderGraph, scene::load_scene, vk_ctx::vk_ctx_initialize};
+use crate::{
+  render_graph::RenderGraph,
+  scene::{load_scene, CameraSettings},
+  vk_ctx::vk_ctx_initialize,
+};
 
 mod render_graph;
 mod scene;
@@ -30,14 +34,31 @@ fn main() {
     .with_inner_size(LogicalSize::new(800f64, 600f64))
     .build(&event_loop)
     .unwrap();
+  info!("Window init: OK!");
 
-  // init renderer
+  // init vulkan: create device, init structures etc.
   let mut vk_app = vk_ctx_initialize(&window);
-  info!("Render init went OK!");
-  let render_graph = RenderGraph::new(&vk_app);
+  info!("Vulkan init: OK!");
 
   // scene
-  let scene = load_scene(&vk_app);
+  let app_window_size = vk_app.window_size();
+  let aspect_ratio: f32 = app_window_size.width as f32 / app_window_size.height as f32;
+  let scene = load_scene(
+    &vk_app,
+    CameraSettings {
+      fov_dgr: 75.0,
+      aspect_ratio,
+      z_near: 0.1,
+      z_far: 100.0,
+    },
+  );
+  info!("Scene init: OK!");
+
+  let mut render_graph = RenderGraph::new(&vk_app);
+  (0..vk_app.frames_in_flight()).for_each(|frame_id| {
+    render_graph.update_scene_uniform_buffer(&scene, frame_id);
+  });
+  info!("Render Graph init: OK!");
 
   // last pre-run ops
   info!("Starting event loop");
@@ -75,14 +96,14 @@ fn main() {
       Event::LoopDestroyed => {
         info!("EventLoop is shutting down");
 
-        let device = &vk_app.device.device;
+        let device = vk_app.vk_device();
         unsafe {
           // wait to finish current in-flight
           device.device_wait_idle().unwrap();
 
           // destroy resources as all frames finished rendering
           scene.destroy(&vk_app.allocator);
-          render_graph.destroy(&vk_app.device.device);
+          render_graph.destroy(&vk_app);
           vk_app.destroy();
         }
       }

@@ -1,5 +1,7 @@
 use crate::vk_utils::VkBuffer;
 
+use super::Camera;
+
 pub struct WorldEntity {
   pub name: String,
 
@@ -13,7 +15,7 @@ pub struct WorldEntity {
 }
 
 pub struct World {
-  /// TODO camera
+  pub camera: Camera,
   pub entities: Vec<WorldEntity>,
 }
 

@@ -31,7 +31,7 @@ clean:
 		echo CLEANED
 
 # run: clean build_shaders
-run:
+run: build_shaders
 	cargo run
 
 # build: clean build_shaders

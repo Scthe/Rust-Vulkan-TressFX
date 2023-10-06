@@ -10,6 +10,7 @@ mod device;
 mod load_shader;
 mod pipeline;
 mod swapchain;
+mod uniforms;
 mod vk_buffer;
 
 pub use create_command_buffers::*;
@@ -23,4 +24,5 @@ pub use device::*;
 pub use load_shader::*;
 pub use pipeline::*;
 pub use swapchain::*;
+pub use uniforms::*;
 pub use vk_buffer::*;

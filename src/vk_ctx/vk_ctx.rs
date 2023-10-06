@@ -30,6 +30,7 @@ pub struct VkCtx {
   pub device: VkCtxDevice,
   pub command_buffers: VkCtxCommandBuffers,
   pub pipeline_cache: vk::PipelineCache,
+  pub descriptor_pool: vk::DescriptorPool,
   pub allocator: vk_mem::Allocator,
 
   // surface
@@ -48,6 +49,10 @@ impl VkCtx {
 
   pub fn window_size(&self) -> vk::Extent2D {
     self.swapchain.size
+  }
+
+  pub fn vk_device(&self) -> &ash::Device {
+    &self.device.device
   }
 
   pub fn data_per_frame(&self, frame_idx: usize) -> VkCtxPerSwapchainImageData {
@@ -76,9 +81,7 @@ impl VkCtx {
     // device.device_wait_idle().unwrap();
 
     self.synchronize.destroy(device);
-    // depth_buffer.destroy(&device, &allocator).unwrap();
-    // vertex_buffer.destroy(&allocator).unwrap();
-    // index_buffer.destroy(&allocator).unwrap();
+    device.destroy_descriptor_pool(self.descriptor_pool, None);
     self.command_buffers.destroy(device);
     self.swapchain.destroy(device);
     device.destroy_pipeline_cache(self.pipeline_cache, None);

@@ -5,15 +5,17 @@ use crate::render_graph::TriangleVertex;
 use crate::vk_ctx::VkCtx;
 use crate::vk_utils::*;
 
-pub use self::world::World;
-pub use self::world::WorldEntity;
+pub use self::camera::*;
+pub use self::world::*;
 
+mod camera;
 mod world;
 
-pub fn load_scene(vk_ctx: &VkCtx) -> World {
+pub fn load_scene(vk_ctx: &VkCtx, cam_settings: CameraSettings) -> World {
   let debug_triangle = create_debug_triangles_scene(vk_ctx);
   World {
     entities: vec![debug_triangle],
+    camera: Camera::new(cam_settings),
   }
 }
 
@@ -28,6 +30,7 @@ fn create_debug_triangles_scene(vk_ctx: &VkCtx) -> WorldEntity {
   // allocate
   let vertices_bytes = bytemuck::cast_slice(&vertices);
   let vertex_buffer = VkBuffer::from_data(
+    "TriangleVertexBuffer".to_string(),
     vertices_bytes,
     vk::BufferUsageFlags::VERTEX_BUFFER,
     &vk_ctx.allocator,
@@ -46,6 +49,7 @@ fn create_debug_triangles_scene(vk_ctx: &VkCtx) -> WorldEntity {
   );
   let indices_bytes = bytemuck::cast_slice(&indices);
   let index_buffer = VkBuffer::from_data(
+    "TriangleIndexBuffer".to_string(),
     indices_bytes,
     vk::BufferUsageFlags::INDEX_BUFFER,
     &vk_ctx.allocator,

@@ -4,10 +4,10 @@ use ash::vk;
 pub fn create_command_buffers(
   device: &ash::Device,
   cmd_pool: vk::CommandPool,
-  count: usize,
+  count: u32,
 ) -> Vec<vk::CommandBuffer> {
   let cmd_buf_create_info = vk::CommandBufferAllocateInfo::builder()
-    .command_buffer_count(count as u32)
+    .command_buffer_count(count)
     .command_pool(cmd_pool)
     .level(vk::CommandBufferLevel::PRIMARY)
     .build();
