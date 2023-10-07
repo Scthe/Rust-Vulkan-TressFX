@@ -3,7 +3,9 @@ use glam::{vec3, Vec3};
 use log::info;
 use winit::{
   dpi::LogicalSize,
-  event::{Event, MouseScrollDelta, VirtualKeyCode, WindowEvent},
+  event::{
+    DeviceEvent, ElementState, Event, MouseButton, MouseScrollDelta, VirtualKeyCode, WindowEvent,
+  },
   event_loop::{ControlFlow, EventLoop},
   window::WindowBuilder,
 };
@@ -64,6 +66,7 @@ fn main() {
   // last pre-run ops
   info!("Starting event loop");
   let mut current_frame_in_flight_idx: usize = 0;
+  let mut is_left_mouse_button_pressed = false;
 
   // start event loop
   event_loop.run(move |event, _, control_flow| {
@@ -93,12 +96,55 @@ fn main() {
 
       // mouse wheel
       Event::WindowEvent {
+        // TODO use DeviceEvent not WindowEvent?
         event: WindowEvent::MouseWheel { delta, .. },
         ..
       } => {
         if let MouseScrollDelta::LineDelta(_, delta_y) = delta {
           scene.camera.move_forward(delta_y);
         }
+      }
+
+      // cursor moved - part of rotate
+      Event::DeviceEvent {
+        event: DeviceEvent::MouseMotion { delta, .. },
+        ..
+      } => {
+        if is_left_mouse_button_pressed {
+          // info!("Mouse delta {:?}", delta);
+          scene
+            .camera
+            .rotate_yaw_pitch(delta.0 as f32, delta.1 as f32);
+        }
+      }
+
+      // mouse buttons
+      Event::WindowEvent {
+        event: WindowEvent::MouseInput { button, state, .. },
+        ..
+      } => {
+        // info!("button={:?}, state={:?}", button, state);
+        if button == MouseButton::Left {
+          is_left_mouse_button_pressed = state == ElementState::Pressed;
+        }
+      }
+
+      // window focus
+      Event::WindowEvent {
+        event: WindowEvent::Focused(is_focused),
+        ..
+      } => {
+        info!("Window focus change. Are we in focus: {:?}", is_focused);
+        is_left_mouse_button_pressed = false;
+      }
+
+      // window focus
+      Event::WindowEvent {
+        event: WindowEvent::CursorLeft { .. },
+        ..
+      } => {
+        info!("Cursor left the window");
+        is_left_mouse_button_pressed = false;
       }
 
       // redraw
@@ -137,6 +183,6 @@ fn parse_camera_move_key_code(keycode_opt: Option<VirtualKeyCode>) -> Vec3 {
     Some(keycode) if keycode == VirtualKeyCode::D => vec3(1f32, 0f32, 0f32),
     Some(keycode) if keycode == VirtualKeyCode::Space => vec3(0f32, 1f32, 0f32),
     Some(keycode) if keycode == VirtualKeyCode::Z => vec3(0f32, -1f32, 0f32),
-    _ => Vec3::zero(),
+    _ => Vec3::ZERO,
   }
 }
