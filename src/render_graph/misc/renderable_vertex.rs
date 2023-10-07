@@ -35,13 +35,13 @@ impl RenderableVertex {
       vk::VertexInputAttributeDescription {
         binding: 0,
         location: 0,
-        format: vk::Format::R32G32B32A32_SFLOAT,
+        format: vk::Format::R32G32_SFLOAT,
         offset: 0, // offsetof(RenderableVertex, pos),
       },
       vk::VertexInputAttributeDescription {
         binding: 0,
         location: 1,
-        format: vk::Format::R32G32B32A32_SFLOAT,
+        format: vk::Format::R32G32B32_SFLOAT,
         offset: std::mem::size_of::<Vec4>() as u32, // offsetted by 'position' from beginning of structure
       },
     ]

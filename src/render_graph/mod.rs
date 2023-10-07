@@ -160,6 +160,9 @@ impl RenderGraph {
     };
     let framebuffer = self.framebuffer_for_swapchain_image(swapchain_image_index);
 
+    // update per-frame uniforms
+    self.update_scene_uniform_buffer(scene, swapchain_image_index);
+
     unsafe {
       device
         .wait_for_fences(&[frame_data.draw_command_fence], true, u64::MAX)
@@ -227,8 +230,7 @@ impl RenderGraph {
     }
   }
 
-  // TODO do not need to be `pub`, call this from `execute_render_graph`
-  pub fn update_scene_uniform_buffer(&self, scene: &World, swapchain_image_index: usize) {
+  fn update_scene_uniform_buffer(&self, scene: &World, swapchain_image_index: u32) {
     let camera = &scene.camera;
     let v = camera.view_matrix().clone(); // TODO clone?
     let p = camera.perspective_matrix().clone();

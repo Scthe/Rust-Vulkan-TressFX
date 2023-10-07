@@ -1,8 +1,9 @@
 use ash::version::DeviceV1_0;
+use glam::{vec3, Vec3};
 use log::info;
 use winit::{
   dpi::LogicalSize,
-  event::{Event, VirtualKeyCode, WindowEvent},
+  event::{Event, MouseScrollDelta, VirtualKeyCode, WindowEvent},
   event_loop::{ControlFlow, EventLoop},
   window::WindowBuilder,
 };
@@ -43,7 +44,7 @@ fn main() {
   // scene
   let app_window_size = vk_app.window_size();
   let aspect_ratio: f32 = app_window_size.width as f32 / app_window_size.height as f32;
-  let scene = load_scene(
+  let mut scene = load_scene(
     &vk_app,
     CameraSettings {
       fov_dgr: 75.0,
@@ -55,9 +56,9 @@ fn main() {
   info!("Scene init: OK!");
 
   let mut render_graph = RenderGraph::new(&vk_app);
-  (0..vk_app.frames_in_flight()).for_each(|frame_id| {
-    render_graph.update_scene_uniform_buffer(&scene, frame_id);
-  });
+  // (0..vk_app.frames_in_flight()).for_each(|frame_id| {
+  // render_graph.update_scene_uniform_buffer(&scene, frame_id);
+  // });
   info!("Render Graph init: OK!");
 
   // last pre-run ops
@@ -85,8 +86,22 @@ fn main() {
         if input.virtual_keycode == Some(VirtualKeyCode::Escape) {
           *control_flow = ControlFlow::Exit;
         }
+
+        let camera_move = parse_camera_move_key_code(input.virtual_keycode);
+        scene.camera.move_(camera_move);
       }
 
+      // mouse wheel
+      Event::WindowEvent {
+        event: WindowEvent::MouseWheel { delta, .. },
+        ..
+      } => {
+        if let MouseScrollDelta::LineDelta(_, delta_y) = delta {
+          scene.camera.move_forward(delta_y);
+        }
+      }
+
+      // redraw
       Event::MainEventsCleared => {
         render_graph.execute_render_graph(&vk_app, &scene, current_frame_in_flight_idx);
         current_frame_in_flight_idx = (current_frame_in_flight_idx + 1) % vk_app.frames_in_flight()
@@ -112,4 +127,16 @@ fn main() {
       _ => (),
     }
   });
+}
+
+fn parse_camera_move_key_code(keycode_opt: Option<VirtualKeyCode>) -> Vec3 {
+  match keycode_opt {
+    Some(keycode) if keycode == VirtualKeyCode::W => vec3(0f32, 0f32, 1f32),
+    Some(keycode) if keycode == VirtualKeyCode::S => vec3(0f32, 0f32, -1f32),
+    Some(keycode) if keycode == VirtualKeyCode::A => vec3(-1f32, 0f32, 0f32),
+    Some(keycode) if keycode == VirtualKeyCode::D => vec3(1f32, 0f32, 0f32),
+    Some(keycode) if keycode == VirtualKeyCode::Space => vec3(0f32, 1f32, 0f32),
+    Some(keycode) if keycode == VirtualKeyCode::Z => vec3(0f32, -1f32, 0f32),
+    _ => Vec3::zero(),
+  }
 }
