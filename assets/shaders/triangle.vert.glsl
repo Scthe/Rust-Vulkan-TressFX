@@ -12,7 +12,7 @@ layout(location = 1) in vec4 inColor; // Consumes 1 location, so next would be 2
 layout(location = 0) out vec3 fragColor; // Consumes 1 location
 
 void main() {
-  vec4 pos = vec4(inPosition.xy, -2.0, 1.0);
+  vec4 pos = vec4(inPosition.xy, 0.0, 1.0);
   gl_Position = scene_ubo.vp * pos;
   fragColor = inColor.rgb;
 }

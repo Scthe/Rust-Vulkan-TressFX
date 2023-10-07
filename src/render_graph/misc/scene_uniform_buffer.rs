@@ -6,6 +6,8 @@ use glam::Mat4;
 
 static mut SCENE_UNIFORM_BUFFER_LAYOUT: Option<vk::DescriptorSetLayout> = None;
 
+// TODO rename to GlobalSharedUniformBuffer - config overwritten by UI anyway..
+
 #[derive(Copy, Clone, Debug)] // , bytemuck::Zeroable, bytemuck::Pod
 #[repr(C)]
 pub struct SceneUniformBuffer {

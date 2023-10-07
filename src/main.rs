@@ -89,6 +89,11 @@ fn main() {
         if input.virtual_keycode == Some(VirtualKeyCode::Escape) {
           *control_flow = ControlFlow::Exit;
         }
+        if input.virtual_keycode == Some(VirtualKeyCode::F) {
+          // debug
+          let (side, up, forward) = scene.camera.get_rotation_axes();
+          info!("Camera(side={}, up={}, forward={})", side, up, forward)
+        }
 
         let camera_move = parse_camera_move_key_code(input.virtual_keycode);
         scene.camera.move_(camera_move);
@@ -177,8 +182,8 @@ fn main() {
 
 fn parse_camera_move_key_code(keycode_opt: Option<VirtualKeyCode>) -> Vec3 {
   match keycode_opt {
-    Some(keycode) if keycode == VirtualKeyCode::W => vec3(0f32, 0f32, 1f32),
-    Some(keycode) if keycode == VirtualKeyCode::S => vec3(0f32, 0f32, -1f32),
+    Some(keycode) if keycode == VirtualKeyCode::W => vec3(0f32, 0f32, -1f32),
+    Some(keycode) if keycode == VirtualKeyCode::S => vec3(0f32, 0f32, 1f32),
     Some(keycode) if keycode == VirtualKeyCode::A => vec3(-1f32, 0f32, 0f32),
     Some(keycode) if keycode == VirtualKeyCode::D => vec3(1f32, 0f32, 0f32),
     Some(keycode) if keycode == VirtualKeyCode::Space => vec3(0f32, 1f32, 0f32),

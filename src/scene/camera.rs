@@ -1,10 +1,8 @@
-use glam::{vec3, EulerRot, Mat4, Vec3};
-use log::{info, warn};
+use glam::{vec3, vec4, Mat4, Vec3, Vec4Swizzles};
 
 const ROTATE_SENSITIVITY: f32 = 0.002;
 const MOVE_SENSITIVITY: f32 = 0.05;
 const WHEEL_SENSITIVITY: f32 = 0.2;
-const VULKAN_UP: Vec3 = vec3(0.0, 1.0, 0.0);
 
 pub struct CameraSettings {
   pub fov_dgr: f32,
@@ -25,20 +23,15 @@ pub struct Camera {
 impl Camera {
   pub fn new(s: CameraSettings) -> Camera {
     let dst = 2.0;
-    // let position = Vec3::new(-dst, dst, -dst);
-    let position = Vec3::new(0f32, 0f32, -dst);
-    let rotation_yaw = 0.0f32;
-    let rotation_pitch = 0.0f32; // 0.0f32;
+    let position = Vec3::new(dst, 0f32, dst);
+    let rotation_yaw = -45f32.to_radians(); // 0.0f32;
+    let rotation_pitch = 0.0f32;
 
     Camera {
       position,
       rotation_yaw,
       rotation_pitch,
-      // view_matrix: Mat4::from_translation(Vec3::ZERO),
-      // view_matrix: Mat4::look_at_rh(position, Vec3::zero(), VULKAN_UP),
-      // view_matrix: Camera::recalc_view_matrix(position),
-      view_matrix: Camera::recalc_view_matrix(position, rotation_yaw, rotation_pitch),
-      // view_matrix: Mat4::identity(),
+      view_matrix: calc_view_matrix(position, rotation_yaw, rotation_pitch),
       // https://matthewwellings.com/blog/the-new-vulkan-coordinate-system/
       // https://www.saschawillems.de/blog/2019/03/29/flipping-the-vulkan-viewport/
       // though glam does have fixes already implemented
@@ -48,7 +41,6 @@ impl Camera {
         s.z_near,
         s.z_far,
       ),
-      // perspective_matrix: Mat4::identity(),
     }
   }
 
@@ -79,25 +71,55 @@ impl Camera {
     self.apply_move(delta * MOVE_SENSITIVITY);
   }
 
-  // TODO multiply by delta time?
+  /// TODO multiply by delta time?
+  /// - `delta` is in camera local space
   fn apply_move(&mut self, delta: Vec3) {
-    self.position = self.position + delta;
+    let mut mat_rot = calc_rotation_matrix(self.rotation_yaw, self.rotation_pitch);
+    // invert as we have to revert to get proper vectors in rows
+    // tbh we could revert order of mat4*vec4 into vec4*mat4 if lib supports it
+    mat_rot = mat_rot.transpose();
+
+    let delta_global = mat_rot * vec4(delta.x, delta.y, delta.z, 1.0);
+    self.position = self.position + delta_global.xyz();
+    /*trace!(
+      "apply_move(old_position={}, Δlocal={})  --- Δglobal={} ----> position={}",
+      old_position,
+      delta,
+      delta_global,
+      self.position
+    );*/
     self.update_view_matrix();
   }
 
   fn update_view_matrix(&mut self) {
-    self.view_matrix =
-      Camera::recalc_view_matrix(self.position, self.rotation_yaw, self.rotation_pitch);
+    self.view_matrix = calc_view_matrix(self.position, self.rotation_yaw, self.rotation_pitch);
   }
 
-  // https://github.com/h3r2tic/dolly/blob/main/src/drivers/yaw_pitch.rs#L83 ?
-  // fn recalc_view_matrix(position: Vec3, yaw: f32, pitch: f32) -> Mat4 {
-  fn recalc_view_matrix(position: Vec3, yaw: f32, pitch: f32) -> Mat4 {
-    let mat_rot = Mat4::from_euler(EulerRot::YXZ, yaw, pitch, 0.0);
-
-    mat_rot
+  /// Mostly for debug
+  /// - returns `(side, up, forward)`
+  pub fn get_rotation_axes(&self) -> (Vec3, Vec3, Vec3) {
+    let mut mat_rot = calc_rotation_matrix(self.rotation_yaw, self.rotation_pitch);
+    mat_rot = mat_rot.transpose();
+    (
+      (mat_rot * vec4(1.0, 0.0, 0.0, 1.0)).xyz(),
+      (mat_rot * vec4(0.0, 1.0, 0.0, 1.0)).xyz(),
+      (mat_rot * vec4(0.0, 0.0, 1.0, 1.0)).xyz(),
+    )
   }
-  // fn recalc_view_matrix(position: Vec3) -> Mat4 {
-  // Mat4::look_at_rh(position, Vec3::ZERO, VULKAN_UP)
-  // }
+}
+
+fn calc_view_matrix(position: Vec3, yaw: f32, pitch: f32) -> Mat4 {
+  let mat_rot = calc_rotation_matrix(yaw, pitch);
+
+  // we have to reverse position, as moving camera X units
+  // moves scene -X units
+  let mat_tra = Mat4::from_translation(-position);
+
+  mat_rot * mat_tra
+}
+
+fn calc_rotation_matrix(yaw: f32, pitch: f32) -> Mat4 {
+  let mat_p = Mat4::from_rotation_x(pitch);
+  let mat_y = Mat4::from_rotation_y(yaw);
+  mat_p * mat_y
 }
