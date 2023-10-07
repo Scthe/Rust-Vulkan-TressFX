@@ -6,6 +6,31 @@ use crate::vk_utils::VkBuffer;
 
 // https://vulkan-tutorial.com/Uniform_buffers/Descriptor_layout_and_buffer <3
 
+pub fn create_descriptor_pool(
+  device: &ash::Device,
+  descriptor_types: &[vk::DescriptorType],
+  frames_in_flight: u32,
+) -> vk::DescriptorPool {
+  let descriptor_pool_size: Vec<vk::DescriptorPoolSize> = descriptor_types
+    .iter()
+    .map(|descriptor_type| {
+      vk::DescriptorPoolSize::builder()
+        .ty(*descriptor_type)
+        .descriptor_count(frames_in_flight)
+        .build()
+    })
+    .collect();
+  let descriptor_pool_create_info = vk::DescriptorPoolCreateInfo::builder()
+    .pool_sizes(&descriptor_pool_size[..]) // creat slice
+    .max_sets(frames_in_flight)
+    .build();
+  unsafe {
+    device
+      .create_descriptor_pool(&descriptor_pool_create_info, None)
+      .expect("Failed creating descriptor pool for 1st time")
+  }
+}
+
 /// Creates `$in_flight_frames` descriptor sets based on the provided layout
 pub unsafe fn create_descriptor_set(
   device: &ash::Device,

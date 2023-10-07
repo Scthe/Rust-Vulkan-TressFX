@@ -106,20 +106,11 @@ pub fn vk_ctx_initialize(window: &winit::window::Window) -> VkCtx {
   let pipeline_cache = create_pipeline_cache(&device);
 
   // descriptor_pool
-  // TODO util that takes `(&[vk::DescriptorType], frames_in_flight)`?
-  let descriptor_pool_size = vk::DescriptorPoolSize::builder()
-    .ty(vk::DescriptorType::UNIFORM_BUFFER)
-    .descriptor_count(frames_in_flight)
-    .build();
-  let descriptor_pool_create_info = vk::DescriptorPoolCreateInfo::builder()
-    .pool_sizes(&[descriptor_pool_size])
-    .max_sets(frames_in_flight)
-    .build();
-  let descriptor_pool = unsafe {
-    device
-      .create_descriptor_pool(&descriptor_pool_create_info, None)
-      .expect("Failed reseting command pool for 1st time")
-  };
+  let descriptor_pool = create_descriptor_pool(
+    &device,
+    &[vk::DescriptorType::UNIFORM_BUFFER],
+    frames_in_flight,
+  );
 
   VkCtx {
     entry,

@@ -4,7 +4,6 @@ use ash;
 use ash::version::DeviceV1_0;
 use ash::vk;
 use bytemuck;
-use glam::Mat4;
 use log::trace;
 
 use crate::scene::World;
@@ -14,17 +13,21 @@ use crate::vk_utils::{
 };
 
 mod forward_pass;
+mod misc;
+
 use self::forward_pass::ForwardPass;
 pub use self::forward_pass::TriangleVertex;
+use self::misc::SceneUniformBuffer;
 
 pub struct RenderGraph {
   forward_pass: ForwardPass,
   framebuffers: Vec<vk::Framebuffer>,
-  descriptor_sets: Vec<vk::DescriptorSet>,
+
   // Never refreshed - constants for whole runtime
   // config_uniform_buffers: Vec<VkBuffer>,
   /// Refreshed once every frame. Contains e.g. camera data
   scene_uniform_buffers: Vec<VkBuffer>,
+  scene_descriptor_sets: Vec<vk::DescriptorSet>,
   // Refreshed every frame per object (so A LOT). Contains e.g. model matrix
   // model_uniform_buffers: Vec<VkBuffer>,
 }
@@ -51,33 +54,43 @@ impl RenderGraph {
       .map(|&iv| create_framebuffer(device, forward_pass.render_pass, &[iv], window_size))
       .collect();
 
-    // uniform buffers
-    let descriptor_sets = unsafe {
+    // scene uniform buffers - descriptor sets (one per frame in flight)
+    let scene_descriptor_layout = SceneUniformBuffer::get_layout(device);
+    let scene_descriptor_sets = unsafe {
       create_descriptor_set(
         device,
         &vk_app.descriptor_pool,
         in_flight_frames,
-        &forward_pass.ubo_descriptors,
+        &scene_descriptor_layout,
       )
     };
-    let scene_uniform_buffers = RenderGraph::create_scene_uniform_buffers(vk_app, in_flight_frames);
+    // scene uniform buffers - memory allocations
+    let scene_uniform_buffers =
+      RenderGraph::allocate_scene_uniform_buffers(vk_app, in_flight_frames);
 
+    // uniform buffers - connect descriptor sets with allocated buffer data
     (0..in_flight_frames).for_each(|i| {
-      let descriptor_set = &descriptor_sets[i];
+      let descriptor_set = &scene_descriptor_sets[i];
       let buffer = &scene_uniform_buffers[i];
-      // TODO create consts for bindings
-      unsafe { bind_uniform_buffer_to_descriptor(device, 0, buffer, descriptor_set) };
+      unsafe {
+        bind_uniform_buffer_to_descriptor(
+          device,
+          SceneUniformBuffer::BINDING_INDEX,
+          buffer,
+          descriptor_set,
+        )
+      };
     });
 
     RenderGraph {
       forward_pass,
       framebuffers,
-      descriptor_sets,
+      scene_descriptor_sets,
       scene_uniform_buffers,
     }
   }
 
-  fn create_scene_uniform_buffers(vk_app: &VkCtx, in_flight_frames: usize) -> Vec<VkBuffer> {
+  fn allocate_scene_uniform_buffers(vk_app: &VkCtx, in_flight_frames: usize) -> Vec<VkBuffer> {
     let size = size_of::<SceneUniformBuffer>() as _;
     let usage = vk::BufferUsageFlags::UNIFORM_BUFFER;
 
@@ -101,13 +114,16 @@ impl RenderGraph {
   pub unsafe fn destroy(&mut self, vk_app: &VkCtx) {
     let device = vk_app.vk_device();
 
+    // passes
     self.forward_pass.destroy(device);
 
+    // framebuffers
     for &framebuffer in &self.framebuffers {
       device.destroy_framebuffer(framebuffer, None);
     }
 
     // uniform buffers
+    SceneUniformBuffer::destroy_layout(device);
     let allocator = &vk_app.allocator;
     self.scene_uniform_buffers.iter_mut().for_each(|buffer| {
       buffer.unmap_memory(allocator);
@@ -170,7 +186,7 @@ impl RenderGraph {
       cmd_buf,
       &scene,
       framebuffer,
-      self.descriptor_sets[swapchain_image_index as usize],
+      self.scene_descriptor_sets[swapchain_image_index as usize],
       swapchain.size,
     );
 
@@ -231,15 +247,3 @@ impl RenderGraph {
     self.framebuffers[swapchain_image_index as usize]
   }
 }
-
-// TODO move this to separate file
-// TODO move layout as a static lazy field here with static getter
-// TODO add static binding field?
-#[derive(Copy, Clone, Debug)] // , bytemuck::Zeroable, bytemuck::Pod
-#[repr(C)]
-pub struct SceneUniformBuffer {
-  // view projection matrix for current camera
-  u_vp: Mat4,
-}
-unsafe impl bytemuck::Zeroable for SceneUniformBuffer {}
-unsafe impl bytemuck::Pod for SceneUniformBuffer {}

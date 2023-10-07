@@ -1,6 +1,6 @@
 #version 450
 
-layout(binding = 0) 
+layout(binding = 1) 
 uniform SceneUBO {
     mat4 vp;
 } scene_ubo;
