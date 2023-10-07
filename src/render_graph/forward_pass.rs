@@ -1,58 +1,14 @@
 use ash;
 use ash::version::DeviceV1_0;
 use ash::vk;
-use bytemuck;
-use glam::Vec4;
 use log::trace;
 
+use crate::render_graph::misc::RenderableVertex;
 use crate::scene::World;
 use crate::vk_ctx::VkCtx;
 use crate::vk_utils::*;
 
 use super::misc::SceneUniformBuffer;
-
-#[derive(Copy, Clone, Debug)] // , bytemuck::Zeroable, bytemuck::Pod
-#[repr(C)]
-pub struct TriangleVertex {
-  pos: Vec4, // TODO Vec2, Vec3 are enough
-  color: Vec4,
-}
-unsafe impl bytemuck::Zeroable for TriangleVertex {}
-unsafe impl bytemuck::Pod for TriangleVertex {}
-
-impl TriangleVertex {
-  pub fn new(pos: (f32, f32), col: (f32, f32, f32)) -> TriangleVertex {
-    TriangleVertex {
-      pos: Vec4::new(pos.0, pos.1, 0.0f32, 1.0f32),
-      color: Vec4::new(col.0, col.1, col.2, 1.0f32),
-    }
-  }
-
-  fn get_bindings_descriptions() -> [vk::VertexInputBindingDescription; 1] {
-    [vk::VertexInputBindingDescription {
-      binding: 0,
-      input_rate: vk::VertexInputRate::VERTEX,
-      stride: std::mem::size_of::<TriangleVertex>() as u32,
-    }]
-  }
-
-  fn get_attributes_descriptions() -> [vk::VertexInputAttributeDescription; 2] {
-    [
-      vk::VertexInputAttributeDescription {
-        binding: 0,
-        location: 0,
-        format: vk::Format::R32G32_SFLOAT,
-        offset: 0, // offsetof(TriangleVertex, pos),
-      },
-      vk::VertexInputAttributeDescription {
-        binding: 0,
-        location: 1,
-        format: vk::Format::R32G32B32_SFLOAT,
-        offset: std::mem::size_of::<Vec4>() as u32, // offsetted by 'position' from beginning of structure
-      },
-    ]
-  }
-}
 
 pub struct ForwardPass {
   pub render_pass: vk::RenderPass,
@@ -176,8 +132,8 @@ impl ForwardPass {
     );
 
     let vertex_input_state = vk::PipelineVertexInputStateCreateInfo::builder()
-      .vertex_attribute_descriptions(&TriangleVertex::get_attributes_descriptions())
-      .vertex_binding_descriptions(&TriangleVertex::get_bindings_descriptions())
+      .vertex_attribute_descriptions(&RenderableVertex::get_attributes_descriptions())
+      .vertex_binding_descriptions(&RenderableVertex::get_bindings_descriptions())
       .build();
 
     let dynamic_state = ps_dynamic_state(&[

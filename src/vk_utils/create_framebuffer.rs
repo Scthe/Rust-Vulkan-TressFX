@@ -1,5 +1,3 @@
-use log::trace;
-
 use ash;
 use ash::version::DeviceV1_0;
 use ash::vk;

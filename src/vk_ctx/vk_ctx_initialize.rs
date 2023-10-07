@@ -1,4 +1,3 @@
-use ash::version::DeviceV1_0;
 use log::{info, trace};
 use vk_mem;
 

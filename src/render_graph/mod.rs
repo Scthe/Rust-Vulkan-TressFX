@@ -16,7 +16,7 @@ mod forward_pass;
 mod misc;
 
 use self::forward_pass::ForwardPass;
-pub use self::forward_pass::TriangleVertex;
+pub use self::misc::RenderableVertex;
 use self::misc::SceneUniformBuffer;
 
 pub struct RenderGraph {

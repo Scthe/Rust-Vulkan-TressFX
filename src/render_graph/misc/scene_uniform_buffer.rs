@@ -4,10 +4,6 @@ use ash::vk;
 use bytemuck;
 use glam::Mat4;
 
-use crate::vk_utils::{
-  bind_uniform_buffer_to_descriptor, create_descriptor_set, create_framebuffer, VkBuffer,
-};
-
 static mut SCENE_UNIFORM_BUFFER_LAYOUT: Option<vk::DescriptorSetLayout> = None;
 
 #[derive(Copy, Clone, Debug)] // , bytemuck::Zeroable, bytemuck::Pod

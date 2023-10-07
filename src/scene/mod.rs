@@ -1,7 +1,7 @@
 use ash::vk;
 use log::info;
 
-use crate::render_graph::TriangleVertex;
+use crate::render_graph::RenderableVertex;
 use crate::vk_ctx::VkCtx;
 use crate::vk_utils::*;
 
@@ -21,10 +21,10 @@ pub fn load_scene(vk_ctx: &VkCtx, cam_settings: CameraSettings) -> World {
 
 fn create_debug_triangles_scene(vk_ctx: &VkCtx) -> WorldEntity {
   let vertices = [
-    TriangleVertex::new((-0.5, -0.5), (1.0, 0.0, 0.0)), // 0, BL, red
-    TriangleVertex::new((0.5, -0.5), (0.0, 0.0, 1.0)),  // 2, BR, blue
-    TriangleVertex::new((0.5, 0.5), (1.0, 1.0, 1.0)),   // 3, TR, white
-    TriangleVertex::new((-0.5, 0.5), (0.0, 1.0, 0.0)),  // 1, TL, green
+    RenderableVertex::new((-0.5, -0.5), (1.0, 0.0, 0.0)), // 0, BL, red
+    RenderableVertex::new((0.5, -0.5), (0.0, 0.0, 1.0)),  // 2, BR, blue
+    RenderableVertex::new((0.5, 0.5), (1.0, 1.0, 1.0)),   // 3, TR, white
+    RenderableVertex::new((-0.5, 0.5), (0.0, 1.0, 0.0)),  // 1, TL, green
   ];
   info!("Triangle vertex buffer: {} vertices", vertices.len());
   // allocate
