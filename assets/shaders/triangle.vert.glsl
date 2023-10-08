@@ -6,13 +6,14 @@ uniform SceneUBO {
 } scene_ubo;
 
 // https://www.khronos.org/opengl/wiki/Layout_Qualifier_(GLSL)
-layout(location = 0) in vec4 inPosition; // Consumes 1 location, so next is 1
-layout(location = 1) in vec4 inColor; // Consumes 1 location, so next would be 2
+layout(location=0) in vec3 in_Position;
+layout(location=1) in vec3 in_Normal;
+layout(location=2) in vec2 in_UV;
 
 layout(location = 0) out vec3 fragColor; // Consumes 1 location
 
 void main() {
-  vec4 pos = vec4(inPosition.xy, 0.0, 1.0);
+  vec4 pos = vec4(in_Position.xyz, 1.0);
   gl_Position = scene_ubo.vp * pos;
-  fragColor = inColor.rgb;
+  fragColor = in_Normal.rgb;
 }

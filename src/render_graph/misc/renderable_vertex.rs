@@ -1,24 +1,29 @@
 use ash;
 use ash::vk;
 use bytemuck;
-use glam::Vec4;
+use glam::{Vec2, Vec3};
 
 /// Represents vertex layout that is used for each renderable object in the scene.
 /// Rendered in `ForwardPass`
 #[derive(Copy, Clone, Debug)] // , bytemuck::Zeroable, bytemuck::Pod
 #[repr(C)]
 pub struct RenderableVertex {
-  pos: Vec4, // TODO Vec3, Vec2 are enough
-  color: Vec4,
+  /// position in 3d space
+  pub position: Vec3,
+  /// normalized normal vector for this vertex
+  pub normal: Vec3,
+  /// uv texture coordinates
+  pub uv: Vec2,
 }
 unsafe impl bytemuck::Zeroable for RenderableVertex {}
 unsafe impl bytemuck::Pod for RenderableVertex {}
 
 impl RenderableVertex {
-  pub fn new(pos: (f32, f32), col: (f32, f32, f32)) -> RenderableVertex {
+  pub fn new(pos: (f32, f32, f32), n: (f32, f32, f32), uv: (f32, f32)) -> RenderableVertex {
     RenderableVertex {
-      pos: Vec4::new(pos.0, pos.1, 0.0f32, 1.0f32),
-      color: Vec4::new(col.0, col.1, col.2, 1.0f32),
+      position: Vec3::new(pos.0, pos.1, pos.2),
+      normal: Vec3::new(n.0, n.1, n.2),
+      uv: Vec2::new(uv.0, uv.1),
     }
   }
 
@@ -30,19 +35,30 @@ impl RenderableVertex {
     }]
   }
 
-  pub fn get_attributes_descriptions() -> [vk::VertexInputAttributeDescription; 2] {
+  pub fn get_attributes_descriptions() -> [vk::VertexInputAttributeDescription; 3] {
     [
+      // position
       vk::VertexInputAttributeDescription {
         binding: 0,
         location: 0,
-        format: vk::Format::R32G32_SFLOAT,
+        format: vk::Format::R32G32B32_SFLOAT,
         offset: 0, // offsetof(RenderableVertex, pos),
       },
+      // normal
       vk::VertexInputAttributeDescription {
         binding: 0,
         location: 1,
         format: vk::Format::R32G32B32_SFLOAT,
-        offset: std::mem::size_of::<Vec4>() as u32, // offsetted by 'position' from beginning of structure
+        // offsetted by 'position' from beginning of structure
+        offset: std::mem::size_of::<Vec3>() as u32,
+      },
+      // uv
+      vk::VertexInputAttributeDescription {
+        binding: 0,
+        location: 2,
+        format: vk::Format::R32G32_SFLOAT,
+        // offsetted by 'position' and 'normal' from beginning of structure
+        offset: 2 * std::mem::size_of::<Vec3>() as u32,
       },
     ]
   }
