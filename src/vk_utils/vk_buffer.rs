@@ -1,5 +1,6 @@
 use ash::vk;
 use std::marker::{Send, Sync};
+use vma::Alloc;
 
 // https://gpuopen-librariesandsdks.github.io/VulkanMemoryAllocator/html/quick_start.html
 // https://github.com/expenses/vulkan-base/blob/main/ash-helpers/src/lib.rs
@@ -19,7 +20,7 @@ pub struct VkBuffer {
   pub size: usize,
   /// Native Vulkan buffer
   pub buffer: vk::Buffer,
-  pub allocation: vk_mem::Allocation,
+  pub allocation: vma::Allocation,
   // mapping
   mapped_pointer: Option<MemoryMapPointer>,
 }
@@ -37,7 +38,7 @@ impl VkBuffer {
     name: String,
     size: usize,
     usage: vk::BufferUsageFlags,
-    allocator: &vk_mem::Allocator,
+    allocator: &vma::Allocator,
     queue_family: u32,
     mappable: bool,
   ) -> Self {
@@ -48,8 +49,9 @@ impl VkBuffer {
       .sharing_mode(vk::SharingMode::EXCLUSIVE)
       .queue_family_indices(&queue_family_indices);
 
-    let mut alloc_info = vk_mem::AllocationCreateInfo {
-      usage: vk_mem::MemoryUsage::GpuOnly,
+    #[allow(deprecated)]
+    let mut alloc_info = vma::AllocationCreateInfo {
+      usage: vma::MemoryUsage::GpuOnly,
       ..Default::default()
     };
     if mappable {
@@ -57,9 +59,11 @@ impl VkBuffer {
         vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT;
     }
 
-    let (buffer, allocation, _allocation_info) = allocator
-      .create_buffer(&buffer_info, &alloc_info)
-      .expect(&format!("Failed allocating: {}", fmt_buf_name(&name, size)));
+    let (buffer, allocation) = unsafe {
+      allocator
+        .create_buffer(&buffer_info, &alloc_info)
+        .expect(&format!("Failed allocating: {}", fmt_buf_name(&name, size)))
+    };
 
     Self {
       name,
@@ -75,7 +79,7 @@ impl VkBuffer {
     name: String,
     bytes: &[u8],
     usage: vk::BufferUsageFlags,
-    allocator: &vk_mem::Allocator,
+    allocator: &vma::Allocator,
     queue_family: u32,
   ) -> Self {
     let size = bytes.len();
@@ -93,23 +97,23 @@ impl VkBuffer {
     buffer
   }
 
-  pub fn map_memory(&mut self, allocator: &vk_mem::Allocator) -> *mut u8 {
+  pub fn map_memory(&mut self, allocator: &vma::Allocator) -> *mut u8 {
     if let Some(ptr) = &self.mapped_pointer {
       ptr.0
     } else {
-      let pointer = allocator
-        .map_memory(&self.allocation)
-        .expect(&format!("Failed mapping: {}", self.name()));
+      let pointer = unsafe {
+        allocator
+          .map_memory(&mut self.allocation)
+          .expect(&format!("Failed mapping: {}", self.name()))
+      };
       self.mapped_pointer = Some(MemoryMapPointer(pointer));
       pointer
     }
   }
 
-  pub fn unmap_memory(&mut self, allocator: &vk_mem::Allocator) {
+  pub fn unmap_memory(&mut self, allocator: &vma::Allocator) {
     if self.mapped_pointer.take().is_some() {
-      allocator
-        .unmap_memory(&self.allocation)
-        .expect(&format!("Failed unmapping: {}", self.name()));
+      unsafe { allocator.unmap_memory(&mut self.allocation) };
     }
   }
 
@@ -128,9 +132,7 @@ impl VkBuffer {
     fmt_buf_name(&self.name, self.size)
   }
 
-  pub fn delete(&self, allocator: &vk_mem::Allocator) -> () {
-    allocator
-      .destroy_buffer(self.buffer, &self.allocation)
-      .expect("Failed deleting buffer");
+  pub unsafe fn delete(&mut self, allocator: &vma::Allocator) -> () {
+    allocator.destroy_buffer(self.buffer, &mut self.allocation)
   }
 }

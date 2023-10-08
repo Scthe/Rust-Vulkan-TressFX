@@ -1,5 +1,5 @@
 use log::{info, trace};
-use vk_mem;
+use vma;
 
 use ash;
 use ash::extensions::khr::{Surface, Swapchain};
@@ -88,17 +88,11 @@ pub fn vk_ctx_initialize(window: &winit::window::Window) -> VkCtx {
   let cmd_bufs = create_command_buffers(&device, cmd_pool, frames_in_flight);
 
   // gpu memory allocator
-  let allocator = vk_mem::Allocator::new(&vk_mem::AllocatorCreateInfo {
-    // All 3 needed by VMA
-    device: device.clone(),
-    physical_device: phys_device,
-    instance: instance.clone(),
-    // cfg:
-    flags: vk_mem::AllocatorCreateFlags::NONE, // or maybe even EXTERNALLY_SYNCHRONIZED ?
-    preferred_large_heap_block_size: 0,        // pls only <256 MiB
-    frame_in_use_count: frames_in_flight,
-    heap_size_limits: None, // ugh, I guess?
-  })
+  let allocator = vma::Allocator::new(vma::AllocatorCreateInfo::new(
+    &instance,
+    &device,
+    phys_device,
+  ))
   .expect("Failed creating memory allocator (VMA lib init)");
 
   // pipeline_cache

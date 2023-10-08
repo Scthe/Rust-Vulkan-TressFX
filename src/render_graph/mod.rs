@@ -1,7 +1,6 @@
 use std::mem::size_of;
 
 use ash;
-use ash::version::DeviceV1_0;
 use ash::vk;
 use bytemuck;
 use log::trace;

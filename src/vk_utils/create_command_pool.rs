@@ -1,4 +1,3 @@
-use ash::version::DeviceV1_0;
 use ash::vk;
 
 pub fn create_command_pool(device: &ash::Device, queue_family_index: u32) -> vk::CommandPool {

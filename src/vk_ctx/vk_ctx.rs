@@ -3,7 +3,6 @@ use log::info;
 use ash;
 use ash::extensions::ext::DebugUtils;
 use ash::extensions::khr::Surface;
-use ash::version::{DeviceV1_0, InstanceV1_0};
 use ash::vk;
 
 use super::*;
@@ -31,7 +30,7 @@ pub struct VkCtx {
   pub command_buffers: VkCtxCommandBuffers,
   pub pipeline_cache: vk::PipelineCache,
   pub descriptor_pool: vk::DescriptorPool,
-  pub allocator: vk_mem::Allocator,
+  pub allocator: vma::Allocator,
 
   // surface
   pub surface_loader: Surface,
@@ -76,7 +75,7 @@ impl VkCtx {
   }
 
   pub unsafe fn destroy(&mut self) {
-    info!("AppVk::destroy()");
+    info!("VkCtx::destroy()");
     let device = &self.device.device;
     // device.device_wait_idle().unwrap();
 
@@ -86,7 +85,8 @@ impl VkCtx {
     self.swapchain.destroy(device);
     device.destroy_pipeline_cache(self.pipeline_cache, None);
     self.surface_loader.destroy_surface(self.surface_khr, None);
-    self.allocator.destroy();
+    // TODO causes error on app close
+    // self.allocator.destroy(); // Used through Drop trait
 
     self
       .debug_utils_loader
@@ -95,6 +95,6 @@ impl VkCtx {
     self.device.destroy();
 
     self.instance.destroy_instance(None);
-    info!("AppVk::destroy() finished");
+    info!("VkCtx::destroy() finished");
   }
 }

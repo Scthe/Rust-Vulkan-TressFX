@@ -1,7 +1,6 @@
 use log::trace;
 
 use ash;
-use ash::version::DeviceV1_0;
 use ash::vk;
 
 // https://github.com/zeux/niagara/blob/master/src/shaders.cpp

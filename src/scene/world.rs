@@ -20,8 +20,8 @@ pub struct World {
 }
 
 impl World {
-  pub fn destroy(&self, allocator: &vk_mem::Allocator) -> () {
-    for entity in &self.entities {
+  pub unsafe fn destroy(&mut self, allocator: &vma::Allocator) -> () {
+    for entity in &mut self.entities {
       entity.vertex_buffer.delete(allocator);
       entity.index_buffer.delete(allocator);
     }

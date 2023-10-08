@@ -1,5 +1,4 @@
 use ash;
-use ash::version::DeviceV1_0;
 use ash::vk;
 
 use crate::vk_utils::{create_fences, create_semaphores};

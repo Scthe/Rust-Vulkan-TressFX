@@ -1,4 +1,3 @@
-use ash::version::DeviceV1_0;
 use glam::{vec3, Vec3};
 use log::info;
 use winit::{

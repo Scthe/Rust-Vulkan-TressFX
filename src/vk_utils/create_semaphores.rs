@@ -1,4 +1,3 @@
-use ash::version::DeviceV1_0;
 use ash::vk;
 
 pub fn create_semaphores(device: &ash::Device, count: usize) -> Vec<vk::Semaphore> {

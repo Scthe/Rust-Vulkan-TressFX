@@ -1,6 +1,5 @@
 #![allow(dead_code)]
 use ash;
-use ash::version::DeviceV1_0;
 use ash::vk;
 
 use super::{create_viewport, size_to_rect_vk};
@@ -131,7 +130,7 @@ fn ps_color_attachments_write_all(
 
   // PS. I always hated blend state
   let write_all = vk::PipelineColorBlendAttachmentState::builder()
-    .color_write_mask(vk::ColorComponentFlags::all())
+    .color_write_mask(vk::ColorComponentFlags::RGBA)
     .blend_enable(false)
     .build();
 

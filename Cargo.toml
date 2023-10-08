@@ -43,15 +43,16 @@ glam = { version = "^0.24.2", features = ["debug-glam-assert"] }
 # --IMPLEMENT DEBUG/DEFAULT/CLONE ETC.
 # derivative = "2.1.1"
 # --CAST TYPES TO RAW
-bytemuck = "1.7.2"
+bytemuck = "1.14"
 
 
 # --WINDOW INIT
+# winit = "^0.28.0"
 winit = "^0.23.0"
 # --WINDOWS API
 winapi = "^0.3.9"
 # --LIBC
-libc = "^0.2.80"
+libc = "^0.2.149"
 # --IMGUI
 # imgui-sys
 # imgui
@@ -64,11 +65,13 @@ libc = "^0.2.80"
 
 
 # --VULKAN
-ash = "^0.31.0"
+ash = "^0.37"
 # -- layout(std140) GENERATE STRUCT
 # glsl_layout
-# -- RUST BINDINGS FOR AMD VULKAN MEMORY ALLOCATOR (VMA) - by gwihlidal
-vk-mem = "0.2.2"
+# -- [DEPRECATED] RUST BINDINGS FOR AMD VULKAN MEMORY ALLOCATOR (VMA) - by gwihlidal
+# vk-mem = "0.2.2"
+# more maintanied version of vk-mem
+vma = "0.3.1"
 # -- SPIR-V REFLECTION
 # https://github.com/gwihlidal/spirv-reflect-rs
 # -- VULKAN SYNC UTILITY

@@ -5,7 +5,6 @@ use ash::extensions::{
   ext::DebugUtils,
   khr::{Surface, Swapchain},
 };
-use ash::version::{DeviceV1_0, EntryV1_0, InstanceV1_0};
 use ash::vk;
 
 #[cfg(target_os = "windows")]
@@ -18,7 +17,9 @@ fn from_c_str<'a>(s: &[std::os::raw::c_char]) -> &'a CStr {
 fn get_app_version() -> u32 {
   let to_u32 = |s: &str| s.parse::<u32>().unwrap();
 
-  vk::make_version(
+  ash::vk::api_version_major(1);
+  ash::vk::make_api_version(
+    0,
     to_u32(env!("CARGO_PKG_VERSION_MAJOR")),
     to_u32(env!("CARGO_PKG_VERSION_MINOR")),
     to_u32(env!("CARGO_PKG_VERSION_PATCH")),
@@ -27,14 +28,14 @@ fn get_app_version() -> u32 {
 
 #[cfg(all(windows))]
 pub fn create_instance() -> (ash::Entry, ash::Instance) {
-  let entry = ash::Entry::new().expect("Failed to create ash::Entry");
+  let entry = unsafe { ash::Entry::load().expect("Failed to create ash::Entry") };
 
   let app_name = CString::new(env!("CARGO_PKG_NAME")).unwrap();
 
   let app_info = vk::ApplicationInfo::builder()
     .application_name(&app_name)
     .application_version(get_app_version())
-    .api_version(vk::make_version(1, 2, 0))
+    .api_version(vk::make_api_version(0, 1, 2, 0))
     .build();
 
   // TODO turn off debug/validation in prod

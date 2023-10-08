@@ -1,6 +1,5 @@
 use ash;
 use ash::extensions::khr::Swapchain;
-use ash::version::DeviceV1_0;
 use ash::vk;
 
 pub struct VkCtxSwapchain {

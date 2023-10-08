@@ -45,7 +45,11 @@ pub fn setup_debug_reporting(
         | vk::DebugUtilsMessageSeverityFlagsEXT::INFO,
       // | vk::DebugUtilsMessageSeverityFlagsEXT::VERBOSE // will cause spam about extensions
     )
-    .message_type(vk::DebugUtilsMessageTypeFlagsEXT::all())
+    .message_type(
+      vk::DebugUtilsMessageTypeFlagsEXT::GENERAL
+        | vk::DebugUtilsMessageTypeFlagsEXT::PERFORMANCE
+        | vk::DebugUtilsMessageTypeFlagsEXT::VALIDATION,
+    )
     .pfn_user_callback(Some(vulkan_debug_callback))
     .build();
 
