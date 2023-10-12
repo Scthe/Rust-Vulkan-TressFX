@@ -3,6 +3,8 @@ use ash::vk;
 
 pub struct VkCtxCommandBuffers {
   pub pool: vk::CommandPool,
+  // Special command buffer used for resource init
+  pub setup_cb: vk::CommandBuffer,
   // one per each swapchain image:
   pub cmd_buffers: Vec<vk::CommandBuffer>,
 }

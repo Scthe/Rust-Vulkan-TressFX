@@ -3,7 +3,7 @@ use vma;
 
 use ash;
 use ash::extensions::khr::{Surface, Swapchain};
-use ash::vk;
+use ash::vk::{self};
 
 use crate::vk_ctx::vk_ctx::VkCtx;
 use crate::vk_ctx::vk_ctx_command_buffers::VkCtxCommandBuffers;
@@ -87,6 +87,9 @@ pub fn vk_ctx_initialize(window: &winit::window::Window) -> VkCtx {
   let cmd_pool = create_command_pool(&device, queue_family_index);
   let cmd_bufs = create_command_buffers(&device, cmd_pool, frames_in_flight);
 
+  // setup cmd buffer
+  let setup_cbs = create_command_buffers(&device, cmd_pool, 1);
+
   // gpu memory allocator
   let allocator = vma::Allocator::new(vma::AllocatorCreateInfo::new(
     &instance,
@@ -99,11 +102,14 @@ pub fn vk_ctx_initialize(window: &winit::window::Window) -> VkCtx {
   let pipeline_cache = create_pipeline_cache(&device);
 
   // descriptor_pool
-  let descriptor_pool = create_descriptor_pool(
-    &device,
-    &[vk::DescriptorType::UNIFORM_BUFFER],
-    frames_in_flight,
-  );
+  let descriptor_types = [
+    vk::DescriptorType::UNIFORM_BUFFER,
+    vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
+  ];
+  let descriptor_pool = create_descriptor_pool(&device, &descriptor_types, frames_in_flight);
+
+  // sampler
+  let sampler = create_sampler(&device, vk::Filter::LINEAR, vk::Filter::LINEAR);
 
   VkCtx {
     entry,
@@ -126,6 +132,7 @@ pub fn vk_ctx_initialize(window: &winit::window::Window) -> VkCtx {
     },
     command_buffers: VkCtxCommandBuffers {
       pool: cmd_pool,
+      setup_cb: setup_cbs[0],
       cmd_buffers: cmd_bufs,
     },
     pipeline_cache,
@@ -134,5 +141,6 @@ pub fn vk_ctx_initialize(window: &winit::window::Window) -> VkCtx {
     surface_khr,
     debug_utils_loader,
     debug_messenger,
+    default_texture_sampler: sampler,
   }
 }

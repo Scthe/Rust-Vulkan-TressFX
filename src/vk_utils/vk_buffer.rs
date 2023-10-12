@@ -9,7 +9,7 @@ use vma::Alloc;
 // If you want to create a buffer or an image, allocate memory for it and bind them together, all in one call, you can use function vmaCreateBuffer(), vmaCreateImage(). This is the easiest and recommended way to use this library
 
 /// Wrapper over a raw pointer to make it moveable and accessible from other threads
-struct MemoryMapPointer(*mut u8);
+pub struct MemoryMapPointer(pub *mut u8);
 unsafe impl Send for MemoryMapPointer {}
 unsafe impl Sync for MemoryMapPointer {}
 
@@ -88,6 +88,7 @@ impl VkBuffer {
     // TODO create temp buffer with `vk::BufferUsageFlags::TRANSFER_SRC`, like in
     // `kajiya-main\crates\lib\kajiya-backend\src\vulkan\buffer.rs`:134
     // Requires 'setup command pool' (.with_setup_cb(|cb| { ... })) for cmd_copy_buffer
+    // https://vulkan-tutorial.com/Texture_mapping/Images#page_Layout-transitions - also used for images
 
     // map buffer and copy content
     buffer.map_memory(allocator);

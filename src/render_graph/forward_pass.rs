@@ -196,6 +196,7 @@ impl ForwardPass {
       .clear_values(&[vk::ClearValue { color: clear_color }])
       .build();
 
+    // TODO no need to rerecord every frame TBH. Everything can be controlled by uniforms etc.
     unsafe {
       /*
       device.cmd_pipeline_barrier(

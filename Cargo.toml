@@ -46,6 +46,8 @@ glam = { version = "^0.24.2", features = ["debug-glam-assert"] }
 bytemuck = "1.14"
 # --OBJ loader
 tobj = "4.0.0"
+# --JPEG loader
+jpeg-decoder = { version = "0.3.0", features = [] }
 
 
 # --WINDOW INIT

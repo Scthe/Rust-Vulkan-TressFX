@@ -1,6 +1,6 @@
 #version 450
 
-layout(binding = 1) 
+layout(binding = 0) 
 uniform SceneUBO {
     mat4 vp;
 } scene_ubo;
@@ -15,5 +15,5 @@ layout(location = 0) out vec3 fragColor; // Consumes 1 location
 void main() {
   vec4 pos = vec4(in_Position.xyz, 1.0);
   gl_Position = scene_ubo.vp * pos;
-  fragColor = in_Normal.rgb;
+  fragColor = vec3(in_UV.xy, in_Normal.x);
 }

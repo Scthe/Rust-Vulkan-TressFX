@@ -3,12 +3,13 @@ use std::mem::size_of;
 use ash;
 use ash::vk;
 use bytemuck;
-use log::trace;
+use log::{trace, warn};
 
 use crate::scene::World;
 use crate::vk_ctx::VkCtx;
 use crate::vk_utils::{
-  bind_uniform_buffer_to_descriptor, create_descriptor_set, create_framebuffer, VkBuffer,
+  create_descriptor_set, create_framebuffer, create_texture_to_descriptor_binding,
+  create_uniform_buffer_to_descriptor_binding, VkBuffer,
 };
 
 mod forward_pass;
@@ -67,20 +68,6 @@ impl RenderGraph {
     let scene_uniform_buffers =
       RenderGraph::allocate_scene_uniform_buffers(vk_app, in_flight_frames);
 
-    // uniform buffers - connect descriptor sets with allocated buffer data
-    (0..in_flight_frames).for_each(|i| {
-      let descriptor_set = &scene_descriptor_sets[i];
-      let buffer = &scene_uniform_buffers[i];
-      unsafe {
-        bind_uniform_buffer_to_descriptor(
-          device,
-          SceneUniformBuffer::BINDING_INDEX,
-          buffer,
-          descriptor_set,
-        )
-      };
-    });
-
     RenderGraph {
       forward_pass,
       framebuffers,
@@ -130,6 +117,69 @@ impl RenderGraph {
     })
   }
 
+  /// uniform buffers - connect descriptor sets with allocated buffer data
+  pub fn bind_data_to_descriptors(
+    &self,
+    in_flight_frame_idx: usize,
+    vk_app: &VkCtx,
+    scene: &World,
+  ) {
+    let device = vk_app.vk_device();
+    let descriptor_set = &self.scene_descriptor_sets[in_flight_frame_idx];
+    let buffer = &self.scene_uniform_buffers[in_flight_frame_idx];
+
+    unsafe {
+      /*
+      TODO use utils below.
+      // ATM `.buffer_info(&[buffer_info])` causes crash as it's ref to obsolete memory
+
+      let ubo_binding = create_uniform_buffer_to_descriptor_binding(
+        SceneUniformBuffer::BINDING_INDEX,
+        buffer,
+        descriptor_set,
+      );
+      let texture_binding = create_texture_to_descriptor_binding(
+        SceneUniformBuffer::TMP_TEXTURE_BINDING_INDEX,
+        &scene.test_texture,
+        vk_app.default_texture_sampler,
+        descriptor_set,
+      );
+      */
+      let buffer_info = vk::DescriptorBufferInfo::builder()
+      .buffer(buffer.buffer)
+      .offset(0)
+      .range(vk::WHOLE_SIZE) // or buffer.size
+      .build();
+
+      let ubo_binding = vk::WriteDescriptorSet::builder()
+      .dst_set(*descriptor_set)
+      .dst_binding(SceneUniformBuffer::BINDING_INDEX)
+      .dst_array_element(0)
+      .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
+      .buffer_info(&[buffer_info]) // points to obsolete data?
+      .build();
+
+      let texture = &scene.test_texture;
+      let sampler = vk_app.default_texture_sampler;
+      let image_info = vk::DescriptorImageInfo::builder()
+        .image_layout(texture.layout)
+        .image_view(texture.image_view())
+        .sampler(sampler)
+        .build();
+      let texture_binding = vk::WriteDescriptorSet::builder()
+        .dst_set(*descriptor_set)
+        .dst_binding(SceneUniformBuffer::TMP_TEXTURE_BINDING_INDEX)
+        .dst_array_element(0)
+        .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+        .image_info(&[image_info])
+        .build();
+
+      // warn!("---UNIFORM_BINDING{:#?}", ubo_binding);
+      // warn!("---TEXTURE_BINDING{:#?}", texture_binding);
+      device.update_descriptor_sets(&[ubo_binding, texture_binding], &[]);
+    };
+  }
+
   pub fn execute_render_graph(&self, vk_app: &VkCtx, scene: &World, frame_idx: usize) {
     // 'heavy' ash's objects
     let device = vk_app.vk_device();
@@ -174,9 +224,9 @@ impl RenderGraph {
     //
     // start record command buffer
     let cmd_buf_begin_info = vk::CommandBufferBeginInfo::builder()
-    // can be one time submit bit for optimization We will rerecord cmds before next submit
-    .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT)
-    .build();
+      // can be one time submit bit for optimization We will rerecord cmds before next submit
+      .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT)
+      .build();
     unsafe {
       device
       .begin_command_buffer(cmd_buf, &cmd_buf_begin_info) // also resets command buffer
@@ -195,7 +245,7 @@ impl RenderGraph {
     unsafe {
       device
         .end_command_buffer(cmd_buf)
-        .expect("Failed - end_command_buffer(");
+        .expect("Failed - end_command_buffer()");
     }
     // end record command buffer
     //

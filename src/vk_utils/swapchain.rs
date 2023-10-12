@@ -164,20 +164,10 @@ pub fn create_swapchain_images(
   trace!("Will create {} swapchain images", swapchain_images.len());
 
   let aspect_mask_flags = vk::ImageAspectFlags::COLOR;
-  let base_mip_level = 0;
-  let mip_level_count = 1;
-
   let swapchain_image_views: Vec<vk::ImageView> = swapchain_images
     .iter()
     .map(|&swapchain_image| {
-      create_image_view(
-        device,
-        swapchain_image,
-        image_format,
-        aspect_mask_flags,
-        base_mip_level,
-        mip_level_count,
-      )
+      create_image_view(device, swapchain_image, image_format, aspect_mask_flags)
     })
     .collect();
 

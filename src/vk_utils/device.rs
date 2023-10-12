@@ -115,12 +115,16 @@ pub fn pick_physical_device_and_queue_family_idx(
   // list of devices that satisfy our conditions
   let mut result = phys_devices.iter().filter_map(|&phys_device| {
     let props = unsafe { instance.get_physical_device_properties(phys_device) };
+    let features = unsafe { instance.get_physical_device_features(phys_device) };
     // trace!("Physical device{:?}", props);
+
     let is_discrete = props.device_type == vk::PhysicalDeviceType::DISCRETE_GPU;
+    let has_anisotropy = features.sampler_anisotropy != vk::FALSE;
+    let phys_device_ok = is_discrete && has_anisotropy;
 
     let graphic_fam_q_idx = find_queue_family(instance, surface_loader, surface_khr, phys_device);
     match graphic_fam_q_idx {
-      Some(idx) if is_discrete => Some((phys_device, idx)),
+      Some(idx) if phys_device_ok => Some((phys_device, idx)),
       _ => None,
     }
   });

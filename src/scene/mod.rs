@@ -17,15 +17,23 @@ mod camera;
 mod world;
 
 pub fn load_scene(vk_ctx: &VkCtx, cam_settings: CameraSettings) -> World {
-  let cube_mesh = load_obj_mesh(vk_ctx, Path::new("./assets/cube.obj"));
+  let test_texture = VkTexture::from_file(
+    &vk_ctx.allocator,
+    vk_ctx,
+    Path::new("./assets/sintel_lite_v2_1/textures/sintel_eyeball_diff.jpg"),
+  );
+
+  // let obj_mesh = load_obj_mesh(vk_ctx, Path::new("./assets/cube.obj"));
+  let obj_mesh = load_obj_mesh(vk_ctx, Path::new("./assets/plane.obj"));
   // panic!("as expected");
 
   // let debug_triangle = create_debug_triangles_scene(vk_ctx);
 
   World {
     // entities: vec![debug_triangle],
-    entities: vec![cube_mesh],
+    entities: vec![obj_mesh],
     camera: Camera::new(cam_settings),
+    test_texture,
   }
 }
 

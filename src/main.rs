@@ -57,9 +57,9 @@ fn main() {
   info!("Scene init: OK!");
 
   let mut render_graph = RenderGraph::new(&vk_app);
-  // (0..vk_app.frames_in_flight()).for_each(|frame_id| {
-  // render_graph.update_scene_uniform_buffer(&scene, frame_id);
-  // });
+  (0..vk_app.frames_in_flight()).for_each(|frame_id| {
+    render_graph.bind_data_to_descriptors(frame_id, &vk_app, &scene);
+  });
   info!("Render Graph init: OK!");
 
   // last pre-run ops
@@ -167,7 +167,7 @@ fn main() {
           device.device_wait_idle().unwrap();
 
           // destroy resources as all frames finished rendering
-          scene.destroy(&vk_app.allocator);
+          scene.destroy(vk_app.vk_device(), &vk_app.allocator);
           render_graph.destroy(&vk_app);
           vk_app.destroy();
         }

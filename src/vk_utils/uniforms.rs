@@ -3,6 +3,8 @@ use ash::vk::{self};
 
 use crate::vk_utils::VkBuffer;
 
+use super::VkTexture;
+
 // https://vulkan-tutorial.com/Uniform_buffers/Descriptor_layout_and_buffer <3
 
 pub fn create_descriptor_pool(
@@ -51,25 +53,43 @@ pub unsafe fn create_descriptor_set(
     .expect("Failed allocating descriptor sets")
 }
 
-pub unsafe fn bind_uniform_buffer_to_descriptor(
-  device: &ash::Device,
+pub unsafe fn create_uniform_buffer_to_descriptor_binding(
   binding: u32,
   buffer: &VkBuffer,
   descriptor_set: &vk::DescriptorSet,
-) {
+) -> vk::WriteDescriptorSet {
   let buffer_info = vk::DescriptorBufferInfo::builder()
-  .buffer(buffer.buffer)
-  .offset(0)
-  .range(vk::WHOLE_SIZE) // or buffer.size
-  .build();
+    .buffer(buffer.buffer)
+    .offset(0)
+    .range(vk::WHOLE_SIZE) // or buffer.size
+    .build();
 
-  let descriptor_binding = vk::WriteDescriptorSet::builder()
+  vk::WriteDescriptorSet::builder()
     .dst_set(*descriptor_set)
     .dst_binding(binding)
     .dst_array_element(0)
     .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
-    .buffer_info(&[buffer_info])
+    .buffer_info(&[buffer_info]) // points to obsolete data?
+    .build()
+}
+
+pub unsafe fn create_texture_to_descriptor_binding(
+  binding: u32,
+  texture: &VkTexture,
+  sampler: vk::Sampler,
+  descriptor_set: &vk::DescriptorSet,
+) -> vk::WriteDescriptorSet {
+  let image_info = vk::DescriptorImageInfo::builder()
+    .image_layout(texture.layout)
+    .image_view(texture.image_view())
+    .sampler(sampler)
     .build();
 
-  device.update_descriptor_sets(&[descriptor_binding], &[]);
+  vk::WriteDescriptorSet::builder()
+    .dst_set(*descriptor_set)
+    .dst_binding(binding)
+    .dst_array_element(0)
+    .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+    .image_info(&[image_info])
+    .build()
 }
