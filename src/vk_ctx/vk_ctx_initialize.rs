@@ -106,7 +106,13 @@ pub fn vk_ctx_initialize(window: &winit::window::Window) -> VkCtx {
     vk::DescriptorType::UNIFORM_BUFFER,
     vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
   ];
-  let descriptor_pool = create_descriptor_pool(&device, &descriptor_types, frames_in_flight);
+  let descriptor_set_count = 2;
+  let descriptor_pool = create_descriptor_pool(
+    &device,
+    &descriptor_types,
+    frames_in_flight,
+    descriptor_set_count,
+  );
 
   // sampler
   let sampler = create_sampler(&device, vk::Filter::LINEAR, vk::Filter::LINEAR);

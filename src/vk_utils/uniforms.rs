@@ -5,31 +5,40 @@ use crate::vk_utils::VkBuffer;
 
 use super::VkTexture;
 
-// https://vulkan-tutorial.com/Uniform_buffers/Descriptor_layout_and_buffer <3
-// On a lot of hardware only 4 descriptor sets can be bound to a single pipeline.
-// E.g. 1st descriptor is for global shared config data. 2nd is for per-model data etc.
-//
-// You cannot bind a single shader resource to a buffer/texture. You can only bind a group
-// of resources as descriptor sets.
-//
-// Steps:
-// 1. Create descriptor pool. Specify how many descriptors will be allocated
-// 2. Create descriptor set(s). This are connected to each shader. Each descriptor set
-//    contains some number of uniform buffers/textures, each assigned a `binding`.
-// 3. Connect the real data buffer to a (descriptor_set, binding) using `vkUpdateDescriptorSets`.
-// 4. Bind the descriptor sets before draw call: `vkCmdBindDescriptorSets`.
-//
-// DescriptorSetLayout is required during:
-// - creating descriptor set so we can bind the data
-// - creating rendering pipeline
-//
-// In shader:
-// layout(descriptor_set=0, binding=0) uniform ___;
+/*
+https://vulkan-tutorial.com/Uniform_buffers/Descriptor_layout_and_buffer <3
+
+You cannot bind a single shader resource to a buffer/texture. You can only bind a group
+of resources as descriptor sets.
+
+Steps:
+  1. Create descriptor pool. Specify how many descriptors will be allocated
+  2. Create descriptor set(s). This are connected to each shader. Each descriptor set
+     contains some number of uniform buffers/textures, each assigned a `binding`.
+  3. Connect the real data buffer to a (descriptor_set, binding) using `vkUpdateDescriptorSets`.
+  4. Bind the descriptor sets before draw call: `vkCmdBindDescriptorSets`.
+
+On a lot of hardware only 4 descriptor sets can be bound to a single pipeline.
+E.g. 1st descriptor is for global shared config data. 2nd is for per-model data etc.
+
+In shader:
+// shared by all shaders - one global descriptor set bound for every pass/draw call.
+layout(set=0, binding=0) uniform GlobalConfigData;
+// model data (struct for material data etc.)
+layout(set=1, binding=0) uniform ModelData;
+// model data (diffuse texture)
+layout(set=1, binding=1) sampler Texture2D tex_diff;
+
+DescriptorSetLayout is required during:
+- creating descriptor set so we can bind the data
+- creating rendering pipeline
+*/
 
 pub fn create_descriptor_pool(
   device: &ash::Device,
   descriptor_types: &[vk::DescriptorType],
   frames_in_flight: u32,
+  set_count: u32,
 ) -> vk::DescriptorPool {
   let descriptor_pool_size: Vec<vk::DescriptorPoolSize> = descriptor_types
     .iter()
@@ -42,7 +51,8 @@ pub fn create_descriptor_pool(
     .collect();
   let descriptor_pool_create_info = vk::DescriptorPoolCreateInfo::builder()
     .pool_sizes(&descriptor_pool_size[..]) // creat slice
-    .max_sets(frames_in_flight)
+    // TODO this fn should be rewritten. Or create pool per-usage (per descriptor set TBH)?
+    .max_sets(frames_in_flight * set_count)
     .build();
   unsafe {
     device
@@ -52,7 +62,7 @@ pub fn create_descriptor_pool(
 }
 
 /// Creates `$in_flight_frames` descriptor sets based on the provided layout
-pub unsafe fn create_descriptor_set(
+pub unsafe fn create_descriptor_sets(
   device: &ash::Device,
   descriptor_pool: &vk::DescriptorPool,
   in_flight_frames: usize,

@@ -7,12 +7,9 @@ use crate::scene::World;
 use crate::vk_ctx::VkCtx;
 use crate::vk_utils::*;
 
-use super::_shared::GlobalConfigUniformBuffer;
-
-// TODO
-// layout(set=0, binding=0) uniform GlobalConfigData; // shared by all shaders
-// layout(set=1, binding=0) uniform ModelData; // model data (struct for material data etc.)
-// layout(set=1, binding=1) sampler Texture2D tex_diff; // model data (diffuse texture)
+/// Texture binding in set 1.
+/// must match in-shader
+pub const MODEL_TEXTURE_BINDING_INDEX: u32 = 0;
 
 pub struct ForwardPass {
   pub render_pass: vk::RenderPass,
@@ -23,18 +20,26 @@ pub struct ForwardPass {
 }
 
 impl ForwardPass {
-  pub fn new(vk_app: &VkCtx, image_format: vk::Format) -> Self {
+  pub fn new(
+    vk_app: &VkCtx,
+    image_format: vk::Format,
+    config_uniforms_layout: vk::DescriptorSetLayout,
+  ) -> Self {
     let device = vk_app.vk_device();
     let pipeline_cache = &vk_app.pipeline_cache;
 
     let render_pass = ForwardPass::create_render_pass(device, image_format);
     let uniforms_layout = ForwardPass::create_uniforms_layout(device);
-    let (pipeline, pipeline_layout) =
-      ForwardPass::create_pipeline(device, pipeline_cache, &render_pass, &[uniforms_layout]);
+    let (pipeline, pipeline_layout) = ForwardPass::create_pipeline(
+      device,
+      pipeline_cache,
+      &render_pass,
+      &[config_uniforms_layout, uniforms_layout],
+    );
 
     // descriptor sets (uniforms) - one per frame in flight
     let descriptor_sets = unsafe {
-      create_descriptor_set(
+      create_descriptor_sets(
         device,
         &vk_app.descriptor_pool,
         vk_app.frames_in_flight(),
@@ -113,36 +118,12 @@ impl ForwardPass {
     render_pass
   }
 
-  /*
-  fn create_pipeline_layout(device: &ash::Device) -> vk::PipelineLayout {
-    let scene_ubo = GlobalConfigUniformBuffer::get_layout(device);
-
-    // texture/buffer bindings
-    let create_info = vk::PipelineLayoutCreateInfo::builder()
-      .set_layouts(&[scene_ubo])
-      .build();
-    let pipeline_layout = unsafe {
-      device
-        .create_pipeline_layout(&create_info, None)
-        .expect("Failed to create pipeline layout")
-    };
-
-    pipeline_layout
-  }
-  */
-
   fn create_uniforms_layout(device: &ash::Device) -> vk::DescriptorSetLayout {
-    let config_ubo_binding = create_ubo_layout(
-      GlobalConfigUniformBuffer::BINDING_INDEX,
-      vk::ShaderStageFlags::VERTEX,
-    );
-    let texture_binding = create_texture_layout(
-      GlobalConfigUniformBuffer::TMP_TEXTURE_BINDING_INDEX,
-      vk::ShaderStageFlags::FRAGMENT,
-    );
+    let texture_binding =
+      create_texture_layout(MODEL_TEXTURE_BINDING_INDEX, vk::ShaderStageFlags::FRAGMENT);
 
     let ubo_descriptors_create_info = vk::DescriptorSetLayoutCreateInfo::builder()
-      .bindings(&[config_ubo_binding, texture_binding])
+      .bindings(&[texture_binding])
       .build();
 
     unsafe {
@@ -234,27 +215,19 @@ impl ForwardPass {
     in_flight_frame_idx: usize,
     vk_app: &VkCtx,
     scene: &World,
-    config_uniforms_buffer: &VkBuffer,
   ) {
     let device = vk_app.vk_device();
     let descriptor_set = self.descriptor_set(in_flight_frame_idx);
 
-    let resources = [
-      BindableResource::Uniform {
-        descriptor_set,
-        binding: GlobalConfigUniformBuffer::BINDING_INDEX,
-        buffer: config_uniforms_buffer,
-      },
-      BindableResource::Texture {
-        descriptor_set,
-        binding: GlobalConfigUniformBuffer::TMP_TEXTURE_BINDING_INDEX,
-        texture: &scene.test_texture,
-        sampler: vk_app.default_texture_sampler,
-      },
-    ];
+    let diffuse_texture = BindableResource::Texture {
+      descriptor_set,
+      binding: MODEL_TEXTURE_BINDING_INDEX,
+      texture: &scene.test_texture,
+      sampler: vk_app.default_texture_sampler,
+    };
 
     unsafe {
-      bind_resources_to_descriptors(device, &resources);
+      bind_resources_to_descriptors(device, &[diffuse_texture]);
     };
   }
 
@@ -266,6 +239,7 @@ impl ForwardPass {
     scene: &World,
     framebuffer: vk::Framebuffer,
     size: vk::Extent2D,
+    config_descriptor_set: vk::DescriptorSet,
   ) -> () {
     let render_area = size_to_rect_vk(&size);
     let viewport = create_viewport(&size);
@@ -314,7 +288,7 @@ impl ForwardPass {
         vk::PipelineBindPoint::GRAPHICS,
         self.pipeline_layout,
         0,
-        &[descriptor_set],
+        &[config_descriptor_set, descriptor_set],
         &[],
       );
 
