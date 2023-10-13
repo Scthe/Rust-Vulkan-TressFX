@@ -22,13 +22,8 @@ pub struct RenderGraph {
   forward_pass: ForwardPass,
   framebuffers: Vec<vk::Framebuffer>,
 
-  // Never refreshed - constants for whole runtime
-  // config_uniform_buffers: Vec<VkBuffer>,
-  /// Refreshed once every frame. Contains e.g. camera data
-  scene_uniform_buffers: Vec<VkBuffer>,
-  scene_descriptor_sets: Vec<vk::DescriptorSet>,
-  // Refreshed every frame per object (so A LOT). Contains e.g. model matrix
-  // model_uniform_buffers: Vec<VkBuffer>,
+  /// Refreshed once every frame. Contains e.g. all config settings, camera data
+  config_uniform_buffers: Vec<VkBuffer>,
 }
 
 impl RenderGraph {
@@ -53,16 +48,6 @@ impl RenderGraph {
       .map(|&iv| create_framebuffer(device, forward_pass.render_pass, &[iv], window_size))
       .collect();
 
-    // scene uniform buffers - descriptor sets (one per frame in flight)
-    let scene_descriptor_layout = GlobalConfigUniformBuffer::get_layout(device);
-    let scene_descriptor_sets = unsafe {
-      create_descriptor_set(
-        device,
-        &vk_app.descriptor_pool,
-        in_flight_frames,
-        &scene_descriptor_layout,
-      )
-    };
     // scene uniform buffers - memory allocations
     let scene_uniform_buffers =
       RenderGraph::allocate_scene_uniform_buffers(vk_app, in_flight_frames);
@@ -70,8 +55,7 @@ impl RenderGraph {
     RenderGraph {
       forward_pass,
       framebuffers,
-      scene_descriptor_sets,
-      scene_uniform_buffers,
+      config_uniform_buffers: scene_uniform_buffers,
     }
   }
 
@@ -110,7 +94,7 @@ impl RenderGraph {
     // uniform buffers
     GlobalConfigUniformBuffer::destroy_layout(device);
     let allocator = &vk_app.allocator;
-    self.scene_uniform_buffers.iter_mut().for_each(|buffer| {
+    self.config_uniform_buffers.iter_mut().for_each(|buffer| {
       buffer.unmap_memory(allocator);
       buffer.delete(allocator);
     })
@@ -123,27 +107,10 @@ impl RenderGraph {
     vk_app: &VkCtx,
     scene: &World,
   ) {
-    let device = vk_app.vk_device();
-    let descriptor_set = self.scene_descriptor_sets[in_flight_frame_idx];
-    let buffer = &self.scene_uniform_buffers[in_flight_frame_idx];
-
-    let resources = [
-      BindableResource::Uniform {
-        descriptor_set,
-        binding: GlobalConfigUniformBuffer::BINDING_INDEX,
-        buffer,
-      },
-      BindableResource::Texture {
-        descriptor_set,
-        binding: GlobalConfigUniformBuffer::TMP_TEXTURE_BINDING_INDEX,
-        texture: &scene.test_texture,
-        sampler: vk_app.default_texture_sampler,
-      },
-    ];
-
-    unsafe {
-      bind_resources_to_descriptors(device, &resources);
-    };
+    let buffer = &self.config_uniform_buffers[in_flight_frame_idx];
+    self
+      .forward_pass
+      .bind_data_to_descriptors(in_flight_frame_idx, vk_app, scene, buffer);
   }
 
   pub fn execute_render_graph(&self, vk_app: &VkCtx, scene: &World, frame_idx: usize) {
@@ -200,11 +167,11 @@ impl RenderGraph {
     }
 
     self.forward_pass.execute(
+      swapchain_image_index as _,
       &device,
       cmd_buf,
       &scene,
       framebuffer,
-      self.scene_descriptor_sets[swapchain_image_index as usize],
       swapchain.size,
     );
 
@@ -255,7 +222,7 @@ impl RenderGraph {
       u_vp: p.mul_mat4(&v),
     };
 
-    let vk_buffer = &self.scene_uniform_buffers[swapchain_image_index as usize];
+    let vk_buffer = &self.config_uniform_buffers[swapchain_image_index as usize];
     let data_bytes = bytemuck::bytes_of(&data);
     vk_buffer.write_to_mapped(data_bytes);
   }

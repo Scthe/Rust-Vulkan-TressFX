@@ -9,10 +9,16 @@ use crate::vk_utils::*;
 
 use super::_shared::GlobalConfigUniformBuffer;
 
+// TODO
+// layout(set=0, binding=0) uniform GlobalConfigData; // shared by all shaders
+// layout(set=1, binding=0) uniform ModelData; // model data (struct for material data etc.)
+// layout(set=1, binding=1) sampler Texture2D tex_diff; // model data (diffuse texture)
+
 pub struct ForwardPass {
   pub render_pass: vk::RenderPass,
   pipeline: vk::Pipeline,
   pipeline_layout: vk::PipelineLayout,
+  descriptor_sets: Vec<vk::DescriptorSet>,
 }
 
 impl ForwardPass {
@@ -25,10 +31,22 @@ impl ForwardPass {
     let pipeline =
       ForwardPass::create_pipeline(device, pipeline_cache, &render_pass, &pipeline_layout);
 
+    // descriptor sets (uniforms) - one per frame in flight
+    let scene_descriptor_layout = GlobalConfigUniformBuffer::get_layout(device);
+    let descriptor_sets = unsafe {
+      create_descriptor_set(
+        device,
+        &vk_app.descriptor_pool,
+        vk_app.frames_in_flight(),
+        &scene_descriptor_layout,
+      )
+    };
+
     ForwardPass {
       render_pass,
       pipeline,
       pipeline_layout,
+      descriptor_sets,
     }
   }
 
@@ -174,13 +192,42 @@ impl ForwardPass {
     }
   }
 
+  pub fn bind_data_to_descriptors(
+    &self,
+    in_flight_frame_idx: usize,
+    vk_app: &VkCtx,
+    scene: &World,
+    config_uniforms_buffer: &VkBuffer,
+  ) {
+    let device = vk_app.vk_device();
+    let descriptor_set = self.descriptor_set(in_flight_frame_idx);
+
+    let resources = [
+      BindableResource::Uniform {
+        descriptor_set,
+        binding: GlobalConfigUniformBuffer::BINDING_INDEX,
+        buffer: config_uniforms_buffer,
+      },
+      BindableResource::Texture {
+        descriptor_set,
+        binding: GlobalConfigUniformBuffer::TMP_TEXTURE_BINDING_INDEX,
+        texture: &scene.test_texture,
+        sampler: vk_app.default_texture_sampler,
+      },
+    ];
+
+    unsafe {
+      bind_resources_to_descriptors(device, &resources);
+    };
+  }
+
   pub fn execute(
     &self,
+    in_flight_frame_idx: usize,
     device: &ash::Device,
     command_buffer: vk::CommandBuffer,
     scene: &World,
     framebuffer: vk::Framebuffer,
-    descriptor_set: vk::DescriptorSet,
     size: vk::Extent2D,
   ) -> () {
     let render_area = size_to_rect_vk(&size);
@@ -188,6 +235,7 @@ impl ForwardPass {
     let clear_color = vk::ClearColorValue {
       float32: [0.2f32, 0.2f32, 0.2f32, 1f32],
     };
+    let descriptor_set = self.descriptor_set(in_flight_frame_idx);
 
     let render_pass_begin_info = vk::RenderPassBeginInfo::builder()
       .render_pass(self.render_pass)
@@ -246,5 +294,9 @@ impl ForwardPass {
 
       device.cmd_end_render_pass(command_buffer)
     }
+  }
+
+  fn descriptor_set(&self, swapchain_image_index: usize) -> vk::DescriptorSet {
+    self.descriptor_sets[swapchain_image_index]
   }
 }
