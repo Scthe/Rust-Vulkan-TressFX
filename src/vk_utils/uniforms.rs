@@ -8,6 +8,23 @@ use super::VkTexture;
 // https://vulkan-tutorial.com/Uniform_buffers/Descriptor_layout_and_buffer <3
 // On a lot of hardware only 4 descriptor sets can be bound to a single pipeline.
 // E.g. 1st descriptor is for global shared config data. 2nd is for per-model data etc.
+//
+// You cannot bind a single shader resource to a buffer/texture. You can only bind a group
+// of resources as descriptor sets.
+//
+// Steps:
+// 1. Create descriptor pool. Specify how many descriptors will be allocated
+// 2. Create descriptor set(s). This are connected to each shader. Each descriptor set
+//    contains some number of uniform buffers/textures, each assigned a `binding`.
+// 3. Connect the real data buffer to a (descriptor_set, binding) using `vkUpdateDescriptorSets`.
+// 4. Bind the descriptor sets before draw call: `vkCmdBindDescriptorSets`.
+//
+// DescriptorSetLayout is required during:
+// - creating descriptor set so we can bind the data
+// - creating rendering pipeline
+//
+// In shader:
+// layout(descriptor_set=0, binding=0) uniform ___;
 
 pub fn create_descriptor_pool(
   device: &ash::Device,
@@ -54,6 +71,38 @@ pub unsafe fn create_descriptor_set(
     .allocate_descriptor_sets(&alloc_info)
     .expect("Failed allocating descriptor sets")
 }
+
+////////////////////////////////
+/// Layout utils
+////////////////////////////////
+
+pub fn create_ubo_layout(
+  binding: u32,
+  stage_flags: vk::ShaderStageFlags,
+) -> vk::DescriptorSetLayoutBinding {
+  vk::DescriptorSetLayoutBinding::builder()
+    .binding(binding)
+    .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
+    .descriptor_count(1)
+    .stage_flags(stage_flags)
+    .build()
+}
+
+pub fn create_texture_layout(
+  binding: u32,
+  stage_flags: vk::ShaderStageFlags,
+) -> vk::DescriptorSetLayoutBinding {
+  vk::DescriptorSetLayoutBinding::builder()
+    .binding(binding)
+    .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+    .descriptor_count(1)
+    .stage_flags(stage_flags)
+    .build()
+}
+
+////////////////////////////////
+/// Resource binding
+////////////////////////////////
 
 pub enum BindableResource<'a> {
   Uniform {

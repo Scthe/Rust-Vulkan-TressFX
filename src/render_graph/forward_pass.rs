@@ -19,6 +19,7 @@ pub struct ForwardPass {
   pipeline: vk::Pipeline,
   pipeline_layout: vk::PipelineLayout,
   descriptor_sets: Vec<vk::DescriptorSet>,
+  uniforms_layout: vk::DescriptorSetLayout,
 }
 
 impl ForwardPass {
@@ -27,18 +28,17 @@ impl ForwardPass {
     let pipeline_cache = &vk_app.pipeline_cache;
 
     let render_pass = ForwardPass::create_render_pass(device, image_format);
-    let pipeline_layout = ForwardPass::create_pipeline_layout(device);
-    let pipeline =
-      ForwardPass::create_pipeline(device, pipeline_cache, &render_pass, &pipeline_layout);
+    let uniforms_layout = ForwardPass::create_uniforms_layout(device);
+    let (pipeline, pipeline_layout) =
+      ForwardPass::create_pipeline(device, pipeline_cache, &render_pass, &[uniforms_layout]);
 
     // descriptor sets (uniforms) - one per frame in flight
-    let scene_descriptor_layout = GlobalConfigUniformBuffer::get_layout(device);
     let descriptor_sets = unsafe {
       create_descriptor_set(
         device,
         &vk_app.descriptor_pool,
         vk_app.frames_in_flight(),
-        &scene_descriptor_layout,
+        &uniforms_layout,
       )
     };
 
@@ -47,11 +47,13 @@ impl ForwardPass {
       pipeline,
       pipeline_layout,
       descriptor_sets,
+      uniforms_layout,
     }
   }
 
   pub unsafe fn destroy(&self, device: &ash::Device) {
     device.destroy_render_pass(self.render_pass, None);
+    device.destroy_descriptor_set_layout(self.uniforms_layout, None);
     device.destroy_pipeline_layout(self.pipeline_layout, None);
     device.destroy_pipeline(self.pipeline, None);
   }
@@ -111,6 +113,7 @@ impl ForwardPass {
     render_pass
   }
 
+  /*
   fn create_pipeline_layout(device: &ash::Device) -> vk::PipelineLayout {
     let scene_ubo = GlobalConfigUniformBuffer::get_layout(device);
 
@@ -126,15 +129,47 @@ impl ForwardPass {
 
     pipeline_layout
   }
+  */
+
+  fn create_uniforms_layout(device: &ash::Device) -> vk::DescriptorSetLayout {
+    let config_ubo_binding = create_ubo_layout(
+      GlobalConfigUniformBuffer::BINDING_INDEX,
+      vk::ShaderStageFlags::VERTEX,
+    );
+    let texture_binding = create_texture_layout(
+      GlobalConfigUniformBuffer::TMP_TEXTURE_BINDING_INDEX,
+      vk::ShaderStageFlags::FRAGMENT,
+    );
+
+    let ubo_descriptors_create_info = vk::DescriptorSetLayoutCreateInfo::builder()
+      .bindings(&[config_ubo_binding, texture_binding])
+      .build();
+
+    unsafe {
+      device
+        .create_descriptor_set_layout(&ubo_descriptors_create_info, None)
+        .expect("Failed to create DescriptorSetLayout")
+    }
+  }
 
   fn create_pipeline(
     device: &ash::Device,
     pipeline_cache: &vk::PipelineCache,
     render_pass: &vk::RenderPass,
-    pipeline_layout: &vk::PipelineLayout,
-  ) -> vk::Pipeline {
+    uniform_layouts: &[vk::DescriptorSetLayout],
+  ) -> (vk::Pipeline, vk::PipelineLayout) {
     trace!("Will create pipeline for a (device, render pass) based on shaders");
     let attachment_count: usize = 1;
+
+    // pipeline layout
+    let create_info = vk::PipelineLayoutCreateInfo::builder()
+      .set_layouts(uniform_layouts)
+      .build();
+    let pipeline_layout = unsafe {
+      device
+        .create_pipeline_layout(&create_info, None)
+        .expect("Failed to create pipeline layout")
+    };
 
     // create shaders
     let (module_vs, stage_vs) = load_shader(
@@ -171,7 +206,7 @@ impl ForwardPass {
       .depth_stencil_state(&ps_depth_always_stencil_always())
       .color_blend_state(&ps_color_blend_override(attachment_count))
       .dynamic_state(&dynamic_state)
-      .layout(*pipeline_layout)
+      .layout(pipeline_layout)
       .render_pass(*render_pass)
       // .subpass()
       // .base_pipeline_handle(base_pipeline_handle)
@@ -186,10 +221,12 @@ impl ForwardPass {
       device.destroy_shader_module(module_fs, None);
       pipelines
     };
-    match pipelines {
+    let pipeline = match pipelines {
       Some(ps) if ps.len() > 0 => *ps.first().unwrap(),
       _ => panic!("Failed to create graphic pipeline"),
-    }
+    };
+
+    (pipeline, pipeline_layout)
   }
 
   pub fn bind_data_to_descriptors(

@@ -92,7 +92,6 @@ impl RenderGraph {
     }
 
     // uniform buffers
-    GlobalConfigUniformBuffer::destroy_layout(device);
     let allocator = &vk_app.allocator;
     self.config_uniform_buffers.iter_mut().for_each(|buffer| {
       buffer.unmap_memory(allocator);
