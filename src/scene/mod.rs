@@ -37,6 +37,7 @@ pub fn load_scene(vk_ctx: &VkCtx, cam_settings: CameraSettings) -> World {
   }
 }
 
+#[allow(dead_code)]
 fn create_debug_triangles_scene(vk_ctx: &VkCtx) -> WorldEntity {
   let uv = (0.0, 0.0);
   let vertices = [

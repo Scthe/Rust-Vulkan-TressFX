@@ -3,21 +3,20 @@ use std::mem::size_of;
 use ash;
 use ash::vk;
 use bytemuck;
-use log::{trace, warn};
+use log::trace;
 
 use crate::scene::World;
 use crate::vk_ctx::VkCtx;
-use crate::vk_utils::{
-  create_descriptor_set, create_framebuffer, create_texture_to_descriptor_binding,
-  create_uniform_buffer_to_descriptor_binding, VkBuffer,
-};
+use crate::vk_utils::*;
 
+mod _shared;
 mod forward_pass;
-mod misc;
 
+use self::_shared::GlobalConfigUniformBuffer;
+pub use self::_shared::RenderableVertex;
 use self::forward_pass::ForwardPass;
-pub use self::misc::RenderableVertex;
-use self::misc::SceneUniformBuffer;
+
+// TODO add check when compiling shader if .glsl is newer than .spv. Then panic and say to recompile shaders
 
 pub struct RenderGraph {
   forward_pass: ForwardPass,
@@ -55,7 +54,7 @@ impl RenderGraph {
       .collect();
 
     // scene uniform buffers - descriptor sets (one per frame in flight)
-    let scene_descriptor_layout = SceneUniformBuffer::get_layout(device);
+    let scene_descriptor_layout = GlobalConfigUniformBuffer::get_layout(device);
     let scene_descriptor_sets = unsafe {
       create_descriptor_set(
         device,
@@ -77,7 +76,7 @@ impl RenderGraph {
   }
 
   fn allocate_scene_uniform_buffers(vk_app: &VkCtx, in_flight_frames: usize) -> Vec<VkBuffer> {
-    let size = size_of::<SceneUniformBuffer>() as _;
+    let size = size_of::<GlobalConfigUniformBuffer>() as _;
     let usage = vk::BufferUsageFlags::UNIFORM_BUFFER;
 
     (0..in_flight_frames)
@@ -109,7 +108,7 @@ impl RenderGraph {
     }
 
     // uniform buffers
-    SceneUniformBuffer::destroy_layout(device);
+    GlobalConfigUniformBuffer::destroy_layout(device);
     let allocator = &vk_app.allocator;
     self.scene_uniform_buffers.iter_mut().for_each(|buffer| {
       buffer.unmap_memory(allocator);
@@ -125,58 +124,25 @@ impl RenderGraph {
     scene: &World,
   ) {
     let device = vk_app.vk_device();
-    let descriptor_set = &self.scene_descriptor_sets[in_flight_frame_idx];
+    let descriptor_set = self.scene_descriptor_sets[in_flight_frame_idx];
     let buffer = &self.scene_uniform_buffers[in_flight_frame_idx];
 
-    unsafe {
-      /*
-      TODO use utils below.
-      // ATM `.buffer_info(&[buffer_info])` causes crash as it's ref to obsolete memory
-
-      let ubo_binding = create_uniform_buffer_to_descriptor_binding(
-        SceneUniformBuffer::BINDING_INDEX,
+    let resources = [
+      BindableResource::Uniform {
+        descriptor_set,
+        binding: GlobalConfigUniformBuffer::BINDING_INDEX,
         buffer,
+      },
+      BindableResource::Texture {
         descriptor_set,
-      );
-      let texture_binding = create_texture_to_descriptor_binding(
-        SceneUniformBuffer::TMP_TEXTURE_BINDING_INDEX,
-        &scene.test_texture,
-        vk_app.default_texture_sampler,
-        descriptor_set,
-      );
-      */
-      let buffer_info = vk::DescriptorBufferInfo::builder()
-      .buffer(buffer.buffer)
-      .offset(0)
-      .range(vk::WHOLE_SIZE) // or buffer.size
-      .build();
+        binding: GlobalConfigUniformBuffer::TMP_TEXTURE_BINDING_INDEX,
+        texture: &scene.test_texture,
+        sampler: vk_app.default_texture_sampler,
+      },
+    ];
 
-      let ubo_binding = vk::WriteDescriptorSet::builder()
-      .dst_set(*descriptor_set)
-      .dst_binding(SceneUniformBuffer::BINDING_INDEX)
-      .dst_array_element(0)
-      .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
-      .buffer_info(&[buffer_info]) // points to obsolete data?
-      .build();
-
-      let texture = &scene.test_texture;
-      let sampler = vk_app.default_texture_sampler;
-      let image_info = vk::DescriptorImageInfo::builder()
-        .image_layout(texture.layout)
-        .image_view(texture.image_view())
-        .sampler(sampler)
-        .build();
-      let texture_binding = vk::WriteDescriptorSet::builder()
-        .dst_set(*descriptor_set)
-        .dst_binding(SceneUniformBuffer::TMP_TEXTURE_BINDING_INDEX)
-        .dst_array_element(0)
-        .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
-        .image_info(&[image_info])
-        .build();
-
-      // warn!("---UNIFORM_BINDING{:#?}", ubo_binding);
-      // warn!("---TEXTURE_BINDING{:#?}", texture_binding);
-      device.update_descriptor_sets(&[ubo_binding, texture_binding], &[]);
+    unsafe {
+      bind_resources_to_descriptors(device, &resources);
     };
   }
 
@@ -283,7 +249,7 @@ impl RenderGraph {
     let camera = &scene.camera;
     let v = camera.view_matrix().clone(); // TODO clone?
     let p = camera.perspective_matrix().clone();
-    let data = SceneUniformBuffer {
+    let data = GlobalConfigUniformBuffer {
       // TODO or reverse? p*v*m
       // u_vp: p, // TODO or reverse?
       u_vp: p.mul_mat4(&v),

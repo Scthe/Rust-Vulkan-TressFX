@@ -2,12 +2,12 @@ use ash;
 use ash::vk;
 use log::trace;
 
-use crate::render_graph::misc::RenderableVertex;
+use crate::render_graph::_shared::RenderableVertex;
 use crate::scene::World;
 use crate::vk_ctx::VkCtx;
 use crate::vk_utils::*;
 
-use super::misc::SceneUniformBuffer;
+use super::_shared::GlobalConfigUniformBuffer;
 
 pub struct ForwardPass {
   pub render_pass: vk::RenderPass,
@@ -94,7 +94,7 @@ impl ForwardPass {
   }
 
   fn create_pipeline_layout(device: &ash::Device) -> vk::PipelineLayout {
-    let scene_ubo = SceneUniformBuffer::get_layout(device);
+    let scene_ubo = GlobalConfigUniformBuffer::get_layout(device);
 
     // texture/buffer bindings
     let create_info = vk::PipelineLayoutCreateInfo::builder()

@@ -19,6 +19,7 @@ unsafe impl bytemuck::Zeroable for RenderableVertex {}
 unsafe impl bytemuck::Pod for RenderableVertex {}
 
 impl RenderableVertex {
+  #[allow(dead_code)]
   pub fn new(pos: (f32, f32, f32), n: (f32, f32, f32), uv: (f32, f32)) -> RenderableVertex {
     RenderableVertex {
       position: Vec3::new(pos.0, pos.1, pos.2),
