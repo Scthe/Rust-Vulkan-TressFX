@@ -1,11 +1,16 @@
 use ash;
+use ash::extensions::khr::PushDescriptor;
 use ash::vk::{self};
 
+use super::VkTexture;
 use crate::vk_utils::VkBuffer;
 
-use super::VkTexture;
-
 /*
+////////////////////////////////////////
+/// NOTES FOR DESCRIPTOR SETS
+/// Obsolet as we use VK_KHR_push_descriptor, but still good to know
+////////////////////////////////////////
+
 https://vulkan-tutorial.com/Uniform_buffers/Descriptor_layout_and_buffer <3
 
 You cannot bind a single shader resource to a buffer/texture. You can only bind a group
@@ -34,63 +39,13 @@ DescriptorSetLayout is required during:
 - creating rendering pipeline
 */
 
-/*
-pub fn create_descriptor_pool(
-  device: &ash::Device,
-  descriptor_types: &[vk::DescriptorType],
-  frames_in_flight: u32,
-  set_count: u32,
-) -> vk::DescriptorPool {
-  let descriptor_pool_size: Vec<vk::DescriptorPoolSize> = descriptor_types
-    .iter()
-    .map(|descriptor_type| {
-      vk::DescriptorPoolSize::builder()
-        .ty(*descriptor_type)
-        .descriptor_count(frames_in_flight)
-        .build()
-    })
-    .collect();
-  let descriptor_pool_create_info = vk::DescriptorPoolCreateInfo::builder()
-    .pool_sizes(&descriptor_pool_size[..]) // creat slice
-    // TODO this fn should be rewritten. Or create pool per-usage (per descriptor set TBH)?
-    .max_sets(frames_in_flight * set_count)
-    .build();
-  unsafe {
-    device
-      .create_descriptor_pool(&descriptor_pool_create_info, None)
-      .expect("Failed creating descriptor pool for 1st time")
-  }
-}
-
-/// Creates `$in_flight_frames` descriptor sets based on the provided layout
-pub unsafe fn create_descriptor_sets(
-  device: &ash::Device,
-  descriptor_pool: &vk::DescriptorPool,
-  in_flight_frames: usize,
-  descriptor_set_layout: &vk::DescriptorSetLayout,
-) -> Vec<vk::DescriptorSet> {
-  let mut set_layouts: Vec<vk::DescriptorSetLayout> = Vec::new();
-  (0..in_flight_frames).for_each(|_| set_layouts.push(*descriptor_set_layout));
-
-  let mut alloc_info = vk::DescriptorSetAllocateInfo::builder()
-    .descriptor_pool(*descriptor_pool)
-    .set_layouts(&set_layouts)
-    .build();
-  alloc_info.descriptor_set_count = in_flight_frames as u32;
-
-  device
-    .allocate_descriptor_sets(&alloc_info)
-    .expect("Failed allocating descriptor sets")
-}
-*/
-
 ////////////////////////////////
 /// Layout utils
 ////////////////////////////////
 
 /// Create layout for a single uniform buffer object.
 /// That layout will be one of layouts gathered in DescriptorSetLayout.
-pub fn create_ubo_layout(
+pub fn create_ubo_binding(
   binding: u32,
   stage_flags: vk::ShaderStageFlags,
 ) -> vk::DescriptorSetLayoutBinding {
@@ -104,7 +59,7 @@ pub fn create_ubo_layout(
 
 /// Create layout for a single texture/sampler object.
 /// That layout will be one of layouts gathered in DescriptorSetLayout.
-pub fn create_texture_layout(
+pub fn create_texture_binding(
   binding: u32,
   stage_flags: vk::ShaderStageFlags,
 ) -> vk::DescriptorSetLayoutBinding {
@@ -118,17 +73,21 @@ pub fn create_texture_layout(
 
 ////////////////////////////////
 /// Resource binding
-/// TODO remove below
 ////////////////////////////////
+
+/// Pack stuff into struct to make it more palatable as param
+pub struct ResouceBinder<'a> {
+  pub push_descriptor: &'a PushDescriptor,
+  pub command_buffer: vk::CommandBuffer,
+  pub pipeline_layout: vk::PipelineLayout,
+}
 
 pub enum BindableResource<'a> {
   Uniform {
-    descriptor_set: vk::DescriptorSet,
     binding: u32,
     buffer: &'a VkBuffer,
   },
   Texture {
-    descriptor_set: vk::DescriptorSet,
     binding: u32,
     texture: &'a VkTexture,
     sampler: vk::Sampler,
@@ -136,7 +95,8 @@ pub enum BindableResource<'a> {
 }
 
 pub unsafe fn bind_resources_to_descriptors(
-  device: &ash::Device,
+  binder: &ResouceBinder,
+  descriptor_set: u32,
   resources_to_bind: &[BindableResource],
 ) {
   // Used to ensure lifetime of these vk::* objects till the end of this fn ().
@@ -149,11 +109,7 @@ pub unsafe fn bind_resources_to_descriptors(
     .iter()
     .map(|resource| {
       match resource {
-        BindableResource::Uniform {
-          descriptor_set,
-          binding,
-          buffer,
-        } => {
+        BindableResource::Uniform { binding, buffer } => {
           buffer_infos.push(vk::DescriptorBufferInfo {
             buffer: buffer.buffer,
             offset: 0,
@@ -161,7 +117,6 @@ pub unsafe fn bind_resources_to_descriptors(
           });
           let data_slice = &buffer_infos[(buffer_infos.len() - 1)..buffer_infos.len()];
           vk::WriteDescriptorSet::builder()
-            .dst_set(*descriptor_set)
             .dst_binding(*binding)
             .dst_array_element(0)
             .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
@@ -169,7 +124,6 @@ pub unsafe fn bind_resources_to_descriptors(
             .build()
         }
         BindableResource::Texture {
-          descriptor_set,
           binding,
           texture,
           sampler,
@@ -181,7 +135,6 @@ pub unsafe fn bind_resources_to_descriptors(
           });
           let data_slice = &image_infos[(image_infos.len() - 1)..image_infos.len()];
           vk::WriteDescriptorSet::builder()
-            .dst_set(*descriptor_set)
             .dst_binding(*binding)
             .dst_array_element(0)
             .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
@@ -192,5 +145,11 @@ pub unsafe fn bind_resources_to_descriptors(
     })
     .collect();
 
-  device.update_descriptor_sets(next_descriptors.as_ref(), &[]);
+  binder.push_descriptor.cmd_push_descriptor_set(
+    binder.command_buffer,
+    vk::PipelineBindPoint::GRAPHICS,
+    binder.pipeline_layout,
+    descriptor_set,
+    next_descriptors.as_slice(),
+  );
 }

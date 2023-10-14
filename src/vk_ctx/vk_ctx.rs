@@ -30,7 +30,6 @@ pub struct VkCtx {
   pub device: VkCtxDevice,
   pub command_buffers: VkCtxCommandBuffers,
   pub pipeline_cache: vk::PipelineCache,
-  // pub descriptor_pool: vk::DescriptorPool,
   pub push_descriptor: PushDescriptor,
   pub allocator: vma::Allocator,
   /// C'mon you will use linear sampling anyway, can just create global object..
@@ -84,7 +83,6 @@ impl VkCtx {
     // device.device_wait_idle().unwrap();
 
     self.synchronize.destroy(device);
-    // device.destroy_descriptor_pool(self.descriptor_pool, None);
     self.command_buffers.destroy(device);
     self.swapchain.destroy(device);
     device.destroy_pipeline_cache(self.pipeline_cache, None);

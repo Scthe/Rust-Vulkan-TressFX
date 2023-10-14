@@ -22,12 +22,8 @@ pub struct RenderGraph {
   framebuffers: Vec<vk::Framebuffer>,
 
   /// Refreshed once every frame. Contains e.g. all config settings, camera data
-  /// /// One per frame-in-flight.
-  config_uniform_buffers: Vec<VkBuffer>,
-  /// Descriptor set for global config. Bound to `config_uniform_buffers`.
   /// One per frame-in-flight.
-  // config_descriptor_sets: Vec<vk::DescriptorSet>,
-  config_descriptor_sets_layout: vk::DescriptorSetLayout,
+  config_uniform_buffers: Vec<VkBuffer>,
 }
 
 impl RenderGraph {
@@ -38,12 +34,9 @@ impl RenderGraph {
 
     // scene uniform buffers - memory allocations + descriptor set
     let config_uniform_buffers = allocate_config_uniform_buffers(vk_app, in_flight_frames);
-    // let (config_descriptor_sets, config_descriptor_sets_layout) =
-    // create_config_descriptor_sets(vk_app, in_flight_frames);
-    let config_descriptor_sets_layout = create_config_descriptor_set_layout(vk_app);
 
     // create passes
-    let forward_pass = ForwardPass::new(vk_app, image_format, config_descriptor_sets_layout);
+    let forward_pass = ForwardPass::new(vk_app, image_format);
 
     // framebuffers
     let device = vk_app.vk_device();
@@ -59,8 +52,6 @@ impl RenderGraph {
       forward_pass,
       framebuffers,
       config_uniform_buffers,
-      // config_descriptor_sets,
-      config_descriptor_sets_layout,
     }
   }
 
@@ -75,10 +66,6 @@ impl RenderGraph {
       device.destroy_framebuffer(framebuffer, None);
     }
 
-    // descriptor set layout
-    // pool will dealocate all descriptor sets
-    device.destroy_descriptor_set_layout(self.config_descriptor_sets_layout, None);
-
     // uniform buffers
     let allocator = &vk_app.allocator;
     self.config_uniform_buffers.iter_mut().for_each(|buffer| {
@@ -86,35 +73,6 @@ impl RenderGraph {
       buffer.delete(allocator);
     })
   }
-
-  /*
-  /// uniform buffers - connect descriptor sets with allocated buffer data
-  pub fn bind_data_to_descriptors(
-    &self,
-    in_flight_frame_idx: usize,
-    vk_app: &VkCtx,
-    scene: &World,
-  ) {
-    let device = vk_app.vk_device();
-
-    // config buffer
-    // let descriptor_set = &self.config_descriptor_sets[in_flight_frame_idx];
-    let config_buffer = &self.config_uniform_buffers[in_flight_frame_idx];
-    let config_resource = BindableResource::Uniform {
-      descriptor_set: *descriptor_set,
-      binding: GlobalConfigUniformBuffer::BINDING_INDEX,
-      buffer: config_buffer,
-    };
-    unsafe {
-      bind_resources_to_descriptors(device, &[config_resource]);
-    };
-
-    // per-pass buffers
-    self
-      .forward_pass
-      .bind_data_to_descriptors(in_flight_frame_idx, vk_app, scene);
-  }
-  */
 
   pub fn execute_render_graph(&self, vk_app: &VkCtx, scene: &World, frame_idx: usize) {
     // 'heavy' ash's objects
@@ -168,14 +126,12 @@ impl RenderGraph {
     }
 
     self.forward_pass.execute(
-      // swapchain_image_index as _,
-      // &device,
       vk_app,
       scene,
       cmd_buf,
       framebuffer,
       swapchain.size,
-      config_vk_buffer, // self.config_descriptor_sets[swapchain_image_index as usize],
+      config_vk_buffer,
     );
 
     unsafe {
@@ -254,52 +210,3 @@ fn allocate_config_uniform_buffers(vk_app: &VkCtx, in_flight_frames: usize) -> V
     })
     .collect::<Vec<_>>()
 }
-
-fn create_config_descriptor_set_layout(vk_app: &VkCtx) -> vk::DescriptorSetLayout {
-  let device = vk_app.vk_device();
-
-  let config_ubo_layout = create_ubo_layout(
-    GlobalConfigUniformBuffer::BINDING_INDEX,
-    vk::ShaderStageFlags::VERTEX, // TODO test `| vk::ShaderStageFlags::FRAGMENT`
-  );
-  let create_info = vk::DescriptorSetLayoutCreateInfo::builder()
-    .flags(vk::DescriptorSetLayoutCreateFlags::PUSH_DESCRIPTOR_KHR)
-    .bindings(&[config_ubo_layout])
-    .build();
-  unsafe {
-    device
-      .create_descriptor_set_layout(&create_info, None)
-      .expect("Failed to create DescriptorSetLayout")
-  }
-}
-/*
-fn create_config_descriptor_sets(
-  vk_app: &VkCtx,
-  in_flight_frames: usize,
-) -> (Vec<vk::DescriptorSet>, vk::DescriptorSetLayout) {
-  let device = vk_app.vk_device();
-
-  let config_ubo_binding = create_ubo_layout(
-    GlobalConfigUniformBuffer::BINDING_INDEX,
-    vk::ShaderStageFlags::VERTEX,
-  );
-  let ubo_descriptors_create_info = vk::DescriptorSetLayoutCreateInfo::builder()
-    .bindings(&[config_ubo_binding])
-    .build();
-  let config_descriptor_sets_layout = unsafe {
-    device
-      .create_descriptor_set_layout(&ubo_descriptors_create_info, None)
-      .expect("Failed to create DescriptorSetLayout")
-  };
-  let config_descriptor_sets = unsafe {
-    create_descriptor_sets(
-      device,
-      &vk_app.descriptor_pool,
-      in_flight_frames,
-      &config_descriptor_sets_layout,
-    )
-  };
-
-  (config_descriptor_sets, config_descriptor_sets_layout)
-}
-*/

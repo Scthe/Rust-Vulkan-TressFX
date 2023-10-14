@@ -104,22 +104,6 @@ pub fn vk_ctx_initialize(window: &winit::window::Window) -> VkCtx {
   // pipeline_cache
   let pipeline_cache = create_pipeline_cache(&device);
 
-  // descriptor_pool
-  /*
-  // TODO remove this code + VkCtx.descriptor_pool
-  let descriptor_types = [
-    vk::DescriptorType::UNIFORM_BUFFER,
-    vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
-  ];
-  let descriptor_set_count = 2;
-  let descriptor_pool = create_descriptor_pool(
-    &device,
-    &descriptor_types,
-    frames_in_flight,
-    descriptor_set_count,
-  );
-  */
-
   // sampler
   let sampler = create_sampler(&device, vk::Filter::LINEAR, vk::Filter::LINEAR);
 
@@ -148,7 +132,6 @@ pub fn vk_ctx_initialize(window: &winit::window::Window) -> VkCtx {
       cmd_buffers: cmd_bufs,
     },
     pipeline_cache,
-    // descriptor_pool,
     push_descriptor,
     surface_loader,
     surface_khr,

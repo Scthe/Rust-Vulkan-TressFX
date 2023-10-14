@@ -1,5 +1,4 @@
 use ash;
-use ash::extensions::khr::PushDescriptor;
 use ash::vk;
 use log::trace;
 
@@ -8,53 +7,30 @@ use crate::scene::World;
 use crate::vk_ctx::VkCtx;
 use crate::vk_utils::*;
 
-/// Texture binding in set 1.
-/// must match in-shader
-pub const MODEL_TEXTURE_BINDING_INDEX: u32 = 0;
+pub const BINDING_INDEX_CONFIG_UBO: u32 = 0;
+pub const BINDING_INDEX_DIFFUSE_TEXTURE: u32 = 1;
 
 pub struct ForwardPass {
   pub render_pass: vk::RenderPass,
   pipeline: vk::Pipeline,
   pipeline_layout: vk::PipelineLayout,
-  // descriptor_sets: Vec<vk::DescriptorSet>,
   uniforms_layout: vk::DescriptorSetLayout,
 }
 
 impl ForwardPass {
-  pub fn new(
-    vk_app: &VkCtx,
-    image_format: vk::Format,
-    config_uniforms_layout: vk::DescriptorSetLayout,
-  ) -> Self {
+  pub fn new(vk_app: &VkCtx, image_format: vk::Format) -> Self {
     let device = vk_app.vk_device();
     let pipeline_cache = &vk_app.pipeline_cache;
 
     let render_pass = ForwardPass::create_render_pass(device, image_format);
     let uniforms_layout = ForwardPass::create_uniforms_layout(device);
-    let (pipeline, pipeline_layout) = ForwardPass::create_pipeline(
-      device,
-      pipeline_cache,
-      &render_pass,
-      &[config_uniforms_layout, uniforms_layout],
-    );
-
-    /*
-    // descriptor sets (uniforms) - one per frame in flight
-    let descriptor_sets = unsafe {
-      create_descriptor_sets(
-        device,
-        &vk_app.descriptor_pool,
-        vk_app.frames_in_flight(),
-        &uniforms_layout,
-      )
-    };
-    */
+    let (pipeline, pipeline_layout) =
+      ForwardPass::create_pipeline(device, pipeline_cache, &render_pass, &[uniforms_layout]);
 
     ForwardPass {
       render_pass,
       pipeline,
       pipeline_layout,
-      // descriptor_sets,
       uniforms_layout,
     }
   }
@@ -122,12 +98,16 @@ impl ForwardPass {
   }
 
   fn create_uniforms_layout(device: &ash::Device) -> vk::DescriptorSetLayout {
-    let texture_binding =
-      create_texture_layout(MODEL_TEXTURE_BINDING_INDEX, vk::ShaderStageFlags::FRAGMENT);
+    let binding_config_ubo =
+      create_ubo_binding(BINDING_INDEX_CONFIG_UBO, vk::ShaderStageFlags::VERTEX);
+    let binding_diff_tex = create_texture_binding(
+      BINDING_INDEX_DIFFUSE_TEXTURE,
+      vk::ShaderStageFlags::FRAGMENT,
+    );
 
     let ubo_descriptors_create_info = vk::DescriptorSetLayoutCreateInfo::builder()
       .flags(vk::DescriptorSetLayoutCreateFlags::PUSH_DESCRIPTOR_KHR)
-      .bindings(&[texture_binding])
+      .bindings(&[binding_config_ubo, binding_diff_tex])
       .build();
 
     unsafe {
@@ -214,29 +194,6 @@ impl ForwardPass {
     (pipeline, pipeline_layout)
   }
 
-  /*
-  pub fn bind_data_to_descriptors(
-    &self,
-    in_flight_frame_idx: usize,
-    vk_app: &VkCtx,
-    scene: &World,
-  ) {
-    let device = vk_app.vk_device();
-    let descriptor_set = self.descriptor_set(in_flight_frame_idx);
-
-    let diffuse_texture = BindableResource::Texture {
-      descriptor_set,
-      binding: MODEL_TEXTURE_BINDING_INDEX,
-      texture: &scene.test_texture,
-      sampler: vk_app.default_texture_sampler,
-    };
-
-    unsafe {
-      bind_resources_to_descriptors(device, &[diffuse_texture]);
-    };
-  }
-  */
-
   pub fn execute(
     &self,
     vk_app: &VkCtx,
@@ -253,7 +210,6 @@ impl ForwardPass {
     let clear_color = vk::ClearColorValue {
       float32: [0.2f32, 0.2f32, 0.2f32, 1f32],
     };
-    // let descriptor_set = self.descriptor_set(in_flight_frame_idx);
 
     let render_pass_begin_info = vk::RenderPassBeginInfo::builder()
       .render_pass(self.render_pass)
@@ -290,56 +246,27 @@ impl ForwardPass {
         vk::PipelineBindPoint::GRAPHICS,
         self.pipeline,
       );
-      /*
-      device.cmd_bind_descriptor_sets(
-        command_buffer,
-        vk::PipelineBindPoint::GRAPHICS,
-        self.pipeline_layout,
-        0,
-        &[config_descriptor_set, descriptor_set],
-        &[],
-      );
-      */
-      // here
-      let config_buf_info = vk::DescriptorBufferInfo {
-        buffer: config_buffer.buffer,
-        offset: 0,
-        range: vk::WHOLE_SIZE, // or buffer.size
-      };
-      let config_binding = vk::WriteDescriptorSet::builder()
-        // .dst_set(*descriptor_set)
-        .dst_binding(0) // !
-        .dst_array_element(0)
-        .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
-        .buffer_info(&[config_buf_info])
-        .build();
-      push_descriptor.cmd_push_descriptor_set(
-        command_buffer,
-        vk::PipelineBindPoint::GRAPHICS,
-        self.pipeline_layout,
-        0, // set!
-        &[config_binding],
-      );
-      let tex_info = vk::DescriptorImageInfo {
-        image_layout: scene.test_texture.layout,
-        image_view: scene.test_texture.image_view(),
-        sampler: vk_app.default_texture_sampler,
-      };
-      let tex_binding = vk::WriteDescriptorSet::builder()
-        // .dst_set(*descriptor_set)
-        .dst_binding(0) // !
-        .dst_array_element(0)
-        .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
-        .image_info(&[tex_info])
-        .build();
-      push_descriptor.cmd_push_descriptor_set(
-        command_buffer,
-        vk::PipelineBindPoint::GRAPHICS,
-        self.pipeline_layout,
-        1, // set!
-        &[tex_binding],
-      );
 
+      // bind uniforms
+      let resouce_binder = ResouceBinder {
+        push_descriptor,
+        command_buffer,
+        pipeline_layout: self.pipeline_layout,
+      };
+      let uniform_resouces = [
+        BindableResource::Uniform {
+          binding: BINDING_INDEX_CONFIG_UBO,
+          buffer: config_buffer,
+        },
+        BindableResource::Texture {
+          binding: BINDING_INDEX_DIFFUSE_TEXTURE,
+          texture: &scene.test_texture,
+          sampler: vk_app.default_texture_sampler,
+        },
+      ];
+      bind_resources_to_descriptors(&resouce_binder, 0, &uniform_resouces);
+
+      // draw calls
       for entity in &scene.entities {
         device.cmd_bind_vertex_buffers(command_buffer, 0, &[entity.vertex_buffer.buffer], &[0]);
         device.cmd_bind_index_buffer(
@@ -351,11 +278,8 @@ impl ForwardPass {
         device.cmd_draw_indexed(command_buffer, entity.vertex_count, 1, 0, 0, 0);
       }
 
+      // end
       device.cmd_end_render_pass(command_buffer)
     }
   }
-
-  // fn descriptor_set(&self, swapchain_image_index: usize) -> vk::DescriptorSet {
-  // self.descriptor_sets[swapchain_image_index]
-  // }
 }
