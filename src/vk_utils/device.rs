@@ -3,7 +3,7 @@ use std::ffi::{CStr, CString};
 
 use ash::extensions::{
   ext::DebugUtils,
-  khr::{Surface, Swapchain},
+  khr::{PushDescriptor, Surface, Swapchain},
 };
 use ash::vk;
 
@@ -35,7 +35,7 @@ pub fn create_instance() -> (ash::Entry, ash::Instance) {
   let app_info = vk::ApplicationInfo::builder()
     .application_name(&app_name)
     .application_version(get_app_version())
-    .api_version(vk::make_api_version(0, 1, 2, 0))
+    .api_version(vk::make_api_version(0, 1, 3, 0))
     .build();
 
   // TODO turn off debug/validation in prod
@@ -155,7 +155,7 @@ pub fn pick_device_and_queue(
 
   // Arseny:
   // https://github.com/zeux/niagara/blob/master/src/device.cpp#L181
-  let device_extension_names_raw = [Swapchain::name().as_ptr()];
+  let device_extension_names_raw = [Swapchain::name().as_ptr(), PushDescriptor::name().as_ptr()];
 
   let device_create_info = vk::DeviceCreateInfo::builder()
     .queue_create_infos(&[queue_create_infos])

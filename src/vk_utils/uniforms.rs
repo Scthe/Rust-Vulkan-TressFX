@@ -34,6 +34,7 @@ DescriptorSetLayout is required during:
 - creating rendering pipeline
 */
 
+/*
 pub fn create_descriptor_pool(
   device: &ash::Device,
   descriptor_types: &[vk::DescriptorType],
@@ -81,11 +82,14 @@ pub unsafe fn create_descriptor_sets(
     .allocate_descriptor_sets(&alloc_info)
     .expect("Failed allocating descriptor sets")
 }
+*/
 
 ////////////////////////////////
 /// Layout utils
 ////////////////////////////////
 
+/// Create layout for a single uniform buffer object.
+/// That layout will be one of layouts gathered in DescriptorSetLayout.
 pub fn create_ubo_layout(
   binding: u32,
   stage_flags: vk::ShaderStageFlags,
@@ -98,6 +102,8 @@ pub fn create_ubo_layout(
     .build()
 }
 
+/// Create layout for a single texture/sampler object.
+/// That layout will be one of layouts gathered in DescriptorSetLayout.
 pub fn create_texture_layout(
   binding: u32,
   stage_flags: vk::ShaderStageFlags,
@@ -112,6 +118,7 @@ pub fn create_texture_layout(
 
 ////////////////////////////////
 /// Resource binding
+/// TODO remove below
 ////////////////////////////////
 
 pub enum BindableResource<'a> {

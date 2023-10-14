@@ -57,9 +57,9 @@ fn main() {
   info!("Scene init: OK!");
 
   let mut render_graph = RenderGraph::new(&vk_app);
-  (0..vk_app.frames_in_flight()).for_each(|frame_id| {
-    render_graph.bind_data_to_descriptors(frame_id, &vk_app, &scene);
-  });
+  // (0..vk_app.frames_in_flight()).for_each(|frame_id| {
+  // render_graph.bind_data_to_descriptors(frame_id, &vk_app, &scene);
+  // });
   info!("Render Graph init: OK!");
 
   // last pre-run ops

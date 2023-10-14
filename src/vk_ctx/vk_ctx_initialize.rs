@@ -2,7 +2,7 @@ use log::{info, trace};
 use vma;
 
 use ash;
-use ash::extensions::khr::{Surface, Swapchain};
+use ash::extensions::khr::{PushDescriptor, Surface, Swapchain};
 use ash::vk::{self};
 
 use crate::vk_ctx::vk_ctx::VkCtx;
@@ -57,6 +57,9 @@ pub fn vk_ctx_initialize(window: &winit::window::Window) -> VkCtx {
     pick_physical_device_and_queue_family_idx(&instance, &surface_loader, surface_khr);
   let (device, queue) = pick_device_and_queue(&instance, phys_device, queue_family_index);
 
+  // push descriptor set as alternative to descriptor set pools etc.
+  let push_descriptor = PushDescriptor::new(&instance, &device);
+
   // swapchain - prepare
   let window_size = get_window_size(window);
   trace!("window_size {:?}", window_size);
@@ -102,6 +105,8 @@ pub fn vk_ctx_initialize(window: &winit::window::Window) -> VkCtx {
   let pipeline_cache = create_pipeline_cache(&device);
 
   // descriptor_pool
+  /*
+  // TODO remove this code + VkCtx.descriptor_pool
   let descriptor_types = [
     vk::DescriptorType::UNIFORM_BUFFER,
     vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
@@ -113,6 +118,7 @@ pub fn vk_ctx_initialize(window: &winit::window::Window) -> VkCtx {
     frames_in_flight,
     descriptor_set_count,
   );
+  */
 
   // sampler
   let sampler = create_sampler(&device, vk::Filter::LINEAR, vk::Filter::LINEAR);
@@ -142,7 +148,8 @@ pub fn vk_ctx_initialize(window: &winit::window::Window) -> VkCtx {
       cmd_buffers: cmd_bufs,
     },
     pipeline_cache,
-    descriptor_pool,
+    // descriptor_pool,
+    push_descriptor,
     surface_loader,
     surface_khr,
     debug_utils_loader,

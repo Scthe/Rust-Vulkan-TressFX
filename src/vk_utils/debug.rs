@@ -1,8 +1,19 @@
 use log::{debug, error, info, warn};
+use std::borrow::Cow;
 use std::ffi::CStr;
 
 use ash::extensions::ext::DebugUtils;
 use ash::vk;
+
+/// Added after https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_KHR_push_descriptor.html.
+/// Seems validation layer does not work properly with this extension? It reports descriptor set as unbound,
+/// while we are sure that it IS bound (and shader also has access to it!).
+/// This would be removed with https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_EXT_descriptor_indexing.html
+const MSG_A: &str = " The Vulkan spec states: For each set n that is statically used by a bound shader, a descriptor set must have been bound to n at the same pipeline bind point, with a VkPipelineLayout that is compatible for set n, with the VkPipelineLayout or VkDescriptorSetLayout array that was used to create the current VkPipeline or VkShaderEXT, as described in Pipeline Layout Compatibility";
+
+fn is_message_ignored(message: &Cow<'_, str>) -> bool {
+  message.contains(MSG_A)
+}
 
 // called on validation layer message
 extern "system" fn vulkan_debug_callback(
@@ -15,6 +26,10 @@ extern "system" fn vulkan_debug_callback(
   // let message_id_number: i32 = callback_data.message_id_number as i32;
   // let message_id_name = CStr::from_ptr(callback_data.p_message_id_name).to_string_lossy();
   let message = unsafe { CStr::from_ptr(callback_data.p_message).to_string_lossy() };
+
+  if is_message_ignored(&message) {
+    return vk::FALSE;
+  }
 
   let message_str = format!(
     "[VK_dbg_callback, {:?}]: {}", // "[VK, {:?}]: [{} ({})] : {}\n",

@@ -1,9 +1,9 @@
 use log::info;
 
-use ash;
 use ash::extensions::ext::DebugUtils;
 use ash::extensions::khr::Surface;
 use ash::vk;
+use ash::{self, extensions::khr::PushDescriptor};
 
 use super::*;
 use crate::vk_utils::{execute_setup_cmd_buf, WithSetupCmdBuffer};
@@ -30,7 +30,8 @@ pub struct VkCtx {
   pub device: VkCtxDevice,
   pub command_buffers: VkCtxCommandBuffers,
   pub pipeline_cache: vk::PipelineCache,
-  pub descriptor_pool: vk::DescriptorPool,
+  // pub descriptor_pool: vk::DescriptorPool,
+  pub push_descriptor: PushDescriptor,
   pub allocator: vma::Allocator,
   /// C'mon you will use linear sampling anyway, can just create global object..
   pub default_texture_sampler: vk::Sampler,
@@ -83,7 +84,7 @@ impl VkCtx {
     // device.device_wait_idle().unwrap();
 
     self.synchronize.destroy(device);
-    device.destroy_descriptor_pool(self.descriptor_pool, None);
+    // device.destroy_descriptor_pool(self.descriptor_pool, None);
     self.command_buffers.destroy(device);
     self.swapchain.destroy(device);
     device.destroy_pipeline_cache(self.pipeline_cache, None);
