@@ -33,11 +33,11 @@ impl VkTexture {
     app_init: &impl WithSetupCmdBuffer,
     path: &std::path::Path,
   ) -> VkTexture {
+    // load image from file
     info!("Loading texture from '{}'", path.to_string_lossy());
-    /*
     let file = File::open(path).expect("Failed to open file");
     let mut decoder = Decoder::new(BufReader::new(file));
-    let pixel_bytes = decoder.decode().expect("Failed to decode image");
+    let pixel_bytes_rgb = decoder.decode().expect("Failed to decode image");
     let metadata = decoder.info().unwrap();
     trace!("File meta: {:?}", metadata);
 
@@ -48,22 +48,19 @@ impl VkTexture {
         metadata.pixel_format
       );
     }
-    */
+    let pixel_bytes = covert_rgb_to_rgba(&pixel_bytes_rgb);
+    let width = metadata.width as u32;
+    let height = metadata.height as u32;
 
-    // TODO create artificial buffer 64x64x4 filled with [(255,0,0,0), ...]
-    // panic!("as expected");
-    let width = 32;
-    let height = 32;
-    let pixel_bytes = create_artificial_texture(width, height);
-
+    // vulkan part starts here
     let create_info = vk::ImageCreateInfo::builder()
       .image_type(vk::ImageType::TYPE_2D)
       .extent(vk::Extent3D {
-        width: width as u32,
-        height: height as u32,
+        width,
+        height,
         depth: 1,
       })
-      .format(vk::Format::R8G8B8A8_SRGB) // TODO PixelFormat::RGB24?
+      .format(vk::Format::R8G8B8A8_SRGB)
       .tiling(vk::ImageTiling::LINEAR) // Optimal if uploaded from staging buffer. Linear if written from CPU(!!!)
       .mip_levels(1)
       .array_layers(1)
@@ -91,8 +88,8 @@ impl VkTexture {
     let name = path.file_name().unwrap_or(OsStr::new(path));
     let mut texture = VkTexture {
       name: name.to_string_lossy().to_string(),
-      width: width as u32,
-      height: height as u32,
+      width,
+      height,
       image,
       allocation,
       mapped_pointer: None,
@@ -196,6 +193,7 @@ impl VkTexture {
   }
 }
 
+#[allow(dead_code)]
 fn create_artificial_texture(w: u32, h: u32) -> Vec<u8> {
   let pixel_cnt = (w * h) as usize;
   let mut data: Vec<u8> = Vec::with_capacity(pixel_cnt * 4);
@@ -210,6 +208,23 @@ fn create_artificial_texture(w: u32, h: u32) -> Vec<u8> {
       data.push(255u8);
       data.push(0u8);
     }
+    data.push(255u8);
+  });
+
+  data
+}
+
+// Used cause vk::Format::R8G8B8_SRGB are not supported on my GPU
+fn covert_rgb_to_rgba(data_rgb: &Vec<u8>) -> Vec<u8> {
+  let pixel_cnt = data_rgb.len() / 3;
+  let mut data: Vec<u8> = Vec::with_capacity(pixel_cnt * 4);
+  // trace!("covert_rgb_to_rgba: bytes({:?}), pixel_cnt({})", data_rgb.len(), pixel_cnt);
+
+  (0..pixel_cnt).for_each(|pixel_id| {
+    let offset = pixel_id * 3;
+    data.push(data_rgb[offset]);
+    data.push(data_rgb[offset + 1]);
+    data.push(data_rgb[offset + 2]);
     data.push(255u8);
   });
 
