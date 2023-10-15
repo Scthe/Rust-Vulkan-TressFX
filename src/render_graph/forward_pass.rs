@@ -7,9 +7,11 @@ use crate::scene::World;
 use crate::vk_ctx::VkCtx;
 use crate::vk_utils::*;
 
-pub const BINDING_INDEX_CONFIG_UBO: u32 = 0;
-pub const BINDING_INDEX_DIFFUSE_TEXTURE: u32 = 1;
+const BINDING_INDEX_CONFIG_UBO: u32 = 0;
+const BINDING_INDEX_DIFFUSE_TEXTURE: u32 = 1;
+
 const DEPTH_TEXTURE_FORMAT: vk::Format = vk::Format::D24_UNORM_S8_UINT;
+const DIFFUSE_TEXTURE_FORMAT: vk::Format = vk::Format::R8G8B8A8_UINT;
 
 pub struct ForwardPass {
   pub render_pass: vk::RenderPass,
@@ -19,12 +21,12 @@ pub struct ForwardPass {
 }
 
 impl ForwardPass {
-  pub fn new(vk_app: &VkCtx, image_format: vk::Format) -> Self {
+  pub fn new(vk_app: &VkCtx) -> Self {
     trace!("Creating ForwardPass");
     let device = vk_app.vk_device();
     let pipeline_cache = &vk_app.pipeline_cache;
 
-    let render_pass = ForwardPass::create_render_pass(device, image_format);
+    let render_pass = ForwardPass::create_render_pass(device);
     let uniforms_layout = ForwardPass::create_uniforms_layout(device);
     let (pipeline, pipeline_layout) =
       ForwardPass::create_pipeline(device, pipeline_cache, &render_pass, &[uniforms_layout]);
@@ -44,7 +46,7 @@ impl ForwardPass {
     device.destroy_pipeline(self.pipeline, None);
   }
 
-  fn create_render_pass(device: &ash::Device, image_format: vk::Format) -> vk::RenderPass {
+  fn create_render_pass(device: &ash::Device) -> vk::RenderPass {
     // 1. define render pass to compile shader against
     let depth_attachment = create_depth_stencil_attachment(
       0,
@@ -57,23 +59,17 @@ impl ForwardPass {
     );
     let color_attachment = create_color_attachment(
       1,
-      // TODO custom
-      image_format,
+      DIFFUSE_TEXTURE_FORMAT,
       vk::AttachmentLoadOp::CLEAR,
       vk::AttachmentStoreOp::STORE,
-      // TODO COLOR_ATTACHMENT_OPTIMAL,
-      vk::ImageLayout::PRESENT_SRC_KHR,
+      vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
     );
 
     let subpass = vk::SubpassDescription::builder()
-      // .input_attachments(&[]) // INPUT: layout(input_attachment_index=X, set=Y, binding=Z)
-      .color_attachments(&[color_attachment.1]) // OUTPUT
+      .color_attachments(&[color_attachment.1])
       .depth_stencil_attachment(&depth_attachment.1)
       .pipeline_bind_point(vk::PipelineBindPoint::GRAPHICS)
-      // .preserve_attachments(preserve_attachments)
-      // .resolve_attachments(resolve_attachments)
       .build();
-    trace!("Subpass created, will be used to create render pass");
 
     // needed as we first clear the depth/color attachments in `vk::AttachmentLoadOp`
     let dependencies = vk::SubpassDependency::builder()
@@ -177,12 +173,7 @@ impl ForwardPass {
     (pipeline, pipeline_layout)
   }
 
-  pub fn create_framebuffer(
-    &self,
-    vk_app: &VkCtx,
-    color_attachment: vk::ImageView,
-    size: &vk::Extent2D,
-  ) -> ForwardPassFramebuffer {
+  pub fn create_framebuffer(&self, vk_app: &VkCtx, size: &vk::Extent2D) -> ForwardPassFramebuffer {
     let device = vk_app.vk_device();
     let allocator = &vk_app.allocator;
 
@@ -191,19 +182,34 @@ impl ForwardPass {
       allocator,
       format!("ForwardPass.depth#???"),
       *size,
-      vk::Format::D24_UNORM_S8_UINT,
+      DEPTH_TEXTURE_FORMAT,
       vk::ImageTiling::OPTIMAL,
       vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT,
       vk::ImageAspectFlags::DEPTH,
     );
+    let diffuse_tex = VkTexture::new(
+      device,
+      allocator,
+      format!("ForwardPass.difuse#???"),
+      *size,
+      DIFFUSE_TEXTURE_FORMAT,
+      vk::ImageTiling::OPTIMAL,
+      vk::ImageUsageFlags::COLOR_ATTACHMENT,
+      vk::ImageAspectFlags::COLOR,
+    );
+
     let fbo = create_framebuffer(
       device,
       self.render_pass,
-      &[depth_tex.image_view(), color_attachment],
+      &[depth_tex.image_view(), diffuse_tex.image_view()],
       &size,
     );
 
-    ForwardPassFramebuffer { depth_tex, fbo }
+    ForwardPassFramebuffer {
+      depth_tex,
+      diffuse_tex,
+      fbo,
+    }
   }
 
   pub fn execute(
@@ -307,7 +313,7 @@ impl ForwardPass {
 
 pub struct ForwardPassFramebuffer {
   pub depth_tex: VkTexture,
-  // pub color_tex: VkTexture,
+  pub diffuse_tex: VkTexture,
   // pub normals_tex: VkTexture,
   pub fbo: vk::Framebuffer,
 }
@@ -316,7 +322,9 @@ impl ForwardPassFramebuffer {
   pub unsafe fn destroy(&mut self, vk_app: &VkCtx) {
     let device = vk_app.vk_device();
     let allocator = &vk_app.allocator;
+
     device.destroy_framebuffer(self.fbo, None);
     self.depth_tex.delete(device, allocator);
+    self.diffuse_tex.delete(device, allocator);
   }
 }

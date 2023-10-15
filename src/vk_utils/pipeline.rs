@@ -46,6 +46,16 @@ pub fn create_pipeline(
 // This file contains presets for `vk::GraphicsPipelineCreateInfo`.
 // Most common options, so it's actually manageable and <100LOC every time
 
+/// No data for vertices provided by the app, it will all be handled in the shader.
+/// Common usage is
+/// https://www.saschawillems.de/blog/2016/08/13/vulkan-tutorial-on-rendering-a-fullscreen-quad-without-buffers/
+pub fn ps_vertex_empty() -> vk::PipelineVertexInputStateCreateInfo {
+  let mut info = vk::PipelineVertexInputStateCreateInfo::builder().build();
+  info.vertex_attribute_description_count = 0;
+  info.vertex_binding_description_count = 0;
+  info
+}
+
 /// PipelineInputAssembly-TRIANGLE_LIST
 pub fn ps_ia_triangle_list() -> vk::PipelineInputAssemblyStateCreateInfo {
   vk::PipelineInputAssemblyStateCreateInfo::builder()

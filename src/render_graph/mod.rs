@@ -10,21 +10,25 @@ use crate::vk_utils::*;
 
 mod _shared;
 mod forward_pass;
-// mod present_pass;
+mod present_pass;
 
-use self::_shared::GlobalConfigUniformBuffer;
 pub use self::_shared::RenderableVertex;
 use self::forward_pass::{ForwardPass, ForwardPassFramebuffer};
+use self::{_shared::GlobalConfigUniformBuffer, present_pass::PresentPass};
 
 // TODO add check when compiling shader if .glsl is newer than .spv. Then panic and say to recompile shaders
 
 pub struct RenderGraph {
-  forward_pass: ForwardPass,
-  framebuffers: Vec<ForwardPassFramebuffer>,
-
   /// Refreshed once every frame. Contains e.g. all config settings, camera data
   /// One per frame-in-flight.
   config_uniform_buffers: Vec<VkBuffer>,
+
+  // ForwardPass
+  forward_pass: ForwardPass,
+  forward_pass_framebuffers: Vec<ForwardPassFramebuffer>,
+  // PresentPass
+  present_pass: PresentPass,
+  present_pass_framebuffers: Vec<vk::Framebuffer>,
 }
 
 impl RenderGraph {
@@ -37,19 +41,26 @@ impl RenderGraph {
     let config_uniform_buffers = allocate_config_uniform_buffers(vk_app, in_flight_frames);
 
     // create passes
-    let forward_pass = ForwardPass::new(vk_app, image_format);
+    let forward_pass = ForwardPass::new(vk_app);
+    let present_pass = PresentPass::new(vk_app, image_format);
 
     // framebuffers
     let window_size = &vk_app.window_size();
-    let framebuffers = swapchain_image_views
+    let forward_pass_framebuffers = swapchain_image_views
       .iter()
-      .map(|&iv| forward_pass.create_framebuffer(vk_app, iv, window_size))
+      .map(|_| forward_pass.create_framebuffer(vk_app, window_size))
+      .collect();
+    let present_pass_framebuffers = swapchain_image_views
+      .iter()
+      .map(|&iv| present_pass.create_framebuffer(vk_app, iv, window_size))
       .collect();
 
     RenderGraph {
-      forward_pass,
-      framebuffers,
       config_uniform_buffers,
+      forward_pass,
+      forward_pass_framebuffers,
+      present_pass,
+      present_pass_framebuffers,
     }
   }
 
@@ -57,12 +68,22 @@ impl RenderGraph {
     let device = vk_app.vk_device();
 
     // passes
+    self.present_pass.destroy(device);
     self.forward_pass.destroy(device);
 
     // framebuffers
-    self.framebuffers.iter_mut().for_each(|framebuffer| {
-      framebuffer.destroy(vk_app);
-    });
+    self
+      .present_pass_framebuffers
+      .iter_mut()
+      .for_each(|framebuffer| {
+        device.destroy_framebuffer(*framebuffer, None);
+      });
+    self
+      .forward_pass_framebuffers
+      .iter_mut()
+      .for_each(|framebuffer| {
+        framebuffer.destroy(vk_app);
+      });
 
     // uniform buffers
     let allocator = &vk_app.allocator;
@@ -96,7 +117,7 @@ impl RenderGraph {
         )
         .expect("Failed to acquire next swapchain image")
     };
-    let framebuffer = self.framebuffer_for_swapchain_image(swapchain_image_index as usize);
+    let framebuffers = self.framebuffers_for_swapchain_image(swapchain_image_index as usize);
 
     // update per-frame uniforms
     let config_vk_buffer = &self.config_uniform_buffers[swapchain_image_index as usize];
@@ -123,13 +144,24 @@ impl RenderGraph {
       .expect("Failed - begin_command_buffer");
     }
 
+    /*
     self.forward_pass.execute(
       vk_app,
       scene,
       cmd_buf,
-      framebuffer,
+      framebuffers.forward_pass,
       swapchain.size,
       config_vk_buffer,
+    );
+    */
+
+    self.present_pass.execute(
+      vk_app,
+      cmd_buf,
+      framebuffers.present_pass,
+      swapchain.size,
+      // &framebuffers.forward_pass.diffuse_tex,
+      &scene.test_texture,
     );
 
     unsafe {
@@ -182,11 +214,11 @@ impl RenderGraph {
     vk_buffer.write_to_mapped(data_bytes);
   }
 
-  fn framebuffer_for_swapchain_image(
-    &self,
-    swapchain_image_index: usize,
-  ) -> &ForwardPassFramebuffer {
-    &self.framebuffers[swapchain_image_index]
+  fn framebuffers_for_swapchain_image(&self, swapchain_image_index: usize) -> FrameFramebuffers {
+    FrameFramebuffers {
+      forward_pass: &self.forward_pass_framebuffers[swapchain_image_index],
+      present_pass: &self.present_pass_framebuffers[swapchain_image_index],
+    }
   }
 }
 
@@ -209,4 +241,9 @@ fn allocate_config_uniform_buffers(vk_app: &VkCtx, in_flight_frames: usize) -> V
       buffer
     })
     .collect::<Vec<_>>()
+}
+
+struct FrameFramebuffers<'a> {
+  forward_pass: &'a ForwardPassFramebuffer,
+  present_pass: &'a vk::Framebuffer,
 }
