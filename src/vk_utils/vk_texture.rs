@@ -28,6 +28,62 @@ pub struct VkTexture {
 }
 
 impl VkTexture {
+  pub fn new(
+    device: &ash::Device,
+    allocator: &vma::Allocator,
+    name: String,
+    size: vk::Extent2D,
+    format: vk::Format,
+    tiling: vk::ImageTiling,
+    usage: vk::ImageUsageFlags,
+    aspect: vk::ImageAspectFlags,
+  ) -> VkTexture {
+    let create_info = vk::ImageCreateInfo::builder()
+      .image_type(vk::ImageType::TYPE_2D)
+      .extent(vk::Extent3D {
+        width: size.width,
+        height: size.height,
+        depth: 1,
+      })
+      .format(format)
+      .tiling(tiling)
+      .usage(usage)
+      // https://stackoverflow.com/questions/76945200/how-to-properly-use-vk-image-layout-preinitialized
+      .initial_layout(vk::ImageLayout::PREINITIALIZED) // VK_IMAGE_LAYOUT_GENERAL and ignore layouts? 
+      // verbose properties, but vulkan requires
+      .sharing_mode(vk::SharingMode::EXCLUSIVE)
+      .samples(vk::SampleCountFlags::TYPE_1)
+      .mip_levels(1)
+      .array_layers(1)
+      .build();
+
+    #[allow(deprecated)]
+    let alloc_info = vma::AllocationCreateInfo {
+      usage: vma::MemoryUsage::GpuOnly,
+      required_flags: vk::MemoryPropertyFlags::DEVICE_LOCAL,
+      ..Default::default()
+    };
+
+    let (image, allocation) = unsafe {
+      allocator
+        .create_image(&create_info, &alloc_info)
+        .expect("Failed allocating GPU memory for texture")
+    };
+
+    let image_view = create_image_view(device, image, create_info.format, aspect);
+
+    VkTexture {
+      name,
+      width: size.width,
+      height: size.height,
+      image,
+      allocation,
+      mapped_pointer: None,
+      layout: create_info.initial_layout,
+      image_view: Some(image_view),
+    }
+  }
+
   pub fn from_file(
     allocator: &vma::Allocator,
     app_init: &impl WithSetupCmdBuffer,

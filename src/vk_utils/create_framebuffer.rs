@@ -2,7 +2,7 @@ use ash;
 use ash::vk;
 use log::trace;
 
-pub fn create_framebuffers(
+pub fn create_framebuffers_with_one_attachment(
   device: &ash::Device,
   render_pass: vk::RenderPass,
   // TODO should be Vec<Vec<vk::ImageView>> Each framebuffer has an array of attachments.
@@ -17,7 +17,7 @@ pub fn create_framebuffers(
     .collect()
 }
 
-fn create_framebuffer(
+pub fn create_framebuffer(
   device: &ash::Device,
   render_pass: vk::RenderPass,
   image_views: &[vk::ImageView],
@@ -32,12 +32,9 @@ fn create_framebuffer(
     .height(size.height)
     .layers(1)
     .build();
-  let framebuffer = unsafe {
+  unsafe {
     device
       .create_framebuffer(&create_info, None)
       .expect("Failed to create framebuffer")
-  };
-  // trace!("Framebuffer created");
-
-  framebuffer
+  }
 }

@@ -13,13 +13,13 @@ mod forward_pass;
 
 use self::_shared::GlobalConfigUniformBuffer;
 pub use self::_shared::RenderableVertex;
-use self::forward_pass::ForwardPass;
+use self::forward_pass::{ForwardPass, ForwardPassFramebuffer};
 
 // TODO add check when compiling shader if .glsl is newer than .spv. Then panic and say to recompile shaders
 
 pub struct RenderGraph {
   forward_pass: ForwardPass,
-  framebuffers: Vec<vk::Framebuffer>,
+  framebuffers: Vec<ForwardPassFramebuffer>,
 
   /// Refreshed once every frame. Contains e.g. all config settings, camera data
   /// One per frame-in-flight.
@@ -39,14 +39,11 @@ impl RenderGraph {
     let forward_pass = ForwardPass::new(vk_app, image_format);
 
     // framebuffers
-    let device = vk_app.vk_device();
     let window_size = &vk_app.window_size();
-    let framebuffers = create_framebuffers(
-      device,
-      forward_pass.render_pass,
-      swapchain_image_views,
-      window_size,
-    );
+    let framebuffers = swapchain_image_views
+      .iter()
+      .map(|&iv| forward_pass.create_framebuffer(vk_app, iv, window_size))
+      .collect();
 
     RenderGraph {
       forward_pass,
@@ -62,9 +59,9 @@ impl RenderGraph {
     self.forward_pass.destroy(device);
 
     // framebuffers
-    for &framebuffer in &self.framebuffers {
-      device.destroy_framebuffer(framebuffer, None);
-    }
+    self.framebuffers.iter_mut().for_each(|framebuffer| {
+      framebuffer.destroy(vk_app);
+    });
 
     // uniform buffers
     let allocator = &vk_app.allocator;
@@ -98,7 +95,7 @@ impl RenderGraph {
         )
         .expect("Failed to acquire next swapchain image")
     };
-    let framebuffer = self.framebuffer_for_swapchain_image(swapchain_image_index);
+    let framebuffer = self.framebuffer_for_swapchain_image(swapchain_image_index as usize);
 
     // update per-frame uniforms
     let config_vk_buffer = &self.config_uniform_buffers[swapchain_image_index as usize];
@@ -176,17 +173,19 @@ impl RenderGraph {
     let v = camera.view_matrix().clone(); // TODO clone?
     let p = camera.perspective_matrix().clone();
     let data = GlobalConfigUniformBuffer {
-      // TODO or reverse? p*v*m
-      // u_vp: p, // TODO or reverse?
       u_vp: p.mul_mat4(&v),
+      // u_mvp: p.mul_mat4(&v).mul_mat4(&m),
     };
 
     let data_bytes = bytemuck::bytes_of(&data);
     vk_buffer.write_to_mapped(data_bytes);
   }
 
-  fn framebuffer_for_swapchain_image(&self, swapchain_image_index: u32) -> vk::Framebuffer {
-    self.framebuffers[swapchain_image_index as usize]
+  fn framebuffer_for_swapchain_image(
+    &self,
+    swapchain_image_index: usize,
+  ) -> &ForwardPassFramebuffer {
+    &self.framebuffers[swapchain_image_index]
   }
 }
 

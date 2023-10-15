@@ -9,6 +9,7 @@ use crate::vk_utils::*;
 
 pub const BINDING_INDEX_CONFIG_UBO: u32 = 0;
 pub const BINDING_INDEX_DIFFUSE_TEXTURE: u32 = 1;
+const DEPTH_TEXTURE_FORMAT: vk::Format = vk::Format::D24_UNORM_S8_UINT;
 
 pub struct ForwardPass {
   pub render_pass: vk::RenderPass,
@@ -44,48 +45,54 @@ impl ForwardPass {
 
   fn create_render_pass(device: &ash::Device, image_format: vk::Format) -> vk::RenderPass {
     // 1. define render pass to compile shader against
-    let attachment = vk::AttachmentDescription::builder()
-      .format(image_format)
-      .samples(vk::SampleCountFlags::TYPE_1) // single sampled
-      .load_op(vk::AttachmentLoadOp::CLEAR) // do not clear triangle background
-      .store_op(vk::AttachmentStoreOp::STORE)
-      // .stencil_load_op(vk::AttachmentLoadOp::DONT_CARE)
-      // .stencil_store_op(vk::AttachmentStoreOp::DONT_CARE)
-      // .initial_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
-      // .final_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
-      .final_layout(vk::ImageLayout::PRESENT_SRC_KHR)
-      .build();
-
-    let subpass_output_attachment = vk::AttachmentReference {
-      attachment: 0, // from the array above
-      layout: vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
-    };
+    let depth_attachment = create_depth_stencil_attachment(
+      0,
+      DEPTH_TEXTURE_FORMAT,
+      vk::AttachmentLoadOp::CLEAR,      // depth_load_op
+      vk::AttachmentStoreOp::STORE,     // depth_store_op
+      vk::AttachmentLoadOp::DONT_CARE,  // stencil_load_op
+      vk::AttachmentStoreOp::DONT_CARE, // stencil_store_op
+      vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+    );
+    let color_attachment = create_color_attachment(
+      1,
+      image_format,
+      vk::AttachmentLoadOp::CLEAR,
+      vk::AttachmentStoreOp::STORE,
+      vk::ImageLayout::PRESENT_SRC_KHR,
+    );
 
     let subpass = vk::SubpassDescription::builder()
-      // .flags(flags) // No values in vk?
       // .input_attachments(&[]) // INPUT: layout(input_attachment_index=X, set=Y, binding=Z)
-      .color_attachments(&[subpass_output_attachment]) // OUTPUT
-      // .depth_stencil_attachment(depth_stencil_attachment)
-      .pipeline_bind_point(vk::PipelineBindPoint::GRAPHICS) //
+      .color_attachments(&[color_attachment.1]) // OUTPUT
+      .depth_stencil_attachment(&depth_attachment.1)
+      .pipeline_bind_point(vk::PipelineBindPoint::GRAPHICS)
       // .preserve_attachments(preserve_attachments)
       // .resolve_attachments(resolve_attachments)
       .build();
     trace!("Subpass created, will be used to create render pass");
 
+    // needed as we first clear the depth/color attachments in `vk::AttachmentLoadOp`
     let dependencies = vk::SubpassDependency::builder()
       .src_subpass(vk::SUBPASS_EXTERNAL)
       .dst_subpass(0)
-      .src_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT)
+      .src_stage_mask(
+        vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT
+          | vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS,
+      )
       .src_access_mask(vk::AccessFlags::empty())
-      .dst_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT)
-      .dst_access_mask(vk::AccessFlags::COLOR_ATTACHMENT_WRITE)
+      .dst_stage_mask(
+        vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT
+          | vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS,
+      )
+      .dst_access_mask(
+        vk::AccessFlags::COLOR_ATTACHMENT_WRITE | vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE,
+      )
       .build();
 
     let create_info = vk::RenderPassCreateInfo::builder()
-      // .flags(vk::RenderPassCreateFlags::) // some BS about rotation 90dgr?
-      // .pCorrelatedViewMasks() // ?
       .dependencies(&[dependencies])
-      .attachments(&[attachment])
+      .attachments(&[depth_attachment.0, color_attachment.0])
       .subpasses(&[subpass])
       .build();
     let render_pass = unsafe {
@@ -168,7 +175,7 @@ impl ForwardPass {
       .viewport_state(&ps_viewport_single_dynamic())
       .rasterization_state(&ps_raster_polygons(vk::CullModeFlags::NONE)) // TODO cull backfaces
       .multisample_state(&ps_multisample_disabled())
-      .depth_stencil_state(&ps_depth_always_stencil_always())
+      .depth_stencil_state(&ps_depth_less_stencil_always())
       .color_blend_state(&ps_color_blend_override(attachment_count))
       .dynamic_state(&dynamic_state)
       .layout(pipeline_layout)
@@ -194,12 +201,41 @@ impl ForwardPass {
     (pipeline, pipeline_layout)
   }
 
+  pub fn create_framebuffer(
+    &self,
+    vk_app: &VkCtx,
+    color_attachment: vk::ImageView,
+    size: &vk::Extent2D,
+  ) -> ForwardPassFramebuffer {
+    let device = vk_app.vk_device();
+    let allocator = &vk_app.allocator;
+
+    let depth_tex = VkTexture::new(
+      device,
+      allocator,
+      format!("ForwardPass.depth#???"),
+      *size,
+      vk::Format::D24_UNORM_S8_UINT,
+      vk::ImageTiling::OPTIMAL,
+      vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT,
+      vk::ImageAspectFlags::DEPTH,
+    );
+    let fbo = create_framebuffer(
+      device,
+      self.render_pass,
+      &[depth_tex.image_view(), color_attachment],
+      &size,
+    );
+
+    ForwardPassFramebuffer { depth_tex, fbo }
+  }
+
   pub fn execute(
     &self,
     vk_app: &VkCtx,
     scene: &World,
     command_buffer: vk::CommandBuffer,
-    framebuffer: vk::Framebuffer,
+    framebuffer: &ForwardPassFramebuffer,
     size: vk::Extent2D,
     config_buffer: &VkBuffer,
   ) -> () {
@@ -210,12 +246,21 @@ impl ForwardPass {
     let clear_color = vk::ClearColorValue {
       float32: [0.2f32, 0.2f32, 0.2f32, 1f32],
     };
+    let clear_depth = vk::ClearDepthStencilValue {
+      depth: 1.0f32,
+      stencil: 0,
+    };
 
     let render_pass_begin_info = vk::RenderPassBeginInfo::builder()
       .render_pass(self.render_pass)
-      .framebuffer(framebuffer)
+      .framebuffer(framebuffer.fbo)
       .render_area(render_area)
-      .clear_values(&[vk::ClearValue { color: clear_color }])
+      .clear_values(&[
+        vk::ClearValue {
+          depth_stencil: clear_depth,
+        },
+        vk::ClearValue { color: clear_color },
+      ])
       .build();
 
     // TODO no need to rerecord every frame TBH. Everything can be controlled by uniforms etc.
@@ -281,5 +326,21 @@ impl ForwardPass {
       // end
       device.cmd_end_render_pass(command_buffer)
     }
+  }
+}
+
+pub struct ForwardPassFramebuffer {
+  pub depth_tex: VkTexture,
+  // pub color_tex: VkTexture,
+  // pub normals_tex: VkTexture,
+  pub fbo: vk::Framebuffer,
+}
+
+impl ForwardPassFramebuffer {
+  pub unsafe fn destroy(&mut self, vk_app: &VkCtx) {
+    let device = vk_app.vk_device();
+    let allocator = &vk_app.allocator;
+    device.destroy_framebuffer(self.fbo, None);
+    self.depth_tex.delete(device, allocator);
   }
 }
