@@ -13,6 +13,36 @@ pub fn create_pipeline_cache(device: &ash::Device) -> vk::PipelineCache {
   }
 }
 
+pub fn create_pipeline_layout(
+  device: &ash::Device,
+  uniform_layouts: &[vk::DescriptorSetLayout],
+) -> vk::PipelineLayout {
+  let create_info = vk::PipelineLayoutCreateInfo::builder()
+    .set_layouts(uniform_layouts)
+    .build();
+  unsafe {
+    device
+      .create_pipeline_layout(&create_info, None)
+      .expect("Failed to create pipeline layout")
+  }
+}
+
+pub fn create_pipeline(
+  device: &ash::Device,
+  pipeline_cache: &vk::PipelineCache,
+  pipeline_create_info: vk::GraphicsPipelineCreateInfo,
+) -> vk::Pipeline {
+  let pipelines = unsafe {
+    device
+      .create_graphics_pipelines(*pipeline_cache, &[pipeline_create_info], None)
+      .ok()
+  };
+  match pipelines {
+    Some(ps) if ps.len() > 0 => *ps.first().unwrap(),
+    _ => panic!("Failed to create graphic pipeline"),
+  }
+}
+
 // This file contains presets for `vk::GraphicsPipelineCreateInfo`.
 // Most common options, so it's actually manageable and <100LOC every time
 
@@ -144,8 +174,10 @@ fn ps_color_attachments_write_all(
 }
 
 /// Write result to all color attachments, disable blending
-pub fn ps_color_blend_override(attachment_count: usize) -> vk::PipelineColorBlendStateCreateInfo {
-  let color_attachments_write_all = ps_color_attachments_write_all(attachment_count);
+pub fn ps_color_blend_override(
+  color_attachment_count: usize,
+) -> vk::PipelineColorBlendStateCreateInfo {
+  let color_attachments_write_all = ps_color_attachments_write_all(color_attachment_count);
   vk::PipelineColorBlendStateCreateInfo::builder()
     .attachments(&color_attachments_write_all)
     .build()

@@ -2,6 +2,7 @@ use ash;
 use ash::vk;
 use log::trace;
 
+#[allow(dead_code)]
 pub fn create_framebuffers_with_one_attachment(
   device: &ash::Device,
   render_pass: vk::RenderPass,

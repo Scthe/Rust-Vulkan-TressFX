@@ -45,3 +45,27 @@ pub fn load_shader(
 
   (shader_module, stage_stage)
 }
+
+/// Quick util to load pair of (vertex, fragment) shaders
+pub fn load_render_shaders(
+  device: &ash::Device,
+  vertex_shader_path: &str,
+  fragment_shader_path: &str,
+) -> (
+  vk::ShaderModule,
+  vk::PipelineShaderStageCreateInfo,
+  vk::ShaderModule,
+  vk::PipelineShaderStageCreateInfo,
+) {
+  let (module_vs, stage_vs) = load_shader(
+    device,
+    vk::ShaderStageFlags::VERTEX,
+    std::path::Path::new(vertex_shader_path),
+  );
+  let (module_fs, stage_fs) = load_shader(
+    device,
+    vk::ShaderStageFlags::FRAGMENT,
+    std::path::Path::new(fragment_shader_path),
+  );
+  (module_vs, stage_vs, module_fs, stage_fs)
+}

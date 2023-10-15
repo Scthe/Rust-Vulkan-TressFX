@@ -20,6 +20,7 @@ pub struct ForwardPass {
 
 impl ForwardPass {
   pub fn new(vk_app: &VkCtx, image_format: vk::Format) -> Self {
+    trace!("Creating ForwardPass");
     let device = vk_app.vk_device();
     let pipeline_cache = &vk_app.pipeline_cache;
 
@@ -56,9 +57,11 @@ impl ForwardPass {
     );
     let color_attachment = create_color_attachment(
       1,
+      // TODO custom
       image_format,
       vk::AttachmentLoadOp::CLEAR,
       vk::AttachmentStoreOp::STORE,
+      // TODO COLOR_ATTACHMENT_OPTIMAL,
       vk::ImageLayout::PRESENT_SRC_KHR,
     );
 
@@ -130,29 +133,14 @@ impl ForwardPass {
     render_pass: &vk::RenderPass,
     uniform_layouts: &[vk::DescriptorSetLayout],
   ) -> (vk::Pipeline, vk::PipelineLayout) {
-    trace!("Will create pipeline for a (device, render pass) based on shaders");
-    let attachment_count: usize = 1;
-
     // pipeline layout
-    let create_info = vk::PipelineLayoutCreateInfo::builder()
-      .set_layouts(uniform_layouts)
-      .build();
-    let pipeline_layout = unsafe {
-      device
-        .create_pipeline_layout(&create_info, None)
-        .expect("Failed to create pipeline layout")
-    };
+    let pipeline_layout = create_pipeline_layout(device, uniform_layouts);
 
     // create shaders
-    let (module_vs, stage_vs) = load_shader(
+    let (module_vs, stage_vs, module_fs, stage_fs) = load_render_shaders(
       device,
-      vk::ShaderStageFlags::VERTEX,
-      std::path::Path::new("./assets/shaders-compiled/triangle.vert.spv"),
-    );
-    let (module_fs, stage_fs) = load_shader(
-      device,
-      vk::ShaderStageFlags::FRAGMENT,
-      std::path::Path::new("./assets/shaders-compiled/triangle.frag.spv"),
+      "./assets/shaders-compiled/forward.vert.spv",
+      "./assets/shaders-compiled/forward.frag.spv",
     );
 
     let vertex_input_state = vk::PipelineVertexInputStateCreateInfo::builder()
@@ -160,43 +148,31 @@ impl ForwardPass {
       .vertex_binding_descriptions(&RenderableVertex::get_bindings_descriptions())
       .build();
 
-    let dynamic_state = ps_dynamic_state(&[
-      vk::DynamicState::VIEWPORT,
-      vk::DynamicState::SCISSOR,
-      // other: depth, stencil, blend etc.
-    ]);
+    let dynamic_state = ps_dynamic_state(&[vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR]);
 
+    // create pipeline itself
+    // TODO cull backfaces
+    let color_attachment_count: usize = 1;
     let pipeline_create_info = vk::GraphicsPipelineCreateInfo::builder()
-      // .flags(vk::PipelineCreateFlags::)
       .stages(&[stage_vs, stage_fs])
       .vertex_input_state(&vertex_input_state)
       .input_assembly_state(&ps_ia_triangle_list())
-      // .tessellation_state(tessellation_state)
       .viewport_state(&ps_viewport_single_dynamic())
-      .rasterization_state(&ps_raster_polygons(vk::CullModeFlags::NONE)) // TODO cull backfaces
+      .rasterization_state(&ps_raster_polygons(vk::CullModeFlags::NONE))
       .multisample_state(&ps_multisample_disabled())
       .depth_stencil_state(&ps_depth_less_stencil_always())
-      .color_blend_state(&ps_color_blend_override(attachment_count))
+      .color_blend_state(&ps_color_blend_override(color_attachment_count))
       .dynamic_state(&dynamic_state)
       .layout(pipeline_layout)
       .render_pass(*render_pass)
-      // .subpass()
-      // .base_pipeline_handle(base_pipeline_handle)
-      // .base_pipeline_index(base_pipeline_index)
       .build();
 
-    let pipelines = unsafe {
-      let pipelines = device
-        .create_graphics_pipelines(*pipeline_cache, &[pipeline_create_info], None)
-        .ok();
+    let pipeline = create_pipeline(device, pipeline_cache, pipeline_create_info);
+
+    unsafe {
       device.destroy_shader_module(module_vs, None);
       device.destroy_shader_module(module_fs, None);
-      pipelines
-    };
-    let pipeline = match pipelines {
-      Some(ps) if ps.len() > 0 => *ps.first().unwrap(),
-      _ => panic!("Failed to create graphic pipeline"),
-    };
+    }
 
     (pipeline, pipeline_layout)
   }
