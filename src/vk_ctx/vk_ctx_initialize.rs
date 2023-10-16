@@ -105,7 +105,18 @@ pub fn vk_ctx_initialize(window: &winit::window::Window) -> VkCtx {
   let pipeline_cache = create_pipeline_cache(&device);
 
   // sampler
-  let sampler = create_sampler(&device, vk::Filter::LINEAR, vk::Filter::LINEAR);
+  let sampler_linear = create_sampler(
+    &device,
+    vk::Filter::LINEAR,
+    vk::Filter::LINEAR,
+    vk::SamplerMipmapMode::LINEAR,
+  );
+  let sampler_nearest = create_sampler(
+    &device,
+    vk::Filter::NEAREST,
+    vk::Filter::NEAREST,
+    vk::SamplerMipmapMode::NEAREST,
+  );
 
   VkCtx {
     entry,
@@ -137,6 +148,7 @@ pub fn vk_ctx_initialize(window: &winit::window::Window) -> VkCtx {
     surface_khr,
     debug_utils_loader,
     debug_messenger,
-    default_texture_sampler: sampler,
+    default_texture_sampler_linear: sampler_linear,
+    default_texture_sampler_nearest: sampler_nearest,
   }
 }

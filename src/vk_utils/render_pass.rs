@@ -6,6 +6,7 @@ pub fn create_color_attachment(
   image_format: vk::Format,
   load_op: vk::AttachmentLoadOp,
   store_op: vk::AttachmentStoreOp,
+  // TODO can only be vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL or vk::ImageLayout::PRESENTABLE_KHR?
   final_layout: vk::ImageLayout,
 ) -> (vk::AttachmentDescription, vk::AttachmentReference) {
   let attachment = vk::AttachmentDescription::builder()

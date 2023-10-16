@@ -32,8 +32,9 @@ pub struct VkCtx {
   pub pipeline_cache: vk::PipelineCache,
   pub push_descriptor: PushDescriptor,
   pub allocator: vma::Allocator,
-  /// C'mon you will use linear sampling anyway, can just create global object..
-  pub default_texture_sampler: vk::Sampler,
+  /// C'mon you will not use non-linear/nearest sampling anyway, can just create global objects..
+  pub default_texture_sampler_linear: vk::Sampler,
+  pub default_texture_sampler_nearest: vk::Sampler,
 
   // surface
   pub surface_loader: Surface,
@@ -89,7 +90,7 @@ impl VkCtx {
     self.surface_loader.destroy_surface(self.surface_khr, None);
     // TODO causes error on app close
     // self.allocator.destroy(); // Used through Drop trait
-    device.destroy_sampler(self.default_texture_sampler, None);
+    device.destroy_sampler(self.default_texture_sampler_linear, None);
 
     self
       .debug_utils_loader

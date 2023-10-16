@@ -161,7 +161,7 @@ impl PresentPass {
     command_buffer: vk::CommandBuffer,
     framebuffer: &vk::Framebuffer,
     size: vk::Extent2D,
-    previouse_pass_render_result: &VkTexture,
+    previous_pass_render_result: &mut VkTexture,
   ) -> () {
     let device = vk_app.vk_device();
     let push_descriptor = &vk_app.push_descriptor;
@@ -175,18 +175,26 @@ impl PresentPass {
       .build();
 
     unsafe {
-      /*
-      device.cmd_pipeline_barrier(
-        *command_buffer,
-        vk::PipelineStageFlags::ALL_GRAPHICS,
-        vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
-        dependency_flags,
-        memory_barriers,
-        buffer_memory_barriers,
-        image_memory_barriers,
+      let texture_barrier = create_image_barrier(
+        previous_pass_render_result.image,
+        vk::ImageAspectFlags::COLOR,
+        previous_pass_render_result.layout,
+        vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+        vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
+        vk::AccessFlags::SHADER_READ,
       );
-      */
+      previous_pass_render_result.layout = vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL;
+      device.cmd_pipeline_barrier(
+        command_buffer,
+        vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
+        vk::PipelineStageFlags::FRAGMENT_SHADER,
+        vk::DependencyFlags::empty(),
+        &[],
+        &[],
+        &[texture_barrier],
+      );
 
+      // start render pass
       device.cmd_begin_render_pass(
         command_buffer,
         &render_pass_begin_info,
@@ -210,8 +218,8 @@ impl PresentPass {
       };
       let uniform_resouces = [BindableResource::Texture {
         binding: BINDING_INDEX_PREV_PASS_RESULT,
-        texture: previouse_pass_render_result,
-        sampler: vk_app.default_texture_sampler, // TODO or `vk::NEAREST` sampler?
+        texture: previous_pass_render_result,
+        sampler: vk_app.default_texture_sampler_nearest, // TODO or `vk::NEAREST` sampler?
       }];
       bind_resources_to_descriptors(&resouce_binder, 0, &uniform_resouces);
 

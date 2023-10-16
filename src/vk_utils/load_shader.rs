@@ -41,7 +41,7 @@ pub fn load_shader(
     .module(shader_module)
     .name(shader_fn_name)
     .build();
-  trace!("Shader {:?} loaded from {}", stage, path.to_string_lossy());
+  // trace!("Shader {:?} loaded from {}", stage, path.to_string_lossy());
 
   (shader_module, stage_stage)
 }

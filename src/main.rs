@@ -151,7 +151,7 @@ fn main() {
       // redraw
       Event::MainEventsCleared => {
         render_graph.execute_render_graph(&vk_app, &scene, current_frame_in_flight_idx);
-        current_frame_in_flight_idx = (current_frame_in_flight_idx + 1) % vk_app.frames_in_flight()
+        current_frame_in_flight_idx = (current_frame_in_flight_idx + 1) % vk_app.frames_in_flight();
       }
 
       // before destroy

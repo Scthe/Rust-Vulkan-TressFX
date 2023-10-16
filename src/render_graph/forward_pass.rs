@@ -11,7 +11,8 @@ const BINDING_INDEX_CONFIG_UBO: u32 = 0;
 const BINDING_INDEX_DIFFUSE_TEXTURE: u32 = 1;
 
 const DEPTH_TEXTURE_FORMAT: vk::Format = vk::Format::D24_UNORM_S8_UINT;
-const DIFFUSE_TEXTURE_FORMAT: vk::Format = vk::Format::R8G8B8A8_UINT;
+// const DIFFUSE_TEXTURE_FORMAT: vk::Format = vk::Format::R8G8B8A8_UINT; // R32G32B32A32_SFLOAT
+const DIFFUSE_TEXTURE_FORMAT: vk::Format = vk::Format::R32G32B32A32_SFLOAT;
 
 pub struct ForwardPass {
   pub render_pass: vk::RenderPass,
@@ -194,7 +195,7 @@ impl ForwardPass {
       *size,
       DIFFUSE_TEXTURE_FORMAT,
       vk::ImageTiling::OPTIMAL,
-      vk::ImageUsageFlags::COLOR_ATTACHMENT,
+      vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED,
       vk::ImageAspectFlags::COLOR,
     );
 
@@ -217,7 +218,7 @@ impl ForwardPass {
     vk_app: &VkCtx,
     scene: &World,
     command_buffer: vk::CommandBuffer,
-    framebuffer: &ForwardPassFramebuffer,
+    framebuffer: &mut ForwardPassFramebuffer,
     size: vk::Extent2D,
     config_buffer: &VkBuffer,
   ) -> () {
@@ -226,7 +227,9 @@ impl ForwardPass {
     let render_area = size_to_rect_vk(&size);
     let viewport = create_viewport(&size);
     let clear_color = vk::ClearColorValue {
-      float32: [0.2f32, 0.2f32, 0.2f32, 1f32],
+      // float32: [0.2f32, 0.2f32, 0.2f32, 1f32],
+      uint32: [250, 50, 50, 255],
+      // int32: [50, 250, 50, 255],
     };
     let clear_depth = vk::ClearDepthStencilValue {
       depth: 1.0f32,
@@ -247,18 +250,27 @@ impl ForwardPass {
 
     // TODO no need to rerecord every frame TBH. Everything can be controlled by uniforms etc.
     unsafe {
-      /*
-      device.cmd_pipeline_barrier(
-        *command_buffer,
-        vk::PipelineStageFlags::ALL_GRAPHICS,
-        vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
-        dependency_flags,
-        memory_barriers,
-        buffer_memory_barriers,
-        image_memory_barriers,
+      let texture_barrier = create_image_barrier(
+        framebuffer.diffuse_tex.image,
+        vk::ImageAspectFlags::COLOR,
+        framebuffer.diffuse_tex.layout,
+        vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+        vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
+        vk::AccessFlags::SHADER_READ,
       );
-      */
+      // TODO make it nicer? Hard to track this manually after each barrier. VkTexture.prepare_for_image_barrier(next_layout);
+      framebuffer.diffuse_tex.layout = vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL;
+      device.cmd_pipeline_barrier(
+        command_buffer,
+        vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
+        vk::PipelineStageFlags::FRAGMENT_SHADER,
+        vk::DependencyFlags::empty(),
+        &[],
+        &[],
+        &[texture_barrier],
+      );
 
+      // start render pass
       device.cmd_begin_render_pass(
         command_buffer,
         &render_pass_begin_info,
@@ -288,10 +300,31 @@ impl ForwardPass {
         BindableResource::Texture {
           binding: BINDING_INDEX_DIFFUSE_TEXTURE,
           texture: &scene.test_texture,
-          sampler: vk_app.default_texture_sampler,
+          sampler: vk_app.default_texture_sampler_linear,
         },
       ];
       bind_resources_to_descriptors(&resouce_binder, 0, &uniform_resouces);
+
+      /*
+      // TODO tmp clear cmd
+      let clear_attachment = vk::ClearAttachment::builder()
+        .aspect_mask(vk::ImageAspectFlags::COLOR)
+        .color_attachment(0)
+        .clear_value(vk::ClearValue { color: clear_color })
+        .build();
+      let clear_rect = vk::ClearRect {
+        base_array_layer: 0,
+        layer_count: 1,
+        rect: vk::Rect2D {
+          offset: vk::Offset2D { x: 0, y: 0 },
+          extent: vk::Extent2D {
+            width: 400,
+            height: 400,
+          },
+        },
+      };
+      device.cmd_clear_attachments(command_buffer, &[clear_attachment], &[clear_rect]);
+      */
 
       // draw calls
       for entity in &scene.entities {

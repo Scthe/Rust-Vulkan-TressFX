@@ -34,7 +34,7 @@ impl VkTexture {
     name: String,
     size: vk::Extent2D,
     format: vk::Format,
-    tiling: vk::ImageTiling,
+    tiling: vk::ImageTiling, // always vk::ImageTiling::OPTIMAL?
     usage: vk::ImageUsageFlags,
     aspect: vk::ImageAspectFlags,
   ) -> VkTexture {
@@ -49,7 +49,7 @@ impl VkTexture {
       .tiling(tiling)
       .usage(usage)
       // https://stackoverflow.com/questions/76945200/how-to-properly-use-vk-image-layout-preinitialized
-      .initial_layout(vk::ImageLayout::PREINITIALIZED) // VK_IMAGE_LAYOUT_GENERAL and ignore layouts? 
+      .initial_layout(vk::ImageLayout::PREINITIALIZED)
       // verbose properties, but vulkan requires
       .sharing_mode(vk::SharingMode::EXCLUSIVE)
       .samples(vk::SampleCountFlags::TYPE_1)
@@ -161,17 +161,19 @@ impl VkTexture {
     // change layout after write
     app_init.with_setup_cb(|device, cmd_buf| {
       let target_layout = vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL;
-      let mut barrier = create_image_barrier(
+      let barrier = create_image_barrier(
         image,
+        vk::ImageAspectFlags::COLOR,
         create_info.initial_layout,
         target_layout,
-        vk::ImageAspectFlags::COLOR,
+        vk::AccessFlags::empty(),     // src_access_mask
+        vk::AccessFlags::SHADER_READ, // dst_access_mask
       );
 
       // https://vulkan-tutorial.com/Texture_mapping/Images#page_Transition-barrier-masks
-      barrier.src_access_mask = vk::AccessFlags::empty();
-      barrier.dst_access_mask = vk::AccessFlags::SHADER_READ;
-      let source_stage = vk::PipelineStageFlags::TOP_OF_PIPE; // earliest possible
+      // as early as possible
+      let source_stage = vk::PipelineStageFlags::TOP_OF_PIPE;
+      // do not do any SHADER_READ in FRAGMENT_SHADER before this
       let destination_stage = vk::PipelineStageFlags::FRAGMENT_SHADER;
 
       // barrier impl
@@ -201,7 +203,9 @@ impl VkTexture {
     texture
   }
 
-  // TODO copied from vk_buffer
+  // TODO pub fn ensure_layout(&mut self, cmd_bufer)
+
+  // TODO copied from vk_buffer (trait VkAllocatable/VkMemoryResource?)
   fn map_memory(&mut self, allocator: &vma::Allocator) -> *mut u8 {
     if let Some(ptr) = &self.mapped_pointer {
       ptr.0
