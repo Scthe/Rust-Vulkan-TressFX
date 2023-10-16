@@ -1,14 +1,21 @@
 use ash;
 use ash::vk;
 
+///
+/// - presentable - `true` if image is rendered to window framebuffer. `false` if it's user-created texture
 pub fn create_color_attachment(
   attachment_idx: u32,
   image_format: vk::Format,
   load_op: vk::AttachmentLoadOp,
   store_op: vk::AttachmentStoreOp,
-  // TODO can only be vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL or vk::ImageLayout::PRESENTABLE_KHR?
-  final_layout: vk::ImageLayout,
+  presentable: bool,
 ) -> (vk::AttachmentDescription, vk::AttachmentReference) {
+  let final_layout = if presentable {
+    vk::ImageLayout::PRESENT_SRC_KHR
+  } else {
+    vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL
+  };
+
   let attachment = vk::AttachmentDescription::builder()
   .format(image_format)
   .samples(vk::SampleCountFlags::TYPE_1) // single sampled

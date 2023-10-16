@@ -16,6 +16,7 @@ mod setup_cmd_buf;
 mod swapchain;
 mod uniforms;
 mod vk_buffer;
+mod vk_memory_resource;
 mod vk_texture;
 
 pub use create_barrier::*;
@@ -35,4 +36,5 @@ pub use setup_cmd_buf::*;
 pub use swapchain::*;
 pub use uniforms::*;
 pub use vk_buffer::*;
+pub use vk_memory_resource::*;
 pub use vk_texture::*;

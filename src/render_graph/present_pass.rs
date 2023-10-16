@@ -46,7 +46,7 @@ impl PresentPass {
       image_format,
       vk::AttachmentLoadOp::DONT_CARE, // we override every pixel regardless
       vk::AttachmentStoreOp::STORE,
-      vk::ImageLayout::PRESENT_SRC_KHR,
+      true,
     );
 
     let subpass = vk::SubpassDescription::builder()
@@ -219,7 +219,7 @@ impl PresentPass {
       let uniform_resouces = [BindableResource::Texture {
         binding: BINDING_INDEX_PREV_PASS_RESULT,
         texture: previous_pass_render_result,
-        sampler: vk_app.default_texture_sampler_nearest, // TODO or `vk::NEAREST` sampler?
+        sampler: vk_app.default_texture_sampler_nearest,
       }];
       bind_resources_to_descriptors(&resouce_binder, 0, &uniform_resouces);
 

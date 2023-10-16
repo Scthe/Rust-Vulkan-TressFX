@@ -11,7 +11,6 @@ const BINDING_INDEX_CONFIG_UBO: u32 = 0;
 const BINDING_INDEX_DIFFUSE_TEXTURE: u32 = 1;
 
 const DEPTH_TEXTURE_FORMAT: vk::Format = vk::Format::D24_UNORM_S8_UINT;
-// const DIFFUSE_TEXTURE_FORMAT: vk::Format = vk::Format::R8G8B8A8_UINT; // R32G32B32A32_SFLOAT
 const DIFFUSE_TEXTURE_FORMAT: vk::Format = vk::Format::R32G32B32A32_SFLOAT;
 
 pub struct ForwardPass {
@@ -63,7 +62,7 @@ impl ForwardPass {
       DIFFUSE_TEXTURE_FORMAT,
       vk::AttachmentLoadOp::CLEAR,
       vk::AttachmentStoreOp::STORE,
-      vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+      false,
     );
 
     let subpass = vk::SubpassDescription::builder()
@@ -227,9 +226,7 @@ impl ForwardPass {
     let render_area = size_to_rect_vk(&size);
     let viewport = create_viewport(&size);
     let clear_color = vk::ClearColorValue {
-      // float32: [0.2f32, 0.2f32, 0.2f32, 1f32],
-      uint32: [250, 50, 50, 255],
-      // int32: [50, 250, 50, 255],
+      float32: [0.2f32, 0.2f32, 0.2f32, 1f32],
     };
     let clear_depth = vk::ClearDepthStencilValue {
       depth: 1.0f32,
@@ -304,27 +301,6 @@ impl ForwardPass {
         },
       ];
       bind_resources_to_descriptors(&resouce_binder, 0, &uniform_resouces);
-
-      /*
-      // TODO tmp clear cmd
-      let clear_attachment = vk::ClearAttachment::builder()
-        .aspect_mask(vk::ImageAspectFlags::COLOR)
-        .color_attachment(0)
-        .clear_value(vk::ClearValue { color: clear_color })
-        .build();
-      let clear_rect = vk::ClearRect {
-        base_array_layer: 0,
-        layer_count: 1,
-        rect: vk::Rect2D {
-          offset: vk::Offset2D { x: 0, y: 0 },
-          extent: vk::Extent2D {
-            width: 400,
-            height: 400,
-          },
-        },
-      };
-      device.cmd_clear_attachments(command_buffer, &[clear_attachment], &[clear_rect]);
-      */
 
       // draw calls
       for entity in &scene.entities {

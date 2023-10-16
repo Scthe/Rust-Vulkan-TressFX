@@ -3,7 +3,6 @@ use std::mem::size_of;
 use ash;
 use ash::vk;
 use bytemuck;
-use log::info;
 
 use crate::scene::World;
 use crate::vk_ctx::VkCtx;
@@ -23,14 +22,11 @@ pub struct RenderGraph {
   /// Refreshed once every frame. Contains e.g. all config settings, camera data
   /// One per frame-in-flight.
   config_uniform_buffers: Vec<VkBuffer>,
-
-  // ForwardPass
-  forward_pass: ForwardPass,
-  // forward_pass_framebuffers: Vec<ForwardPassFramebuffer>,
-  // PresentPass
-  present_pass: PresentPass,
-  // present_pass_framebuffers: Vec<vk::Framebuffer>,
   framebuffers: Vec<FrameFramebuffers>,
+
+  // passes
+  forward_pass: ForwardPass,
+  present_pass: PresentPass,
 }
 
 impl RenderGraph {
@@ -48,16 +44,6 @@ impl RenderGraph {
 
     // framebuffers
     let window_size = &vk_app.window_size();
-    /*
-    let forward_pass_framebuffers = swapchain_image_views
-      .iter()
-      .map(|_| forward_pass.create_framebuffer(vk_app, window_size))
-      .collect();
-    let present_pass_framebuffers = swapchain_image_views
-      .iter()
-      .map(|&iv| present_pass.create_framebuffer(vk_app, iv, window_size))
-      .collect();
-    */
     let framebuffers = swapchain_image_views
       .iter()
       .map(|&iv| {
@@ -72,11 +58,9 @@ impl RenderGraph {
 
     RenderGraph {
       config_uniform_buffers,
-      forward_pass,
-      // forward_pass_framebuffers,
-      present_pass,
-      // present_pass_framebuffers,
       framebuffers,
+      forward_pass,
+      present_pass,
     }
   }
 
@@ -88,20 +72,6 @@ impl RenderGraph {
     self.forward_pass.destroy(device);
 
     // framebuffers
-    /*
-    self
-      .present_pass_framebuffers
-      .iter_mut()
-      .for_each(|framebuffer| {
-        device.destroy_framebuffer(*framebuffer, None);
-      });
-    self
-      .forward_pass_framebuffers
-      .iter_mut()
-      .for_each(|framebuffer| {
-        framebuffer.destroy(vk_app);
-      });
-       */
     self.framebuffers.iter_mut().for_each(|framebuffer| {
       device.destroy_framebuffer(framebuffer.present_pass, None);
       framebuffer.forward_pass.destroy(vk_app);
@@ -166,7 +136,6 @@ impl RenderGraph {
     }
 
     // info!("Start forward_pass");
-    // let framebuffers = self.framebuffers_for_swapchain_image(swapchain_image_index as usize);
     let framebuffers = &mut self.framebuffers[swapchain_image_index as usize];
 
     self.forward_pass.execute(
@@ -177,7 +146,6 @@ impl RenderGraph {
       swapchain.size,
       config_vk_buffer,
     );
-    // TODO change layout of framebuffers.forward_pass.diffuse_tex?
 
     // info!("Start present_pass");
     self.present_pass.execute(
@@ -237,18 +205,6 @@ impl RenderGraph {
     let data_bytes = bytemuck::bytes_of(&data);
     vk_buffer.write_to_mapped(data_bytes);
   }
-
-  /*
-  fn framebuffers_for_swapchain_image(
-    &mut self,
-    swapchain_image_index: usize,
-  ) -> FrameFramebuffers {
-    FrameFramebuffers {
-      forward_pass: &mut self.forward_pass_framebuffers[swapchain_image_index],
-      present_pass: &mut self.present_pass_framebuffers[swapchain_image_index],
-    }
-  }
-  */
 }
 
 fn allocate_config_uniform_buffers(vk_app: &VkCtx, in_flight_frames: usize) -> Vec<VkBuffer> {

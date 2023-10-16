@@ -11,7 +11,7 @@ use ash::vk;
 
 use crate::vk_utils::{create_image_barrier, create_image_view};
 
-use super::{MemoryMapPointer, WithSetupCmdBuffer};
+use super::{MemoryMapPointer, VkMemoryResource, WithSetupCmdBuffer};
 
 pub struct VkTexture {
   // For debugging
@@ -203,42 +203,6 @@ impl VkTexture {
     texture
   }
 
-  // TODO pub fn ensure_layout(&mut self, cmd_bufer)
-
-  // TODO copied from vk_buffer (trait VkAllocatable/VkMemoryResource?)
-  fn map_memory(&mut self, allocator: &vma::Allocator) -> *mut u8 {
-    if let Some(ptr) = &self.mapped_pointer {
-      ptr.0
-    } else {
-      let pointer = unsafe {
-        allocator
-          .map_memory(&mut self.allocation)
-          .expect(&format!("Failed mapping: {}", self.name))
-      };
-      self.mapped_pointer = Some(MemoryMapPointer(pointer));
-      pointer
-    }
-  }
-
-  // TODO copied from vk_buffer
-  fn unmap_memory(&mut self, allocator: &vma::Allocator) {
-    if self.mapped_pointer.take().is_some() {
-      unsafe { allocator.unmap_memory(&mut self.allocation) };
-    }
-  }
-
-  // TODO copied from vk_buffer
-  fn write_to_mapped(&self, bytes: &[u8]) {
-    let size = bytes.len();
-
-    if let Some(pointer) = &self.mapped_pointer {
-      let slice = unsafe { std::slice::from_raw_parts_mut(pointer.0, size) };
-      slice.copy_from_slice(bytes);
-    } else {
-      panic!("Tried to write {} bytes to unmapped {}", size, self.name)
-    }
-  }
-
   pub fn image_view(&self) -> vk::ImageView {
     self
       .image_view
@@ -289,4 +253,21 @@ fn covert_rgb_to_rgba(data_rgb: &Vec<u8>) -> Vec<u8> {
   });
 
   data
+}
+
+impl VkMemoryResource for VkTexture {
+  fn get_name(&self) -> &String {
+    &self.name
+  }
+
+  fn get_allocation(&mut self) -> &mut vma::Allocation {
+    &mut self.allocation
+  }
+
+  fn get_mapped_pointer(&self) -> Option<MemoryMapPointer> {
+    self.mapped_pointer.clone()
+  }
+  fn set_mapped_pointer(&mut self, next_ptr: Option<MemoryMapPointer>) {
+    self.mapped_pointer = next_ptr;
+  }
 }

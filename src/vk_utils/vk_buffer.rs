@@ -1,17 +1,13 @@
 use ash::vk;
-use std::marker::{Send, Sync};
 use vma::Alloc;
+
+use super::{MemoryMapPointer, VkMemoryResource};
 
 // https://gpuopen-librariesandsdks.github.io/VulkanMemoryAllocator/html/quick_start.html
 // https://github.com/expenses/vulkan-base/blob/main/ash-helpers/src/lib.rs
 
 // https://gpuopen-librariesandsdks.github.io/VulkanMemoryAllocator/html/choosing_memory_type.html
 // If you want to create a buffer or an image, allocate memory for it and bind them together, all in one call, you can use function vmaCreateBuffer(), vmaCreateImage(). This is the easiest and recommended way to use this library
-
-/// Wrapper over a raw pointer to make it moveable and accessible from other threads
-pub struct MemoryMapPointer(pub *mut u8);
-unsafe impl Send for MemoryMapPointer {}
-unsafe impl Sync for MemoryMapPointer {}
 
 pub struct VkBuffer {
   // For debugging
@@ -26,10 +22,6 @@ pub struct VkBuffer {
 }
 
 // TODO providing allocator to every fn is tiresome
-
-fn fmt_buf_name(name: &String, size: usize) -> String {
-  format!("Buffer '{}' ({} bytes)", name, size)
-}
 
 impl VkBuffer {
   /// Allocate empty vulkan buffer
@@ -98,42 +90,28 @@ impl VkBuffer {
     buffer
   }
 
-  pub fn map_memory(&mut self, allocator: &vma::Allocator) -> *mut u8 {
-    if let Some(ptr) = &self.mapped_pointer {
-      ptr.0
-    } else {
-      let pointer = unsafe {
-        allocator
-          .map_memory(&mut self.allocation)
-          .expect(&format!("Failed mapping: {}", self.name()))
-      };
-      self.mapped_pointer = Some(MemoryMapPointer(pointer));
-      pointer
-    }
-  }
-
-  pub fn unmap_memory(&mut self, allocator: &vma::Allocator) {
-    if self.mapped_pointer.take().is_some() {
-      unsafe { allocator.unmap_memory(&mut self.allocation) };
-    }
-  }
-
-  pub fn write_to_mapped(&self, bytes: &[u8]) {
-    let size = bytes.len();
-
-    if let Some(pointer) = &self.mapped_pointer {
-      let slice = unsafe { std::slice::from_raw_parts_mut(pointer.0, size) };
-      slice.copy_from_slice(bytes);
-    } else {
-      panic!("Tried to write {} bytes to unmapped {}", size, self.name())
-    }
-  }
-
-  pub fn name(&self) -> String {
-    fmt_buf_name(&self.name, self.size)
-  }
-
   pub unsafe fn delete(&mut self, allocator: &vma::Allocator) -> () {
     allocator.destroy_buffer(self.buffer, &mut self.allocation)
   }
+}
+
+impl VkMemoryResource for VkBuffer {
+  fn get_name(&self) -> &String {
+    &self.name
+  }
+
+  fn get_allocation(&mut self) -> &mut vma::Allocation {
+    &mut self.allocation
+  }
+
+  fn get_mapped_pointer(&self) -> Option<MemoryMapPointer> {
+    self.mapped_pointer.clone()
+  }
+  fn set_mapped_pointer(&mut self, next_ptr: Option<MemoryMapPointer>) {
+    self.mapped_pointer = next_ptr;
+  }
+}
+
+fn fmt_buf_name(name: &String, size: usize) -> String {
+  format!("Buffer '{}' ({} bytes)", name, size)
 }

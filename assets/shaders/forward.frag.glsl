@@ -11,7 +11,4 @@ void main() {
   // outputColor = vec4(0.0, 0.5, 0.5, 1.0);
   // outputColor = vec4(inColor, 1.0);
   outputColor = texture(texSampler, inColor.xy);
-  // if (outputColor.x < 999) {
-    // outputColor = vec4(1.0, 0.0, 0.0, 1.0);
-  // }
 }
