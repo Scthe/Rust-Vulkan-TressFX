@@ -247,16 +247,11 @@ impl ForwardPass {
 
     // TODO no need to rerecord every frame TBH. Everything can be controlled by uniforms etc.
     unsafe {
-      let texture_barrier = create_image_barrier(
-        framebuffer.diffuse_tex.image,
-        vk::ImageAspectFlags::COLOR,
-        framebuffer.diffuse_tex.layout,
+      let texture_barrier = framebuffer.diffuse_tex.prepare_for_layout_transition(
         vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
         vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
         vk::AccessFlags::SHADER_READ,
       );
-      // TODO make it nicer? Hard to track this manually after each barrier. VkTexture.prepare_for_image_barrier(next_layout);
-      framebuffer.diffuse_tex.layout = vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL;
       device.cmd_pipeline_barrier(
         command_buffer,
         vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
@@ -289,21 +284,24 @@ impl ForwardPass {
         command_buffer,
         pipeline_layout: self.pipeline_layout,
       };
-      let uniform_resouces = [
-        BindableResource::Uniform {
-          binding: BINDING_INDEX_CONFIG_UBO,
-          buffer: config_buffer,
-        },
-        BindableResource::Texture {
-          binding: BINDING_INDEX_DIFFUSE_TEXTURE,
-          texture: &scene.test_texture,
-          sampler: vk_app.default_texture_sampler_linear,
-        },
-      ];
-      bind_resources_to_descriptors(&resouce_binder, 0, &uniform_resouces);
 
       // draw calls
       for entity in &scene.entities {
+        // uniforms
+        let uniform_resouces = [
+          BindableResource::Uniform {
+            binding: BINDING_INDEX_CONFIG_UBO,
+            buffer: config_buffer,
+          },
+          BindableResource::Texture {
+            binding: BINDING_INDEX_DIFFUSE_TEXTURE,
+            texture: &entity.tex_diffuse,
+            sampler: vk_app.default_texture_sampler_linear,
+          },
+        ];
+        bind_resources_to_descriptors(&resouce_binder, 0, &uniform_resouces);
+
+        // draw mesh
         device.cmd_bind_vertex_buffers(command_buffer, 0, &[entity.vertex_buffer.buffer], &[0]);
         device.cmd_bind_index_buffer(
           command_buffer,

@@ -22,9 +22,8 @@ pub struct Camera {
 
 impl Camera {
   pub fn new(s: CameraSettings) -> Camera {
-    let dst = 2.0;
-    let position = Vec3::new(dst, 0f32, dst);
-    let rotation_yaw = -45f32.to_radians(); // 0.0f32;
+    let position = Vec3::new(4.0, 7.5, 9.0);
+    let rotation_yaw = -25f32.to_radians(); // 0.0f32;
     let rotation_pitch = 0.0f32;
 
     Camera {
@@ -42,6 +41,10 @@ impl Camera {
         s.z_far,
       ),
     }
+  }
+
+  pub fn position(&self) -> Vec3 {
+    self.position.clone()
   }
 
   pub fn view_matrix(&self) -> &Mat4 {

@@ -9,24 +9,29 @@ pub struct WorldEntity {
   pub vertex_buffer: VkBuffer,
   pub index_buffer: VkBuffer,
   pub vertex_count: u32,
+  pub tex_diffuse: VkTexture,
   // TODO material
   // pub uniforms_buffer: VkBuffer, // material+tfx+..., bind as descriptor set
   // TODO tfx? Or just precalc hardcoded model matrix. We have static data here..
 }
 
+impl WorldEntity {
+  pub unsafe fn destroy(&mut self, device: &ash::Device, allocator: &vma::Allocator) -> () {
+    self.vertex_buffer.delete(allocator);
+    self.index_buffer.delete(allocator);
+    self.tex_diffuse.delete(device, allocator);
+  }
+}
+
 pub struct World {
   pub camera: Camera,
   pub entities: Vec<WorldEntity>,
-  pub test_texture: VkTexture,
 }
 
 impl World {
   pub unsafe fn destroy(&mut self, device: &ash::Device, allocator: &vma::Allocator) -> () {
     for entity in &mut self.entities {
-      entity.vertex_buffer.delete(allocator);
-      entity.index_buffer.delete(allocator);
+      entity.destroy(device, allocator);
     }
-
-    self.test_texture.delete(device, allocator);
   }
 }

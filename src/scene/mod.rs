@@ -17,6 +17,7 @@ mod camera;
 mod world;
 
 pub fn load_scene(vk_ctx: &VkCtx, cam_settings: CameraSettings) -> World {
+  /*
   let test_texture = VkTexture::from_file(
     &vk_ctx.allocator,
     vk_ctx,
@@ -28,63 +29,62 @@ pub fn load_scene(vk_ctx: &VkCtx, cam_settings: CameraSettings) -> World {
   // panic!("as expected");
 
   // let debug_triangle = create_debug_triangles_scene(vk_ctx);
+  */
+  let sintel = load_sintel(vk_ctx);
+  let sintel_eyes = load_sintel_eyes(vk_ctx);
 
   World {
-    // entities: vec![debug_triangle],
-    entities: vec![obj_mesh],
+    entities: vec![sintel, sintel_eyes],
     camera: Camera::new(cam_settings),
-    test_texture,
   }
 }
 
-#[allow(dead_code)]
-fn create_debug_triangles_scene(vk_ctx: &VkCtx) -> WorldEntity {
-  let uv = (0.0, 0.0);
-  let vertices = [
-    RenderableVertex::new((-0.5, -0.5, 0.0), (1.0, 0.0, 0.0), uv), // 0, BL, red
-    RenderableVertex::new((0.5, -0.5, 0.0), (0.0, 0.0, 1.0), uv),  // 2, BR, blue
-    RenderableVertex::new((0.5, 0.5, 0.0), (1.0, 1.0, 1.0), uv),   // 3, TR, white
-    RenderableVertex::new((-0.5, 0.5, 0.0), (0.0, 1.0, 0.0), uv),  // 1, TL, green
-  ];
-  info!("Triangle vertex buffer: {} vertices", vertices.len());
-  // allocate
-  let vertices_bytes = bytemuck::cast_slice(&vertices);
-  let vertex_buffer = VkBuffer::from_data(
-    "TriangleVertexBuffer".to_string(),
-    vertices_bytes,
-    vk::BufferUsageFlags::VERTEX_BUFFER,
+fn load_sintel(vk_ctx: &VkCtx) -> WorldEntity {
+  let tex_diffuse = VkTexture::from_file(
     &vk_ctx.allocator,
-    vk_ctx.device.queue_family_index,
+    vk_ctx,
+    Path::new("./assets/sintel_lite_v2_1/textures/sintel_skin_diff.jpg"),
   );
 
-  // index buffer
-  let indices = [
-    0u32, 1u32, 2u32, //
-    2u32, 3u32, 0u32, //
-  ];
-  info!(
-    "Triangle index buffer: {} indices, {} triangles",
-    indices.len(),
-    indices.len() / 3
-  );
-  let indices_bytes = bytemuck::cast_slice(&indices);
-  let index_buffer = VkBuffer::from_data(
-    "TriangleIndexBuffer".to_string(),
-    indices_bytes,
-    vk::BufferUsageFlags::INDEX_BUFFER,
+  let mesh = load_obj_mesh(vk_ctx, Path::new("./assets/sintel_lite_v2_1/sintel.obj"));
+
+  WorldEntity {
+    name: "sintel".to_string(),
+    tex_diffuse,
+    vertex_buffer: mesh.vertex_buffer,
+    index_buffer: mesh.index_buffer,
+    vertex_count: mesh.vertex_count,
+  }
+}
+
+fn load_sintel_eyes(vk_ctx: &VkCtx) -> WorldEntity {
+  let tex_diffuse = VkTexture::from_file(
     &vk_ctx.allocator,
-    vk_ctx.device.queue_family_index,
+    vk_ctx,
+    Path::new("./assets/sintel_lite_v2_1/textures/sintel_eyeball_diff.jpg"),
+  );
+
+  let mesh = load_obj_mesh(
+    vk_ctx,
+    Path::new("./assets/sintel_lite_v2_1/sintel_eyeballs.obj"),
   );
 
   WorldEntity {
-    name: String::from("DebugTriangles"),
-    vertex_buffer,
-    index_buffer,
-    vertex_count: indices.len() as u32,
+    name: "sintel_eyes".to_string(),
+    tex_diffuse,
+    vertex_buffer: mesh.vertex_buffer,
+    index_buffer: mesh.index_buffer,
+    vertex_count: mesh.vertex_count,
   }
 }
 
-fn load_obj_mesh(vk_ctx: &VkCtx, path: &std::path::Path) -> WorldEntity {
+struct Mesh {
+  pub vertex_buffer: VkBuffer,
+  pub index_buffer: VkBuffer,
+  pub vertex_count: u32,
+}
+
+fn load_obj_mesh(vk_ctx: &VkCtx, path: &std::path::Path) -> Mesh {
   let (models, _) = tobj::load_obj(path, &tobj::GPU_LOAD_OPTIONS)
     .expect(&format!("Failed to load OBJ file '{}'", path.display()));
 
@@ -145,8 +145,7 @@ fn load_obj_mesh(vk_ctx: &VkCtx, path: &std::path::Path) -> WorldEntity {
     vk_ctx.device.queue_family_index,
   );
 
-  WorldEntity {
-    name: object.name.clone(),
+  Mesh {
     vertex_buffer,
     index_buffer,
     vertex_count: indices.len() as u32,

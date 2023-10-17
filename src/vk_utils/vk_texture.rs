@@ -21,6 +21,7 @@ pub struct VkTexture {
   /// Native Vulkan image
   pub image: vk::Image,
   image_view: Option<vk::ImageView>, // TODO can we create it before write. Probably yes, so remove Option
+  aspect_flags: vk::ImageAspectFlags,
   pub layout: vk::ImageLayout,
   pub allocation: vma::Allocation,
   // mapping
@@ -81,6 +82,7 @@ impl VkTexture {
       mapped_pointer: None,
       layout: create_info.initial_layout,
       image_view: Some(image_view),
+      aspect_flags: aspect,
     }
   }
 
@@ -107,6 +109,7 @@ impl VkTexture {
     let pixel_bytes = covert_rgb_to_rgba(&pixel_bytes_rgb);
     let width = metadata.width as u32;
     let height = metadata.height as u32;
+    let aspect_flags = vk::ImageAspectFlags::COLOR;
 
     // vulkan part starts here
     let create_info = vk::ImageCreateInfo::builder()
@@ -151,6 +154,7 @@ impl VkTexture {
       mapped_pointer: None,
       image_view: None,
       layout: create_info.initial_layout,
+      aspect_flags,
     };
 
     // map image and copy content
@@ -163,7 +167,7 @@ impl VkTexture {
       let target_layout = vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL;
       let barrier = create_image_barrier(
         image,
-        vk::ImageAspectFlags::COLOR,
+        aspect_flags,
         create_info.initial_layout,
         target_layout,
         vk::AccessFlags::empty(),     // src_access_mask
@@ -191,12 +195,7 @@ impl VkTexture {
       texture.layout = target_layout;
 
       // not part of cmd_buf, but too lazy to provide ash::Device to Vktexture::from_file
-      let image_view = create_image_view(
-        device,
-        image,
-        create_info.format,
-        vk::ImageAspectFlags::COLOR,
-      );
+      let image_view = create_image_view(device, image, create_info.format, aspect_flags);
       texture.image_view = Some(image_view);
     });
 
@@ -207,6 +206,25 @@ impl VkTexture {
     self
       .image_view
       .expect("Tried to access VkTexture.image_view before it was initialized")
+  }
+
+  pub fn prepare_for_layout_transition(
+    &mut self,
+    new_layout: vk::ImageLayout,
+    src_access_mask: vk::AccessFlags,
+    dst_access_mask: vk::AccessFlags,
+  ) -> vk::ImageMemoryBarrier {
+    let barrier = create_image_barrier(
+      self.image,
+      self.aspect_flags,
+      self.layout,
+      new_layout,
+      src_access_mask,
+      dst_access_mask,
+    );
+
+    self.layout = new_layout;
+    barrier
   }
 
   pub unsafe fn delete(&mut self, device: &ash::Device, allocator: &vma::Allocator) -> () {

@@ -175,15 +175,11 @@ impl PresentPass {
       .build();
 
     unsafe {
-      let texture_barrier = create_image_barrier(
-        previous_pass_render_result.image,
-        vk::ImageAspectFlags::COLOR,
-        previous_pass_render_result.layout,
+      let texture_barrier = previous_pass_render_result.prepare_for_layout_transition(
         vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
         vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
         vk::AccessFlags::SHADER_READ,
       );
-      previous_pass_render_result.layout = vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL;
       device.cmd_pipeline_barrier(
         command_buffer,
         vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,

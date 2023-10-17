@@ -8,5 +8,6 @@ layout(location = 0) in vec2 uvCoord;
 layout(location = 0) out vec4 outputColor;
 
 void main() {
-  outputColor = texture(texSampler, uvCoord.xy);
+  vec2 texCoord = vec2(uvCoord.x, 1.0f - uvCoord.y);
+  outputColor = texture(texSampler, texCoord);
 }

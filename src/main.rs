@@ -88,7 +88,11 @@ fn main() {
         if input.virtual_keycode == Some(VirtualKeyCode::F) {
           // debug
           let (side, up, forward) = scene.camera.get_rotation_axes();
-          info!("Camera(side={}, up={}, forward={})", side, up, forward)
+          let pos = scene.camera.position();
+          info!(
+            "Camera(pos={} side={}, up={}, forward={})",
+            pos, side, up, forward
+          )
         }
 
         let camera_move = parse_camera_move_key_code(input.virtual_keycode);

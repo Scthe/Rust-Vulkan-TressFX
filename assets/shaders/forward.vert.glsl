@@ -13,7 +13,7 @@ layout(location=2) in vec2 in_UV;
 layout(location = 0) out vec3 fragColor; // Consumes 1 location
 
 void main() {
-  vec4 pos = vec4(in_Position.xyz, 1.0);
+  vec4 pos = vec4(in_Position.xyz * 0.3f, 1.0); // magic scale TODO
   gl_Position = scene_ubo.vp * pos;
   fragColor = vec3(in_UV.xy, in_Normal.x);
 }
