@@ -8,20 +8,8 @@
 # TODO spirv-reflect
 
 
-SHADER_SRC_DIR := assets/shaders
-SHADER_OUT_DIR := assets/shaders-compiled
-SHADER_SRC_FILES := $(wildcard $(SHADER_SRC_DIR)/*.glsl)
-SHADER_OUT_FILES := $(patsubst $(SHADER_SRC_DIR)/%.glsl,$(SHADER_OUT_DIR)/%.spv,$(SHADER_SRC_FILES))
-
-build_shaders: $(SHADER_OUT_FILES)
-	@echo Shaders compiled succesfully
-
-$(SHADER_OUT_DIR)/%.vert.spv: $(SHADER_SRC_DIR)/%.vert.glsl
-	glslc.exe -O -fshader-stage=vert $< -o $@
-
-$(SHADER_OUT_DIR)/%.frag.spv: $(SHADER_SRC_DIR)/%.frag.glsl
-	glslc.exe -O -fshader-stage=frag $< -o $@
-
+build_shaders:
+	@python compile_shaders.py
 
 clean:
 	@rm target/debug/rs-tressfx.exe,\
