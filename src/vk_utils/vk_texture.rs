@@ -20,7 +20,7 @@ pub struct VkTexture {
   pub height: u32,
   /// Native Vulkan image
   pub image: vk::Image,
-  image_view: Option<vk::ImageView>, // TODO can we create it before write. Probably yes, so remove Option
+  image_view: vk::ImageView,
   aspect_flags: vk::ImageAspectFlags,
   pub layout: vk::ImageLayout,
   pub allocation: vma::Allocation,
@@ -28,8 +28,13 @@ pub struct VkTexture {
   mapped_pointer: Option<MemoryMapPointer>,
 }
 
+// TODO use ::empty in from_file
 impl VkTexture {
-  pub fn new(
+  /// vk::Format for textures that contain raw data e.g. specular, normal, hairShadow.
+  /// As opposed to diffuse/albedo texture that are _SRGB.
+  pub const RAW_DATA_TEXTURE_FORMAT: vk::Format = vk::Format::R8G8B8A8_UINT;
+
+  pub fn empty(
     device: &ash::Device,
     allocator: &vma::Allocator,
     name: String,
@@ -81,15 +86,18 @@ impl VkTexture {
       allocation,
       mapped_pointer: None,
       layout: create_info.initial_layout,
-      image_view: Some(image_view),
+      image_view,
       aspect_flags: aspect,
     }
   }
 
+  /// - format: usually vk::Format::R8G8B8A8_SRGB for diffuse, but raw data for specular/normals
   pub fn from_file(
+    device: &ash::Device,
     allocator: &vma::Allocator,
     app_init: &impl WithSetupCmdBuffer,
     path: &std::path::Path,
+    format: vk::Format,
   ) -> VkTexture {
     // load image from file
     info!("Loading texture from '{}'", path.to_string_lossy());
@@ -119,13 +127,13 @@ impl VkTexture {
         height,
         depth: 1,
       })
-      .format(vk::Format::R8G8B8A8_SRGB) // TODO not for normal maps etc.
+      .format(format)
       .tiling(vk::ImageTiling::LINEAR) // Optimal if uploaded from staging buffer. Linear if written from CPU(!!!)
       .mip_levels(1)
       .array_layers(1)
       .usage(vk::ImageUsageFlags::SAMPLED)
       // https://stackoverflow.com/questions/76945200/how-to-properly-use-vk-image-layout-preinitialized
-      .initial_layout(vk::ImageLayout::PREINITIALIZED) // VK_IMAGE_LAYOUT_GENERAL and ignore layouts? 
+      .initial_layout(vk::ImageLayout::PREINITIALIZED)
       .sharing_mode(vk::SharingMode::EXCLUSIVE)
       .samples(vk::SampleCountFlags::TYPE_1)
       .build();
@@ -143,6 +151,7 @@ impl VkTexture {
         .create_image(&create_info, &alloc_info)
         .expect("Failed allocating GPU memory for texture")
     };
+    let image_view = create_image_view(device, image, create_info.format, aspect_flags);
 
     let name = path.file_name().unwrap_or(OsStr::new(path));
     let mut texture = VkTexture {
@@ -152,7 +161,7 @@ impl VkTexture {
       image,
       allocation,
       mapped_pointer: None,
-      image_view: None,
+      image_view,
       layout: create_info.initial_layout,
       aspect_flags,
     };
@@ -163,24 +172,29 @@ impl VkTexture {
     texture.unmap_memory(allocator);
 
     // change layout after write
+    texture.force_image_layout(app_init, vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL);
+
+    texture
+  }
+
+  pub fn force_image_layout(
+    &mut self,
+    app_init: &impl WithSetupCmdBuffer,
+    target_layout: vk::ImageLayout,
+  ) {
+    let barrier = self.prepare_for_layout_transition(
+      target_layout,
+      vk::AccessFlags::empty(),     // src_access_mask
+      vk::AccessFlags::SHADER_READ, // dst_access_mask
+    );
+
+    // https://vulkan-tutorial.com/Texture_mapping/Images#page_Transition-barrier-masks
+    // as early as possible
+    let source_stage = vk::PipelineStageFlags::TOP_OF_PIPE;
+    // do not do any SHADER_READ in FRAGMENT_SHADER before this
+    let destination_stage = vk::PipelineStageFlags::FRAGMENT_SHADER;
+
     app_init.with_setup_cb(|device, cmd_buf| {
-      let target_layout = vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL;
-      let barrier = create_image_barrier(
-        image,
-        aspect_flags,
-        create_info.initial_layout,
-        target_layout,
-        vk::AccessFlags::empty(),     // src_access_mask
-        vk::AccessFlags::SHADER_READ, // dst_access_mask
-      );
-
-      // https://vulkan-tutorial.com/Texture_mapping/Images#page_Transition-barrier-masks
-      // as early as possible
-      let source_stage = vk::PipelineStageFlags::TOP_OF_PIPE;
-      // do not do any SHADER_READ in FRAGMENT_SHADER before this
-      let destination_stage = vk::PipelineStageFlags::FRAGMENT_SHADER;
-
-      // barrier impl
       unsafe {
         device.cmd_pipeline_barrier(
           cmd_buf,
@@ -192,20 +206,11 @@ impl VkTexture {
           &[barrier],
         )
       };
-      texture.layout = target_layout;
-
-      // not part of cmd_buf, but too lazy to provide ash::Device to Vktexture::from_file
-      let image_view = create_image_view(device, image, create_info.format, aspect_flags);
-      texture.image_view = Some(image_view);
     });
-
-    texture
   }
 
   pub fn image_view(&self) -> vk::ImageView {
-    self
-      .image_view
-      .expect("Tried to access VkTexture.image_view before it was initialized")
+    self.image_view
   }
 
   pub fn prepare_for_layout_transition(
@@ -228,9 +233,7 @@ impl VkTexture {
   }
 
   pub unsafe fn delete(&mut self, device: &ash::Device, allocator: &vma::Allocator) -> () {
-    if let Some(iv) = self.image_view {
-      device.destroy_image_view(iv, None);
-    }
+    device.destroy_image_view(self.image_view, None);
     allocator.destroy_image(self.image, &mut self.allocation)
   }
 }

@@ -106,7 +106,7 @@ fn main() {
         ..
       } => {
         if let MouseScrollDelta::LineDelta(_, delta_y) = delta {
-          scene.camera.move_forward(delta_y);
+          scene.camera.move_forward(-delta_y);
         }
       }
 

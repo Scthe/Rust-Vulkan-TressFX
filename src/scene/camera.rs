@@ -55,6 +55,7 @@ impl Camera {
     &self.perspective_matrix
   }
 
+  #[allow(dead_code)]
   pub fn view_projection_matrix(&self) -> Mat4 {
     let v = self.view_matrix().clone(); // TODO clone?
     let p = self.perspective_matrix().clone();
@@ -65,7 +66,7 @@ impl Camera {
     let v = self.view_matrix().clone(); // TODO clone?
     let p = self.perspective_matrix().clone();
     let m = model_matrix.clone();
-    p.mul_mat4(&v).mul_mat4(&m) // TODO is this ok?
+    p.mul_mat4(&v).mul_mat4(&m)
   }
 
   pub fn rotate_yaw_pitch(&mut self, delta_yaw: f32, delta_pitch: f32) {

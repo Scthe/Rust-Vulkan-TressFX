@@ -11,15 +11,20 @@ const BINDING_INDEX_CONFIG_UBO: u32 = 0;
 const BINDING_INDEX_MODEL_UBO: u32 = 1;
 const BINDING_INDEX_DIFFUSE_TEXTURE: u32 = 2;
 const BINDING_INDEX_SPECULAR_TEXTURE: u32 = 3;
+const BINDING_INDEX_HAIR_SHADOW_TEXTURE: u32 = 4;
 
 const DEPTH_TEXTURE_FORMAT: vk::Format = vk::Format::D24_UNORM_S8_UINT;
 const DIFFUSE_TEXTURE_FORMAT: vk::Format = vk::Format::R32G32B32A32_SFLOAT;
 
 pub struct ForwardPass {
-  pub render_pass: vk::RenderPass,
+  render_pass: vk::RenderPass,
   pipeline: vk::Pipeline,
   pipeline_layout: vk::PipelineLayout,
   uniforms_layout: vk::DescriptorSetLayout,
+  /// When shader expects e.g. specular texture, but object does not have one.
+  /// This texture is only for binding, please do not rely on any value inside.
+  /// Has format `VkTexture::RAW_DATA_TEXTURE_FORMAT`.
+  dummy_data_texture: VkTexture,
 }
 
 impl ForwardPass {
@@ -33,11 +38,27 @@ impl ForwardPass {
     let (pipeline, pipeline_layout) =
       ForwardPass::create_pipeline(device, pipeline_cache, &render_pass, &[uniforms_layout]);
 
+    let mut dummy_data_texture = VkTexture::empty(
+      device,
+      &vk_app.allocator,
+      "ForwardPassDummyDataTex".to_string(),
+      vk::Extent2D {
+        width: 4,
+        height: 4,
+      },
+      VkTexture::RAW_DATA_TEXTURE_FORMAT,
+      vk::ImageTiling::OPTIMAL,
+      vk::ImageUsageFlags::SAMPLED,
+      vk::ImageAspectFlags::COLOR,
+    );
+    dummy_data_texture.force_image_layout(vk_app, vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL);
+
     ForwardPass {
       render_pass,
       pipeline,
       pipeline_layout,
       uniforms_layout,
+      dummy_data_texture,
     }
   }
 
@@ -123,6 +144,10 @@ impl ForwardPass {
       BINDING_INDEX_SPECULAR_TEXTURE,
       vk::ShaderStageFlags::FRAGMENT,
     );
+    let binding_hair_shadow_tex = create_texture_binding(
+      BINDING_INDEX_HAIR_SHADOW_TEXTURE,
+      vk::ShaderStageFlags::FRAGMENT,
+    );
 
     let ubo_descriptors_create_info = vk::DescriptorSetLayoutCreateInfo::builder()
       .flags(vk::DescriptorSetLayoutCreateFlags::PUSH_DESCRIPTOR_KHR)
@@ -131,6 +156,7 @@ impl ForwardPass {
         binding_model_ubo,
         binding_diff_tex,
         binding_spec_tex,
+        binding_hair_shadow_tex,
       ])
       .build();
 
@@ -196,7 +222,7 @@ impl ForwardPass {
     let allocator = &vk_app.allocator;
 
     // TODO provide frame id for names
-    let depth_tex = VkTexture::new(
+    let depth_tex = VkTexture::empty(
       device,
       allocator,
       format!("ForwardPass.depth#???"),
@@ -206,7 +232,7 @@ impl ForwardPass {
       vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT,
       vk::ImageAspectFlags::DEPTH,
     );
-    let diffuse_tex = VkTexture::new(
+    let diffuse_tex = VkTexture::empty(
       device,
       allocator,
       format!("ForwardPass.difuse#???"),
@@ -324,8 +350,21 @@ impl ForwardPass {
           },
           BindableResource::Texture {
             binding: BINDING_INDEX_SPECULAR_TEXTURE,
-            texture: entity.get_specular_texture(),
-            sampler: vk_app.default_texture_sampler_linear,
+            texture: &entity
+              .material
+              .specular_tex
+              .as_ref()
+              .unwrap_or(&self.dummy_data_texture),
+            sampler: vk_app.default_texture_sampler_nearest,
+          },
+          BindableResource::Texture {
+            binding: BINDING_INDEX_HAIR_SHADOW_TEXTURE,
+            texture: &entity
+              .material
+              .hair_shadow_tex
+              .as_ref()
+              .unwrap_or(&self.dummy_data_texture),
+            sampler: vk_app.default_texture_sampler_nearest,
           },
         ];
         bind_resources_to_descriptors(&resouce_binder, 0, &uniform_resouces);

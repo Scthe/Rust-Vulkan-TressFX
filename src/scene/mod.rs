@@ -34,19 +34,30 @@ pub fn load_scene(vk_ctx: &VkCtx, cam_settings: CameraSettings) -> World {
 }
 
 fn load_sintel(vk_ctx: &VkCtx, model_matrix: Mat4) -> WorldEntity {
+  let device = vk_ctx.vk_device();
+
   let tex_diffuse = VkTexture::from_file(
+    device,
     &vk_ctx.allocator,
     vk_ctx,
     Path::new("./assets/sintel_lite_v2_1/textures/sintel_skin_diff.jpg"),
+    vk::Format::R8G8B8A8_SRGB,
   );
-  /*TODO let specular_tex = VkTexture::from_file(
+  let specular_tex = VkTexture::from_file(
+    device,
     &vk_ctx.allocator,
     vk_ctx,
     Path::new("./assets/sintel_lite_v2_1/textures/sintel_skin_spec.jpg"),
+    VkTexture::RAW_DATA_TEXTURE_FORMAT,
   );
-  // TODO sintelhairShadowTex*/
-
-  let material = Material::new(tex_diffuse, None, None);
+  let hair_shadow_tex = VkTexture::from_file(
+    device,
+    &vk_ctx.allocator,
+    vk_ctx,
+    Path::new("./assets/sintel_lite_v2_1/textures/sintel_hair_shadow.jpg"),
+    VkTexture::RAW_DATA_TEXTURE_FORMAT,
+  );
+  let material = Material::new(tex_diffuse, Some(specular_tex), Some(hair_shadow_tex));
   let mesh = load_obj_mesh(vk_ctx, Path::new("./assets/sintel_lite_v2_1/sintel.obj"));
   let name = "sintel".to_string();
   let model_ubo = allocate_model_ubo_vec(vk_ctx, &name);
@@ -63,10 +74,14 @@ fn load_sintel(vk_ctx: &VkCtx, model_matrix: Mat4) -> WorldEntity {
 }
 
 fn load_sintel_eyes(vk_ctx: &VkCtx, model_matrix: Mat4) -> WorldEntity {
+  let device = vk_ctx.vk_device();
+
   let tex_diffuse = VkTexture::from_file(
+    device,
     &vk_ctx.allocator,
     vk_ctx,
     Path::new("./assets/sintel_lite_v2_1/textures/sintel_eyeball_diff.jpg"),
+    vk::Format::R8G8B8A8_SRGB,
   );
 
   let mut material = Material::new(tex_diffuse, None, None);

@@ -7,7 +7,7 @@ use glam::Mat4;
 use crate::{
   render_graph::ForwardModelUBO,
   vk_ctx::VkCtx,
-  vk_utils::{VkBuffer, VkMemoryResource, VkTexture},
+  vk_utils::{VkBuffer, VkMemoryResource},
 };
 
 use super::Material;
@@ -39,13 +39,6 @@ impl WorldEntity {
 
   pub fn get_ubo_buffer(&self, frame_id: usize) -> &VkBuffer {
     &self.model_ubo[frame_id]
-  }
-
-  pub fn get_specular_texture(&self) -> &VkTexture {
-    match &self.material.specular_tex {
-      Some(tex) => &tex,
-      None => &self.material.albedo_tex,
-    }
   }
 }
 

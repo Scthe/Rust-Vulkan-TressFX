@@ -9,13 +9,10 @@ use crate::{scene::Camera, vk_ctx::VkCtx};
 pub struct GlobalConfigUBO {
   pub u_camera_position: Vec3,
   pub u_viewport: Vec2,
-  // ao
-  // float u_aoStrength;
-  // float u_aoExp;
   // Shadow
   // vec4 u_directionalShadowCasterPosition; // [position.xyz, bias (negative if pcss)]
   // int u_directionalShadowSampleRadius;
-  // float u_maxShadowContribution;
+  pub u_ao_and_shadow_contrib: Vec4,
   // sss
   // float u_sssFarPlane;
   // mat4 u_sssMatrix_VP;
@@ -38,6 +35,8 @@ impl GlobalConfigUBO {
     GlobalConfigUBO {
       u_camera_position: camera.position(),
       u_viewport: Vec2::new(vp.width as f32, vp.height as f32),
+      u_ao_and_shadow_contrib: Vec4::new(0.0, 0.0, 0.5, 1.0),
+      // lights
       u_light_ambient: Vec4::new(1.0, 1.0, 1.0, 0.1),
       u_light0_position: Vec3::new(10.0, 10.0, 10.0),
       u_light0_color: Vec4::new(1.0, 1.0, 1.0, 0.8),
