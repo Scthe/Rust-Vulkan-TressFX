@@ -156,3 +156,4 @@ for shader_file in shader_files:
 	lines = process_shader_file(shader_file)
 	processed_shader_path = write_processed_shader_file(shader_file, lines)
 	compile_shader(processed_shader_path, lines)
+	print(f"\tDone, preview: '{processed_shader_path}'")

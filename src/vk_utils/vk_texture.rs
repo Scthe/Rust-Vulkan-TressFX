@@ -119,7 +119,7 @@ impl VkTexture {
         height,
         depth: 1,
       })
-      .format(vk::Format::R8G8B8A8_SRGB)
+      .format(vk::Format::R8G8B8A8_SRGB) // TODO not for normal maps etc.
       .tiling(vk::ImageTiling::LINEAR) // Optimal if uploaded from staging buffer. Linear if written from CPU(!!!)
       .mip_levels(1)
       .array_layers(1)

@@ -8,7 +8,9 @@ use crate::vk_ctx::VkCtx;
 use crate::vk_utils::*;
 
 const BINDING_INDEX_CONFIG_UBO: u32 = 0;
-const BINDING_INDEX_DIFFUSE_TEXTURE: u32 = 1;
+const BINDING_INDEX_MODEL_UBO: u32 = 1;
+const BINDING_INDEX_DIFFUSE_TEXTURE: u32 = 2;
+const BINDING_INDEX_SPECULAR_TEXTURE: u32 = 3;
 
 const DEPTH_TEXTURE_FORMAT: vk::Format = vk::Format::D24_UNORM_S8_UINT;
 const DIFFUSE_TEXTURE_FORMAT: vk::Format = vk::Format::R32G32B32A32_SFLOAT;
@@ -47,6 +49,7 @@ impl ForwardPass {
   }
 
   fn create_render_pass(device: &ash::Device) -> vk::RenderPass {
+    // TODO check if render pass can auto convert attachment layouts after execution? The `final_layout` param
     // 1. define render pass to compile shader against
     let depth_attachment = create_depth_stencil_attachment(
       0,
@@ -104,16 +107,31 @@ impl ForwardPass {
   }
 
   fn create_uniforms_layout(device: &ash::Device) -> vk::DescriptorSetLayout {
-    let binding_config_ubo =
-      create_ubo_binding(BINDING_INDEX_CONFIG_UBO, vk::ShaderStageFlags::VERTEX);
+    let binding_config_ubo = create_ubo_binding(
+      BINDING_INDEX_CONFIG_UBO,
+      vk::ShaderStageFlags::VERTEX | vk::ShaderStageFlags::FRAGMENT,
+    );
+    let binding_model_ubo = create_ubo_binding(
+      BINDING_INDEX_MODEL_UBO,
+      vk::ShaderStageFlags::VERTEX | vk::ShaderStageFlags::FRAGMENT,
+    );
     let binding_diff_tex = create_texture_binding(
       BINDING_INDEX_DIFFUSE_TEXTURE,
+      vk::ShaderStageFlags::FRAGMENT,
+    );
+    let binding_spec_tex = create_texture_binding(
+      BINDING_INDEX_SPECULAR_TEXTURE,
       vk::ShaderStageFlags::FRAGMENT,
     );
 
     let ubo_descriptors_create_info = vk::DescriptorSetLayoutCreateInfo::builder()
       .flags(vk::DescriptorSetLayoutCreateFlags::PUSH_DESCRIPTOR_KHR)
-      .bindings(&[binding_config_ubo, binding_diff_tex])
+      .bindings(&[
+        binding_config_ubo,
+        binding_model_ubo,
+        binding_diff_tex,
+        binding_spec_tex,
+      ])
       .build();
 
     unsafe {
@@ -177,6 +195,7 @@ impl ForwardPass {
     let device = vk_app.vk_device();
     let allocator = &vk_app.allocator;
 
+    // TODO provide frame id for names
     let depth_tex = VkTexture::new(
       device,
       allocator,
@@ -293,9 +312,18 @@ impl ForwardPass {
             binding: BINDING_INDEX_CONFIG_UBO,
             buffer: config_buffer,
           },
+          BindableResource::Uniform {
+            binding: BINDING_INDEX_MODEL_UBO,
+            buffer: &entity.model_constants_ubo,
+          },
           BindableResource::Texture {
             binding: BINDING_INDEX_DIFFUSE_TEXTURE,
-            texture: &entity.tex_diffuse,
+            texture: &entity.material.albedo_tex,
+            sampler: vk_app.default_texture_sampler_linear,
+          },
+          BindableResource::Texture {
+            binding: BINDING_INDEX_SPECULAR_TEXTURE,
+            texture: entity.get_specular_texture(),
             sampler: vk_app.default_texture_sampler_linear,
           },
         ];

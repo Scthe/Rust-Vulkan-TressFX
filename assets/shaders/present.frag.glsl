@@ -9,5 +9,6 @@ layout(location = 0) in vec2 uvCoord;
 layout(location = 0) out vec4 outputColor;
 
 void main() {
+  // Gamma not needed as swapchain image is in SRGB
   outputColor = oglTexture(texSampler, uvCoord.xy);
 }

@@ -3,6 +3,7 @@ use std::mem::size_of;
 use ash;
 use ash::vk;
 use bytemuck;
+use glam::{Vec2, Vec3, Vec4};
 
 use crate::scene::World;
 use crate::vk_ctx::VkCtx;
@@ -12,9 +13,9 @@ mod _shared;
 mod forward_pass;
 mod present_pass;
 
-pub use self::_shared::RenderableVertex;
+pub use self::_shared::*;
 use self::forward_pass::{ForwardPass, ForwardPassFramebuffer};
-use self::{_shared::GlobalConfigUniformBuffer, present_pass::PresentPass};
+use self::{_shared::GlobalConfigUBO, present_pass::PresentPass};
 
 // TODO add check when compiling shader if .glsl is newer than .spv. Then panic and say to recompile shaders
 
@@ -112,8 +113,10 @@ impl RenderGraph {
 
     // update per-frame uniforms
     let config_vk_buffer = &self.config_uniform_buffers[swapchain_image_index as usize];
-    self.update_scene_uniform_buffer(scene, config_vk_buffer);
+    self.update_config_uniform_buffer(vk_app, scene, config_vk_buffer);
+    // self.update_model_uniform_buffers();
 
+    // sync between frames
     unsafe {
       device
         .wait_for_fences(&[frame_data.draw_command_fence], true, u64::MAX)
@@ -193,13 +196,22 @@ impl RenderGraph {
     }
   }
 
-  fn update_scene_uniform_buffer(&self, scene: &World, vk_buffer: &VkBuffer) {
+  fn update_config_uniform_buffer(&self, vk_app: &VkCtx, scene: &World, vk_buffer: &VkBuffer) {
     let camera = &scene.camera;
-    let v = camera.view_matrix().clone(); // TODO clone?
-    let p = camera.perspective_matrix().clone();
-    let data = GlobalConfigUniformBuffer {
-      u_vp: p.mul_mat4(&v),
-      // u_mvp: p.mul_mat4(&v).mul_mat4(&m),
+    let vp = vk_app.window_size();
+
+    let data = GlobalConfigUBO {
+      // TODO this is not MVP!
+      u_mvp: camera.view_projection_matrix(),
+      u_camera_position: camera.position(),
+      u_viewport: Vec2::new(vp.width as f32, vp.height as f32),
+      u_light_ambient: Vec4::new(1.0, 1.0, 1.0, 0.1),
+      u_light0_position: Vec3::new(10.0, 10.0, 10.0),
+      u_light0_color: Vec4::new(1.0, 1.0, 1.0, 0.8),
+      u_light1_position: Vec3::new(-10.0, -5.0, 10.0),
+      u_light1_color: Vec4::new(0.7, 0.7, 1.0, 0.5),
+      u_light2_position: Vec3::new(-5.0, 2.0, -10.0),
+      u_light2_color: Vec4::new(1.0, 0.4, 0.4, 0.7),
     };
 
     let data_bytes = bytemuck::bytes_of(&data);
@@ -208,7 +220,7 @@ impl RenderGraph {
 }
 
 fn allocate_config_uniform_buffers(vk_app: &VkCtx, in_flight_frames: usize) -> Vec<VkBuffer> {
-  let size = size_of::<GlobalConfigUniformBuffer>() as _;
+  let size = size_of::<GlobalConfigUBO>() as _;
   let usage = vk::BufferUsageFlags::UNIFORM_BUFFER;
 
   (0..in_flight_frames)

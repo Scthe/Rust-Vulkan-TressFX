@@ -1,5 +1,7 @@
-mod global_config_uniform_buffer;
+mod forward_model_ubo;
+mod global_config_ubo;
 mod renderable_vertex;
 
-pub use self::global_config_uniform_buffer::*;
+pub use self::forward_model_ubo::*;
+pub use self::global_config_ubo::*;
 pub use self::renderable_vertex::*;

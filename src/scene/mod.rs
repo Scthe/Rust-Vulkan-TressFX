@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use ash::vk;
+use glam::Mat4;
 use glam::Vec2;
 use glam::Vec3;
 use log::info;
@@ -11,27 +12,20 @@ use crate::vk_ctx::VkCtx;
 use crate::vk_utils::*;
 
 pub use self::camera::*;
+pub use self::material::*;
 pub use self::world::*;
+pub use self::world_entity::*;
 
 mod camera;
+mod material;
 mod world;
+mod world_entity;
 
 pub fn load_scene(vk_ctx: &VkCtx, cam_settings: CameraSettings) -> World {
-  /*
-  let test_texture = VkTexture::from_file(
-    &vk_ctx.allocator,
-    vk_ctx,
-    Path::new("./assets/sintel_lite_v2_1/textures/sintel_eyeball_diff.jpg"),
-  );
-
-  let obj_mesh = load_obj_mesh(vk_ctx, Path::new("./assets/cube.obj"));
-  // let obj_mesh = load_obj_mesh(vk_ctx, Path::new("./assets/plane.obj"));
-  // panic!("as expected");
-
-  // let debug_triangle = create_debug_triangles_scene(vk_ctx);
-  */
-  let sintel = load_sintel(vk_ctx);
-  let sintel_eyes = load_sintel_eyes(vk_ctx);
+  let scale = 1.0f32; // TODO from config
+  let model_matrix = Mat4::from_scale(Vec3::new(scale, scale, scale));
+  let sintel = load_sintel(vk_ctx, model_matrix);
+  let sintel_eyes = load_sintel_eyes(vk_ctx, model_matrix);
 
   World {
     entities: vec![sintel, sintel_eyes],
@@ -39,42 +33,61 @@ pub fn load_scene(vk_ctx: &VkCtx, cam_settings: CameraSettings) -> World {
   }
 }
 
-fn load_sintel(vk_ctx: &VkCtx) -> WorldEntity {
+fn load_sintel(vk_ctx: &VkCtx, model_matrix: Mat4) -> WorldEntity {
   let tex_diffuse = VkTexture::from_file(
     &vk_ctx.allocator,
     vk_ctx,
     Path::new("./assets/sintel_lite_v2_1/textures/sintel_skin_diff.jpg"),
   );
+  /*TODO let specular_tex = VkTexture::from_file(
+    &vk_ctx.allocator,
+    vk_ctx,
+    Path::new("./assets/sintel_lite_v2_1/textures/sintel_skin_spec.jpg"),
+  );
+  // TODO sintelhairShadowTex*/
 
+  let material = Material::new(tex_diffuse, None, None);
   let mesh = load_obj_mesh(vk_ctx, Path::new("./assets/sintel_lite_v2_1/sintel.obj"));
+  let name = "sintel".to_string();
+  let model_constants_ubo = allocate_constants_ubo(vk_ctx, &name, &material, model_matrix);
 
   WorldEntity {
     name: "sintel".to_string(),
-    tex_diffuse,
+    material,
     vertex_buffer: mesh.vertex_buffer,
     index_buffer: mesh.index_buffer,
     vertex_count: mesh.vertex_count,
+    model_matrix,
+    model_constants_ubo,
+    // model_pre_frame_ubo: allocate_per_frame_ubo_vec(vk_ctx, &name),
   }
 }
 
-fn load_sintel_eyes(vk_ctx: &VkCtx) -> WorldEntity {
+fn load_sintel_eyes(vk_ctx: &VkCtx, model_matrix: Mat4) -> WorldEntity {
   let tex_diffuse = VkTexture::from_file(
     &vk_ctx.allocator,
     vk_ctx,
     Path::new("./assets/sintel_lite_v2_1/textures/sintel_eyeball_diff.jpg"),
   );
 
+  let mut material = Material::new(tex_diffuse, None, None);
+  material.specular_mul = 3.0; // shiny!
   let mesh = load_obj_mesh(
     vk_ctx,
     Path::new("./assets/sintel_lite_v2_1/sintel_eyeballs.obj"),
   );
+  let name = "sintel".to_string();
+  let model_constants_ubo = allocate_constants_ubo(vk_ctx, &name, &material, model_matrix);
 
   WorldEntity {
-    name: "sintel_eyes".to_string(),
-    tex_diffuse,
+    name,
+    material,
     vertex_buffer: mesh.vertex_buffer,
     index_buffer: mesh.index_buffer,
     vertex_count: mesh.vertex_count,
+    model_matrix,
+    model_constants_ubo,
+    // model_pre_frame_ubo: allocate_per_frame_ubo_vec(vk_ctx, &name),
   }
 }
 

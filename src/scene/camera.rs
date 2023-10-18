@@ -1,7 +1,7 @@
 use glam::{vec3, vec4, Mat4, Vec3, Vec4Swizzles};
 
 const ROTATE_SENSITIVITY: f32 = 0.002;
-const MOVE_SENSITIVITY: f32 = 0.05;
+const MOVE_SENSITIVITY: f32 = 0.3;
 const WHEEL_SENSITIVITY: f32 = 0.2;
 
 pub struct CameraSettings {
@@ -53,6 +53,19 @@ impl Camera {
 
   pub fn perspective_matrix(&self) -> &Mat4 {
     &self.perspective_matrix
+  }
+
+  pub fn view_projection_matrix(&self) -> Mat4 {
+    let v = self.view_matrix().clone(); // TODO clone?
+    let p = self.perspective_matrix().clone();
+    p.mul_mat4(&v)
+  }
+
+  pub fn model_view_projection_matrix(&self, model_matrix: Mat4) -> Mat4 {
+    let v = self.view_matrix().clone(); // TODO clone?
+    let p = self.perspective_matrix().clone();
+    let m = model_matrix.clone();
+    p.mul_mat4(&v).mul_mat4(&m) // TODO is this ok?
   }
 
   pub fn rotate_yaw_pitch(&mut self, delta_yaw: f32, delta_pitch: f32) {
