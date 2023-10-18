@@ -239,6 +239,7 @@ impl ForwardPass {
     framebuffer: &mut ForwardPassFramebuffer,
     size: vk::Extent2D,
     config_buffer: &VkBuffer,
+    frame_id: usize,
   ) -> () {
     let device = vk_app.vk_device();
     let push_descriptor = &vk_app.push_descriptor;
@@ -314,7 +315,7 @@ impl ForwardPass {
           },
           BindableResource::Uniform {
             binding: BINDING_INDEX_MODEL_UBO,
-            buffer: &entity.model_constants_ubo,
+            buffer: entity.get_ubo_buffer(frame_id),
           },
           BindableResource::Texture {
             binding: BINDING_INDEX_DIFFUSE_TEXTURE,

@@ -3,7 +3,6 @@ use std::mem::size_of;
 use ash;
 use ash::vk;
 use bytemuck;
-use glam::{Vec2, Vec3, Vec4};
 
 use crate::scene::World;
 use crate::vk_ctx::VkCtx;
@@ -95,6 +94,7 @@ impl RenderGraph {
     let queue = vk_app.device.queue;
 
     // per frame data so we can have many frames in processing at the same time
+    // TODO instead of '%' operator, use `swapchain_image_index`?
     let frame_data = vk_app.data_per_frame(frame_idx % vk_app.frames_in_flight());
     let cmd_buf = frame_data.command_buffer;
 
@@ -114,7 +114,7 @@ impl RenderGraph {
     // update per-frame uniforms
     let config_vk_buffer = &self.config_uniform_buffers[swapchain_image_index as usize];
     self.update_config_uniform_buffer(vk_app, scene, config_vk_buffer);
-    // self.update_model_uniform_buffers();
+    self.update_model_uniform_buffers(scene, swapchain_image_index as usize);
 
     // sync between frames
     unsafe {
@@ -148,6 +148,7 @@ impl RenderGraph {
       &mut framebuffers.forward_pass,
       swapchain.size,
       config_vk_buffer,
+      swapchain_image_index as usize,
     );
 
     // info!("Start present_pass");
@@ -198,24 +199,19 @@ impl RenderGraph {
 
   fn update_config_uniform_buffer(&self, vk_app: &VkCtx, scene: &World, vk_buffer: &VkBuffer) {
     let camera = &scene.camera;
-    let vp = vk_app.window_size();
-
-    let data = GlobalConfigUBO {
-      // TODO this is not MVP!
-      u_mvp: camera.view_projection_matrix(),
-      u_camera_position: camera.position(),
-      u_viewport: Vec2::new(vp.width as f32, vp.height as f32),
-      u_light_ambient: Vec4::new(1.0, 1.0, 1.0, 0.1),
-      u_light0_position: Vec3::new(10.0, 10.0, 10.0),
-      u_light0_color: Vec4::new(1.0, 1.0, 1.0, 0.8),
-      u_light1_position: Vec3::new(-10.0, -5.0, 10.0),
-      u_light1_color: Vec4::new(0.7, 0.7, 1.0, 0.5),
-      u_light2_position: Vec3::new(-5.0, 2.0, -10.0),
-      u_light2_color: Vec4::new(1.0, 0.4, 0.4, 0.7),
-    };
-
+    let data = GlobalConfigUBO::new(camera, vk_app);
     let data_bytes = bytemuck::bytes_of(&data);
     vk_buffer.write_to_mapped(data_bytes);
+  }
+
+  fn update_model_uniform_buffers(&self, scene: &World, frame_id: usize) {
+    let camera = &scene.camera;
+    scene.entities.iter().for_each(|entity| {
+      let data = ForwardModelUBO::new(entity, camera);
+      let data_bytes = bytemuck::bytes_of(&data);
+      let buffer = entity.get_ubo_buffer(frame_id);
+      buffer.write_to_mapped(data_bytes);
+    });
   }
 }
 

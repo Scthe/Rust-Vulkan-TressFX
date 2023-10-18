@@ -1,6 +1,5 @@
 layout(binding = 0) 
 uniform GlobalConfigUniformBuffer {
-  mat4 u_MVP;
   vec3 u_cameraPosition;
   vec2 u_viewport;
   // ao

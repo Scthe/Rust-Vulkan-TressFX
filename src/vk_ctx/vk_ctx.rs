@@ -63,6 +63,7 @@ impl VkCtx {
     let syncs = &self.synchronize;
 
     VkCtxPerSwapchainImageData {
+      swapchain_image_idx: frame_idx,
       command_buffer: get_resource_at_idx("command_buffer", cmd_bufs, frame_idx),
       draw_command_fence: get_resource_at_idx("fence", &syncs.draw_commands_fences, frame_idx),
       present_complete_semaphore: get_resource_at_idx(

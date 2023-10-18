@@ -3,11 +3,16 @@ use vma::Alloc;
 
 use super::{MemoryMapPointer, VkMemoryResource};
 
-// https://gpuopen-librariesandsdks.github.io/VulkanMemoryAllocator/html/quick_start.html
-// https://github.com/expenses/vulkan-base/blob/main/ash-helpers/src/lib.rs
+/*
+https://gpuopen-librariesandsdks.github.io/VulkanMemoryAllocator/html/quick_start.html
+https://github.com/expenses/vulkan-base/blob/main/ash-helpers/src/lib.rs
 
-// https://gpuopen-librariesandsdks.github.io/VulkanMemoryAllocator/html/choosing_memory_type.html
-// If you want to create a buffer or an image, allocate memory for it and bind them together, all in one call, you can use function vmaCreateBuffer(), vmaCreateImage(). This is the easiest and recommended way to use this library
+https://gpuopen-librariesandsdks.github.io/VulkanMemoryAllocator/html/choosing_memory_type.html
+If you want to create a buffer or an image, allocate memory for it and bind them together, all in one call, you can use function vmaCreateBuffer(), vmaCreateImage(). This is the easiest and recommended way to use this library
+
+vkcmdupdatebuffer - update small non-mappable memory region?
+https://stackoverflow.com/questions/54673223/a-rarely-mentioned-vulkan-function-vkcmdupdatebuffer-what-is-it-used-for
+*/
 
 pub struct VkBuffer {
   // For debugging

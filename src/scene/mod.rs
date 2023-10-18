@@ -22,7 +22,7 @@ mod world;
 mod world_entity;
 
 pub fn load_scene(vk_ctx: &VkCtx, cam_settings: CameraSettings) -> World {
-  let scale = 1.0f32; // TODO from config
+  let scale = 0.8f32; // TODO from config
   let model_matrix = Mat4::from_scale(Vec3::new(scale, scale, scale));
   let sintel = load_sintel(vk_ctx, model_matrix);
   let sintel_eyes = load_sintel_eyes(vk_ctx, model_matrix);
@@ -49,7 +49,7 @@ fn load_sintel(vk_ctx: &VkCtx, model_matrix: Mat4) -> WorldEntity {
   let material = Material::new(tex_diffuse, None, None);
   let mesh = load_obj_mesh(vk_ctx, Path::new("./assets/sintel_lite_v2_1/sintel.obj"));
   let name = "sintel".to_string();
-  let model_constants_ubo = allocate_constants_ubo(vk_ctx, &name, &material, model_matrix);
+  let model_ubo = allocate_model_ubo_vec(vk_ctx, &name);
 
   WorldEntity {
     name: "sintel".to_string(),
@@ -58,8 +58,7 @@ fn load_sintel(vk_ctx: &VkCtx, model_matrix: Mat4) -> WorldEntity {
     index_buffer: mesh.index_buffer,
     vertex_count: mesh.vertex_count,
     model_matrix,
-    model_constants_ubo,
-    // model_pre_frame_ubo: allocate_per_frame_ubo_vec(vk_ctx, &name),
+    model_ubo,
   }
 }
 
@@ -77,7 +76,7 @@ fn load_sintel_eyes(vk_ctx: &VkCtx, model_matrix: Mat4) -> WorldEntity {
     Path::new("./assets/sintel_lite_v2_1/sintel_eyeballs.obj"),
   );
   let name = "sintel".to_string();
-  let model_constants_ubo = allocate_constants_ubo(vk_ctx, &name, &material, model_matrix);
+  let model_ubo = allocate_model_ubo_vec(vk_ctx, &name);
 
   WorldEntity {
     name,
@@ -86,8 +85,7 @@ fn load_sintel_eyes(vk_ctx: &VkCtx, model_matrix: Mat4) -> WorldEntity {
     index_buffer: mesh.index_buffer,
     vertex_count: mesh.vertex_count,
     model_matrix,
-    model_constants_ubo,
-    // model_pre_frame_ubo: allocate_per_frame_ubo_vec(vk_ctx, &name),
+    model_ubo,
   }
 }
 
