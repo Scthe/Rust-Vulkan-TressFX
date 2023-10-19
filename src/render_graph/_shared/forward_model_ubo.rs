@@ -4,15 +4,9 @@ use glam::Mat4;
 use crate::scene::{Camera, WorldEntity};
 
 /*
-TODO next commit
-| move mvp to ForwardModelUBO
-| make ForwardModelUBO per-frame
-| use real mvp, not vp matrices
-| use hairShadowTex, specularTex (this one is not sRGB)
-- look through previous commit and find fixes
-- output normals to 2nd attachment
-- config
+TODO next commits
 - fix warnings/TODOs
+- config
 - restore present pass?
 */
 

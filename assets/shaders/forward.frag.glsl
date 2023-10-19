@@ -28,7 +28,7 @@ layout(location = 2) in vec2 v_UV;
 // layout(location = 3) in vec4 v_PositionLightShadowSpace;
 
 layout(location = 0) out vec4 outColor1;
-// layout(location = 1) out vec4 outColor2; // TODO normals
+layout(location = 1) out vec4 outColor2;
 
 
 // required by SSSSS import, but not used here (used in SSS blur)
@@ -175,5 +175,5 @@ void main() {
   color = doShading(material, lights);
 
   outColor1 = vec4(color, 1.0);
-  // outColor2 = vec4(to_0_1(material.normal), 1.0);
+  outColor2 = vec4(to_0_1(material.normal), 1.0);
 }

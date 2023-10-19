@@ -15,7 +15,10 @@ const BINDING_INDEX_HAIR_SHADOW_TEXTURE: u32 = 4;
 
 const DEPTH_TEXTURE_FORMAT: vk::Format = vk::Format::D24_UNORM_S8_UINT;
 const DIFFUSE_TEXTURE_FORMAT: vk::Format = vk::Format::R32G32B32A32_SFLOAT;
+const NORMALS_TEXTURE_FORMAT: vk::Format = vk::Format::R8G8B8A8_UINT;
+const COLOR_ATTACHMENT_COUNT: usize = 2;
 
+// TODO ATM attachment data is split into create_framebuffer, render_pass, execute (cause clear color). Unify
 pub struct ForwardPass {
   render_pass: vk::RenderPass,
   pipeline: vk::Pipeline,
@@ -88,9 +91,16 @@ impl ForwardPass {
       vk::AttachmentStoreOp::STORE,
       false,
     );
+    let normals_attachment = create_color_attachment(
+      2,
+      NORMALS_TEXTURE_FORMAT,
+      vk::AttachmentLoadOp::CLEAR,
+      vk::AttachmentStoreOp::STORE,
+      false,
+    );
 
     let subpass = vk::SubpassDescription::builder()
-      .color_attachments(&[color_attachment.1])
+      .color_attachments(&[color_attachment.1, normals_attachment.1])
       .depth_stencil_attachment(&depth_attachment.1)
       .pipeline_bind_point(vk::PipelineBindPoint::GRAPHICS)
       .build();
@@ -115,7 +125,7 @@ impl ForwardPass {
 
     let create_info = vk::RenderPassCreateInfo::builder()
       .dependencies(&[dependencies])
-      .attachments(&[depth_attachment.0, color_attachment.0])
+      .attachments(&[depth_attachment.0, color_attachment.0, normals_attachment.0])
       .subpasses(&[subpass])
       .build();
     let render_pass = unsafe {
@@ -192,7 +202,6 @@ impl ForwardPass {
 
     // create pipeline itself
     // TODO cull backfaces
-    let color_attachment_count: usize = 1;
     let pipeline_create_info = vk::GraphicsPipelineCreateInfo::builder()
       .stages(&[stage_vs, stage_fs])
       .vertex_input_state(&vertex_input_state)
@@ -201,7 +210,7 @@ impl ForwardPass {
       .rasterization_state(&ps_raster_polygons(vk::CullModeFlags::NONE))
       .multisample_state(&ps_multisample_disabled())
       .depth_stencil_state(&ps_depth_less_stencil_always())
-      .color_blend_state(&ps_color_blend_override(color_attachment_count))
+      .color_blend_state(&ps_color_blend_override(COLOR_ATTACHMENT_COUNT))
       .dynamic_state(&dynamic_state)
       .layout(pipeline_layout)
       .render_pass(*render_pass)
@@ -217,27 +226,41 @@ impl ForwardPass {
     (pipeline, pipeline_layout)
   }
 
-  pub fn create_framebuffer(&self, vk_app: &VkCtx, size: &vk::Extent2D) -> ForwardPassFramebuffer {
+  pub fn create_framebuffer(
+    &self,
+    vk_app: &VkCtx,
+    frame_id: usize,
+    size: &vk::Extent2D,
+  ) -> ForwardPassFramebuffer {
     let device = vk_app.vk_device();
     let allocator = &vk_app.allocator;
 
-    // TODO provide frame id for names
     let depth_tex = VkTexture::empty(
       device,
       allocator,
-      format!("ForwardPass.depth#???"),
+      format!("ForwardPass.depth#{}", frame_id),
       *size,
       DEPTH_TEXTURE_FORMAT,
       vk::ImageTiling::OPTIMAL,
-      vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT,
+      vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT | vk::ImageUsageFlags::SAMPLED,
       vk::ImageAspectFlags::DEPTH,
     );
     let diffuse_tex = VkTexture::empty(
       device,
       allocator,
-      format!("ForwardPass.difuse#???"),
+      format!("ForwardPass.diffuse#{}", frame_id),
       *size,
       DIFFUSE_TEXTURE_FORMAT,
+      vk::ImageTiling::OPTIMAL,
+      vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED,
+      vk::ImageAspectFlags::COLOR,
+    );
+    let normals_tex = VkTexture::empty(
+      device,
+      allocator,
+      format!("ForwardPass.normal#{}", frame_id),
+      *size,
+      NORMALS_TEXTURE_FORMAT,
       vk::ImageTiling::OPTIMAL,
       vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED,
       vk::ImageAspectFlags::COLOR,
@@ -246,13 +269,18 @@ impl ForwardPass {
     let fbo = create_framebuffer(
       device,
       self.render_pass,
-      &[depth_tex.image_view(), diffuse_tex.image_view()],
+      &[
+        depth_tex.image_view(),
+        diffuse_tex.image_view(),
+        normals_tex.image_view(),
+      ],
       &size,
     );
 
     ForwardPassFramebuffer {
       depth_tex,
       diffuse_tex,
+      normals_tex,
       fbo,
     }
   }
@@ -274,6 +302,9 @@ impl ForwardPass {
     let clear_color = vk::ClearColorValue {
       float32: [0.2f32, 0.2f32, 0.2f32, 1f32],
     };
+    let clear_normals = vk::ClearColorValue {
+      float32: [0f32, 0f32, 0f32, 1f32],
+    };
     let clear_depth = vk::ClearDepthStencilValue {
       depth: 1.0f32,
       stencil: 0,
@@ -288,12 +319,20 @@ impl ForwardPass {
           depth_stencil: clear_depth,
         },
         vk::ClearValue { color: clear_color },
+        vk::ClearValue {
+          color: clear_normals,
+        },
       ])
       .build();
 
     // TODO no need to rerecord every frame TBH. Everything can be controlled by uniforms etc.
     unsafe {
-      let texture_barrier = framebuffer.diffuse_tex.prepare_for_layout_transition(
+      let diffuse_barrier = framebuffer.diffuse_tex.prepare_for_layout_transition(
+        vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+        vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
+        vk::AccessFlags::SHADER_READ,
+      );
+      let normal_barrier = framebuffer.normals_tex.prepare_for_layout_transition(
         vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
         vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
         vk::AccessFlags::SHADER_READ,
@@ -305,7 +344,7 @@ impl ForwardPass {
         vk::DependencyFlags::empty(),
         &[],
         &[],
-        &[texture_barrier],
+        &[diffuse_barrier, normal_barrier],
       );
 
       // start render pass
@@ -389,7 +428,7 @@ impl ForwardPass {
 pub struct ForwardPassFramebuffer {
   pub depth_tex: VkTexture,
   pub diffuse_tex: VkTexture,
-  // pub normals_tex: VkTexture,
+  pub normals_tex: VkTexture,
   pub fbo: vk::Framebuffer,
 }
 
@@ -401,5 +440,6 @@ impl ForwardPassFramebuffer {
     device.destroy_framebuffer(self.fbo, None);
     self.depth_tex.delete(device, allocator);
     self.diffuse_tex.delete(device, allocator);
+    self.normals_tex.delete(device, allocator);
   }
 }

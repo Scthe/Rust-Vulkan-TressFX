@@ -46,8 +46,9 @@ impl RenderGraph {
     let window_size = &vk_app.window_size();
     let framebuffers = swapchain_image_views
       .iter()
-      .map(|&iv| {
-        let forward_pass = forward_pass.create_framebuffer(vk_app, window_size);
+      .enumerate()
+      .map(|(frame_id, &iv)| {
+        let forward_pass = forward_pass.create_framebuffer(vk_app, frame_id, window_size);
         let present_pass = present_pass.create_framebuffer(vk_app, iv, window_size);
         FrameFramebuffers {
           forward_pass,
