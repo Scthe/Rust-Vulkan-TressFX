@@ -2,7 +2,7 @@
 use ash;
 use ash::vk;
 
-use super::{create_viewport, size_to_rect_vk};
+use super::{create_viewport, load_render_shaders, size_to_rect_vk};
 
 pub fn create_pipeline_cache(device: &ash::Device) -> vk::PipelineCache {
   let create_info = vk::PipelineCacheCreateInfo::builder().build();
@@ -41,6 +41,51 @@ pub fn create_pipeline(
     Some(ps) if ps.len() > 0 => *ps.first().unwrap(),
     _ => panic!("Failed to create graphic pipeline"),
   }
+}
+
+pub fn create_pipeline_with_defaults(
+  device: &ash::Device,
+  render_pass: &vk::RenderPass,
+  pipeline_layout: &vk::PipelineLayout,
+  shader_paths: (&str, &str),
+  vertex_desc: vk::PipelineVertexInputStateCreateInfo,
+  color_attachment_count: usize,
+  creator: impl Fn(vk::GraphicsPipelineCreateInfoBuilder) -> vk::Pipeline,
+) -> vk::Pipeline {
+  let (module_vs, stage_vs, module_fs, stage_fs) =
+    load_render_shaders(device, shader_paths.0, shader_paths.1);
+
+  let dynamic_state = ps_dynamic_state(&[vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR]);
+
+  // create pipeline itself
+  let stages = [stage_vs, stage_fs];
+  let input_assembly_state = ps_ia_triangle_list();
+  let viewport_state = ps_viewport_single_dynamic();
+  let rasterization_state = ps_raster_polygons(vk::CullModeFlags::NONE);
+  let multisample_state = ps_multisample_disabled();
+  let depth_stencil_state = ps_depth_always_stencil_always();
+  let color_blend_state = ps_color_blend_override(color_attachment_count);
+  let create_info_builder = vk::GraphicsPipelineCreateInfo::builder()
+    .stages(&stages)
+    .vertex_input_state(&vertex_desc)
+    .input_assembly_state(&input_assembly_state)
+    .viewport_state(&viewport_state)
+    .rasterization_state(&rasterization_state)
+    .multisample_state(&multisample_state)
+    .depth_stencil_state(&depth_stencil_state)
+    .color_blend_state(&color_blend_state)
+    .dynamic_state(&dynamic_state)
+    .layout(*pipeline_layout)
+    .render_pass(*render_pass);
+
+  let pipeline = creator(create_info_builder);
+
+  unsafe {
+    device.destroy_shader_module(module_vs, None);
+    device.destroy_shader_module(module_fs, None);
+  }
+
+  pipeline
 }
 
 // This file contains presets for `vk::GraphicsPipelineCreateInfo`.

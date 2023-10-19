@@ -1,8 +1,9 @@
 use ash;
 use ash::vk;
-use log::trace;
+use log::info;
 
 use crate::render_graph::_shared::RenderableVertex;
+use crate::scene::WorldEntity;
 use crate::vk_ctx::VkCtx;
 use crate::vk_utils::*;
 
@@ -18,6 +19,10 @@ const DEPTH_TEXTURE_FORMAT: vk::Format = vk::Format::D24_UNORM_S8_UINT;
 const DIFFUSE_TEXTURE_FORMAT: vk::Format = vk::Format::R32G32B32A32_SFLOAT;
 const NORMALS_TEXTURE_FORMAT: vk::Format = vk::Format::R8G8B8A8_UINT;
 const COLOR_ATTACHMENT_COUNT: usize = 2;
+const SHADER_PATHS: (&str, &str) = (
+  "./assets/shaders-compiled/forward.vert.spv",
+  "./assets/shaders-compiled/forward.frag.spv",
+);
 
 // TODO ATM attachment data is split into create_framebuffer, render_pass, execute (cause clear color). Unify.
 //      Or create RenderPass abstract class that will get some attachment desc and calc most of things
@@ -35,30 +40,18 @@ pub struct ForwardPass {
 
 impl ForwardPass {
   pub fn new(vk_app: &VkCtx) -> Self {
-    trace!("Creating ForwardPass");
+    info!("Creating ForwardPass");
     let device = vk_app.vk_device();
     let pipeline_cache = &vk_app.pipeline_cache;
 
     let render_pass = ForwardPass::create_render_pass(device);
-    let uniforms_layout = ForwardPass::create_uniforms_layout(device);
+    let uniforms_desc = ForwardPass::get_uniforms_layout();
+    let uniforms_layout = create_push_descriptor_layout(device, uniforms_desc);
     let pipeline_layout = create_pipeline_layout(device, &[uniforms_layout]);
     let pipeline =
       ForwardPass::create_pipeline(device, pipeline_cache, &render_pass, &pipeline_layout);
 
-    let mut dummy_data_texture = VkTexture::empty(
-      device,
-      &vk_app.allocator,
-      "ForwardPassDummyDataTex".to_string(),
-      vk::Extent2D {
-        width: 4,
-        height: 4,
-      },
-      VkTexture::RAW_DATA_TEXTURE_FORMAT,
-      vk::ImageTiling::OPTIMAL,
-      vk::ImageUsageFlags::SAMPLED,
-      vk::ImageAspectFlags::COLOR,
-    );
-    dummy_data_texture.force_image_layout(vk_app, vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL);
+    let dummy_data_texture = ForwardPass::create_dummy_texture(vk_app);
 
     ForwardPass {
       render_pass,
@@ -69,11 +62,14 @@ impl ForwardPass {
     }
   }
 
-  pub unsafe fn destroy(&self, device: &ash::Device) {
+  pub unsafe fn destroy(&mut self, vk_app: &VkCtx) {
+    let device = vk_app.vk_device();
+    let allocator = &vk_app.allocator;
     device.destroy_render_pass(self.render_pass, None);
     device.destroy_descriptor_set_layout(self.uniforms_layout, None);
     device.destroy_pipeline_layout(self.pipeline_layout, None);
     device.destroy_pipeline(self.pipeline, None);
+    self.dummy_data_texture.delete(device, allocator);
   }
 
   fn create_render_pass(device: &ash::Device) -> vk::RenderPass {
@@ -141,44 +137,29 @@ impl ForwardPass {
     render_pass
   }
 
-  fn create_uniforms_layout(device: &ash::Device) -> vk::DescriptorSetLayout {
-    let binding_config_ubo = create_ubo_binding(
-      BINDING_INDEX_CONFIG_UBO,
-      vk::ShaderStageFlags::VERTEX | vk::ShaderStageFlags::FRAGMENT,
-    );
-    let binding_model_ubo = create_ubo_binding(
-      BINDING_INDEX_MODEL_UBO,
-      vk::ShaderStageFlags::VERTEX | vk::ShaderStageFlags::FRAGMENT,
-    );
-    let binding_diff_tex = create_texture_binding(
-      BINDING_INDEX_DIFFUSE_TEXTURE,
-      vk::ShaderStageFlags::FRAGMENT,
-    );
-    let binding_spec_tex = create_texture_binding(
-      BINDING_INDEX_SPECULAR_TEXTURE,
-      vk::ShaderStageFlags::FRAGMENT,
-    );
-    let binding_hair_shadow_tex = create_texture_binding(
-      BINDING_INDEX_HAIR_SHADOW_TEXTURE,
-      vk::ShaderStageFlags::FRAGMENT,
-    );
-
-    let ubo_descriptors_create_info = vk::DescriptorSetLayoutCreateInfo::builder()
-      .flags(vk::DescriptorSetLayoutCreateFlags::PUSH_DESCRIPTOR_KHR)
-      .bindings(&[
-        binding_config_ubo,
-        binding_model_ubo,
-        binding_diff_tex,
-        binding_spec_tex,
-        binding_hair_shadow_tex,
-      ])
-      .build();
-
-    unsafe {
-      device
-        .create_descriptor_set_layout(&ubo_descriptors_create_info, None)
-        .expect("Failed to create DescriptorSetLayout")
-    }
+  fn get_uniforms_layout() -> Vec<vk::DescriptorSetLayoutBinding> {
+    vec![
+      create_ubo_binding(
+        BINDING_INDEX_CONFIG_UBO,
+        vk::ShaderStageFlags::VERTEX | vk::ShaderStageFlags::FRAGMENT,
+      ),
+      create_ubo_binding(
+        BINDING_INDEX_MODEL_UBO,
+        vk::ShaderStageFlags::VERTEX | vk::ShaderStageFlags::FRAGMENT,
+      ),
+      create_texture_binding(
+        BINDING_INDEX_DIFFUSE_TEXTURE,
+        vk::ShaderStageFlags::FRAGMENT,
+      ),
+      create_texture_binding(
+        BINDING_INDEX_SPECULAR_TEXTURE,
+        vk::ShaderStageFlags::FRAGMENT,
+      ),
+      create_texture_binding(
+        BINDING_INDEX_HAIR_SHADOW_TEXTURE,
+        vk::ShaderStageFlags::FRAGMENT,
+      ),
+    ]
   }
 
   fn create_pipeline(
@@ -187,44 +168,26 @@ impl ForwardPass {
     render_pass: &vk::RenderPass,
     pipeline_layout: &vk::PipelineLayout,
   ) -> vk::Pipeline {
-    // create shaders
-    let (module_vs, stage_vs, module_fs, stage_fs) = load_render_shaders(
-      device,
-      "./assets/shaders-compiled/forward.vert.spv",
-      "./assets/shaders-compiled/forward.frag.spv",
-    );
-
-    let vertex_input_state = vk::PipelineVertexInputStateCreateInfo::builder()
+    let vertex_desc = vk::PipelineVertexInputStateCreateInfo::builder()
       .vertex_attribute_descriptions(&RenderableVertex::get_attributes_descriptions())
       .vertex_binding_descriptions(&RenderableVertex::get_bindings_descriptions())
       .build();
 
-    let dynamic_state = ps_dynamic_state(&[vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR]);
-
-    // create pipeline itself
-    // TODO cull backfaces
-    let pipeline_create_info = vk::GraphicsPipelineCreateInfo::builder()
-      .stages(&[stage_vs, stage_fs])
-      .vertex_input_state(&vertex_input_state)
-      .input_assembly_state(&ps_ia_triangle_list())
-      .viewport_state(&ps_viewport_single_dynamic())
-      .rasterization_state(&ps_raster_polygons(vk::CullModeFlags::NONE))
-      .multisample_state(&ps_multisample_disabled())
-      .depth_stencil_state(&ps_depth_less_stencil_always())
-      .color_blend_state(&ps_color_blend_override(COLOR_ATTACHMENT_COUNT))
-      .dynamic_state(&dynamic_state)
-      .layout(*pipeline_layout)
-      .render_pass(*render_pass)
-      .build();
-
-    let pipeline = create_pipeline(device, pipeline_cache, pipeline_create_info);
-
-    unsafe {
-      device.destroy_shader_module(module_vs, None);
-      device.destroy_shader_module(module_fs, None);
-    }
-
-    pipeline
+    create_pipeline_with_defaults(
+      device,
+      render_pass,
+      pipeline_layout,
+      SHADER_PATHS,
+      vertex_desc,
+      COLOR_ATTACHMENT_COUNT,
+      |builder| {
+        // TODO cull backfaces
+        let pipeline_create_info = builder
+          .depth_stencil_state(&ps_depth_less_stencil_always())
+          .build();
+        create_pipeline(device, pipeline_cache, pipeline_create_info)
+      },
+    )
   }
 
   pub fn create_framebuffer(
@@ -295,110 +258,36 @@ impl ForwardPass {
     let config = exec_ctx.config;
     let scene = exec_ctx.scene;
     let command_buffer = exec_ctx.command_buffer;
-    let size = exec_ctx.size;
-    let config_buffer = exec_ctx.config_buffer;
-    let frame_id = exec_ctx.swapchain_image_idx;
-
     let device = vk_app.vk_device();
-    let push_descriptor = &vk_app.push_descriptor;
-    let render_area = size_to_rect_vk(&size);
-    let viewport = create_viewport(&size);
 
-    let render_pass_begin_info = vk::RenderPassBeginInfo::builder()
-      .render_pass(self.render_pass)
-      .framebuffer(framebuffer.fbo)
-      .render_area(render_area)
-      .clear_values(&[
-        config.clear_depth_stencil(),
-        config.clear_color(),
-        config.clear_normals(),
-      ])
-      .build();
+    let clear_values = [
+      config.clear_depth_stencil(),
+      config.clear_color(),
+      config.clear_normals(),
+    ];
 
     // TODO no need to rerecord every frame TBH. Everything can be controlled by uniforms etc.
     unsafe {
-      let diffuse_barrier = framebuffer.diffuse_tex.prepare_for_layout_transition(
-        vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
-        vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
-        vk::AccessFlags::SHADER_READ,
-      );
-      let normal_barrier = framebuffer.normals_tex.prepare_for_layout_transition(
-        vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
-        vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
-        vk::AccessFlags::SHADER_READ,
-      );
-      device.cmd_pipeline_barrier(
-        command_buffer,
-        vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
-        vk::PipelineStageFlags::FRAGMENT_SHADER,
-        vk::DependencyFlags::empty(),
-        &[],
-        &[],
-        &[diffuse_barrier, normal_barrier],
-      );
+      self.cmd_resource_barriers(device, &command_buffer, framebuffer);
 
       // start render pass
-      device.cmd_begin_render_pass(
-        command_buffer,
-        &render_pass_begin_info,
-        vk::SubpassContents::INLINE,
+      cmd_begin_render_pass_for_framebuffer(
+        &device,
+        &command_buffer,
+        &self.render_pass,
+        &framebuffer.fbo,
+        &exec_ctx.size,
+        &clear_values,
       );
-
-      // draw calls go here
-      device.cmd_set_viewport(command_buffer, 0, &[viewport]);
-      device.cmd_set_scissor(command_buffer, 0, &[render_area]);
       device.cmd_bind_pipeline(
         command_buffer,
         vk::PipelineBindPoint::GRAPHICS,
         self.pipeline,
       );
 
-      // bind uniforms
-      let resouce_binder = ResouceBinder {
-        push_descriptor,
-        command_buffer,
-        pipeline_layout: self.pipeline_layout,
-      };
-
       // draw calls
       for entity in &scene.entities {
-        // uniforms
-        let uniform_resouces = [
-          BindableResource::Uniform {
-            binding: BINDING_INDEX_CONFIG_UBO,
-            buffer: config_buffer,
-          },
-          BindableResource::Uniform {
-            binding: BINDING_INDEX_MODEL_UBO,
-            buffer: entity.get_ubo_buffer(frame_id),
-          },
-          BindableResource::Texture {
-            binding: BINDING_INDEX_DIFFUSE_TEXTURE,
-            texture: &entity.material.albedo_tex,
-            sampler: vk_app.default_texture_sampler_linear,
-          },
-          BindableResource::Texture {
-            binding: BINDING_INDEX_SPECULAR_TEXTURE,
-            texture: &entity
-              .material
-              .specular_tex
-              .as_ref()
-              .unwrap_or(&self.dummy_data_texture),
-            sampler: vk_app.default_texture_sampler_nearest,
-          },
-          BindableResource::Texture {
-            binding: BINDING_INDEX_HAIR_SHADOW_TEXTURE,
-            texture: &entity
-              .material
-              .hair_shadow_tex
-              .as_ref()
-              .unwrap_or(&self.dummy_data_texture),
-            sampler: vk_app.default_texture_sampler_nearest,
-          },
-        ];
-        bind_resources_to_descriptors(&resouce_binder, 0, &uniform_resouces);
-
-        // draw mesh
+        self.bind_entity_ubos(exec_ctx, entity);
         device.cmd_bind_vertex_buffers(command_buffer, 0, &[entity.vertex_buffer.buffer], &[0]);
         device.cmd_bind_index_buffer(
           command_buffer,
@@ -412,6 +301,96 @@ impl ForwardPass {
       // end
       device.cmd_end_render_pass(command_buffer)
     }
+  }
+
+  unsafe fn cmd_resource_barriers(
+    &self,
+    device: &ash::Device,
+    command_buffer: &vk::CommandBuffer,
+    framebuffer: &mut ForwardPassFramebuffer,
+  ) {
+    let diffuse_barrier = framebuffer.diffuse_tex.prepare_for_layout_transition(
+      vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+      vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
+      vk::AccessFlags::SHADER_READ,
+    );
+    let normal_barrier = framebuffer.normals_tex.prepare_for_layout_transition(
+      vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+      vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
+      vk::AccessFlags::SHADER_READ,
+    );
+    device.cmd_pipeline_barrier(
+      *command_buffer,
+      vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
+      vk::PipelineStageFlags::FRAGMENT_SHADER,
+      vk::DependencyFlags::empty(),
+      &[],
+      &[],
+      &[diffuse_barrier, normal_barrier],
+    );
+  }
+
+  unsafe fn bind_entity_ubos(&self, exec_ctx: &PassExecContext, entity: &WorldEntity) {
+    let vk_app = exec_ctx.vk_app;
+    let config_buffer = exec_ctx.config_buffer;
+    let frame_id = exec_ctx.swapchain_image_idx;
+
+    let uniform_resouces = [
+      BindableResource::Uniform {
+        binding: BINDING_INDEX_CONFIG_UBO,
+        buffer: config_buffer,
+      },
+      BindableResource::Uniform {
+        binding: BINDING_INDEX_MODEL_UBO,
+        buffer: entity.get_ubo_buffer(frame_id),
+      },
+      BindableResource::Texture {
+        binding: BINDING_INDEX_DIFFUSE_TEXTURE,
+        texture: &entity.material.albedo_tex,
+        sampler: vk_app.default_texture_sampler_linear,
+      },
+      BindableResource::Texture {
+        binding: BINDING_INDEX_SPECULAR_TEXTURE,
+        texture: &entity
+          .material
+          .specular_tex
+          .as_ref()
+          .unwrap_or(&self.dummy_data_texture),
+        sampler: vk_app.default_texture_sampler_nearest,
+      },
+      BindableResource::Texture {
+        binding: BINDING_INDEX_HAIR_SHADOW_TEXTURE,
+        texture: &entity
+          .material
+          .hair_shadow_tex
+          .as_ref()
+          .unwrap_or(&self.dummy_data_texture),
+        sampler: vk_app.default_texture_sampler_nearest,
+      },
+    ];
+
+    let resouce_binder = exec_ctx.create_resouce_binder(self.pipeline_layout);
+    bind_resources_to_descriptors(&resouce_binder, 0, &uniform_resouces);
+  }
+
+  fn create_dummy_texture(vk_app: &VkCtx) -> VkTexture {
+    let device = vk_app.vk_device();
+    let mut dummy_data_texture = VkTexture::empty(
+      device,
+      &vk_app.allocator,
+      "ForwardPassDummyDataTex".to_string(),
+      vk::Extent2D {
+        width: 4,
+        height: 4,
+      },
+      VkTexture::RAW_DATA_TEXTURE_FORMAT,
+      vk::ImageTiling::OPTIMAL,
+      vk::ImageUsageFlags::SAMPLED,
+      vk::ImageAspectFlags::COLOR,
+    );
+    dummy_data_texture.force_image_layout(vk_app, vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL);
+
+    dummy_data_texture
   }
 }
 

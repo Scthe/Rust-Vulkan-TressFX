@@ -3,6 +3,7 @@ use std::mem::size_of;
 use ash;
 use ash::vk;
 use bytemuck;
+use log::info;
 
 use crate::config::Config;
 use crate::scene::World;
@@ -44,6 +45,7 @@ impl RenderGraph {
     let present_pass = PresentPass::new(vk_app, image_format);
 
     // framebuffers
+    info!("Creating framebuffers - one for each frame in flight");
     let window_size = &vk_app.window_size();
     let framebuffers = swapchain_image_views
       .iter()
@@ -71,7 +73,7 @@ impl RenderGraph {
 
     // passes
     self.present_pass.destroy(device);
-    self.forward_pass.destroy(device);
+    self.forward_pass.destroy(vk_app);
 
     // framebuffers
     self.framebuffers.iter_mut().for_each(|framebuffer| {

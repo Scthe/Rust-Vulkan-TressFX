@@ -71,6 +71,22 @@ pub fn create_texture_binding(
     .build()
 }
 
+pub fn create_push_descriptor_layout(
+  device: &ash::Device,
+  bindings: Vec<vk::DescriptorSetLayoutBinding>,
+) -> vk::DescriptorSetLayout {
+  let create_info = vk::DescriptorSetLayoutCreateInfo::builder()
+    .flags(vk::DescriptorSetLayoutCreateFlags::PUSH_DESCRIPTOR_KHR)
+    .bindings(&bindings)
+    .build();
+
+  unsafe {
+    device
+      .create_descriptor_set_layout(&create_info, None)
+      .expect("Failed to create DescriptorSetLayout")
+  }
+}
+
 ////////////////////////////////
 /// Resource binding
 ////////////////////////////////

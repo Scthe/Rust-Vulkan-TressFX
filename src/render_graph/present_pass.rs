@@ -1,6 +1,6 @@
 use ash;
 use ash::vk;
-use log::trace;
+use log::info;
 
 use crate::vk_ctx::VkCtx;
 use crate::vk_utils::*;
@@ -10,6 +10,10 @@ use super::PassExecContext;
 const BINDING_INDEX_PREV_PASS_RESULT: u32 = 0;
 
 const COLOR_ATTACHMENT_COUNT: usize = 1;
+const SHADER_PATHS: (&str, &str) = (
+  "./assets/shaders-compiled/fullscreenQuad.vert.spv",
+  "./assets/shaders-compiled/present.frag.spv",
+);
 
 pub struct PresentPass {
   pub render_pass: vk::RenderPass,
@@ -20,12 +24,13 @@ pub struct PresentPass {
 
 impl PresentPass {
   pub fn new(vk_app: &VkCtx, image_format: vk::Format) -> Self {
-    trace!("Creating PresentPass");
+    info!("Creating PresentPass");
     let device = vk_app.vk_device();
     let pipeline_cache = &vk_app.pipeline_cache;
 
     let render_pass = PresentPass::create_render_pass(device, image_format);
-    let uniforms_layout = PresentPass::create_uniforms_layout(device);
+    let uniforms_desc = PresentPass::get_uniforms_layout();
+    let uniforms_layout = create_push_descriptor_layout(device, uniforms_desc);
     let pipeline_layout = create_pipeline_layout(device, &[uniforms_layout]);
     let pipeline =
       PresentPass::create_pipeline(device, pipeline_cache, &render_pass, &pipeline_layout);
@@ -59,7 +64,6 @@ impl PresentPass {
       .pipeline_bind_point(vk::PipelineBindPoint::GRAPHICS)
       .build();
 
-    // TODO dependencies
     let dependencies = vk::SubpassDependency::builder()
       .src_subpass(vk::SUBPASS_EXTERNAL)
       .dst_subpass(0)
@@ -83,22 +87,11 @@ impl PresentPass {
     render_pass
   }
 
-  fn create_uniforms_layout(device: &ash::Device) -> vk::DescriptorSetLayout {
-    let binding_diff_tex = create_texture_binding(
+  fn get_uniforms_layout() -> Vec<vk::DescriptorSetLayoutBinding> {
+    vec![create_texture_binding(
       BINDING_INDEX_PREV_PASS_RESULT,
       vk::ShaderStageFlags::FRAGMENT,
-    );
-
-    let ubo_descriptors_create_info = vk::DescriptorSetLayoutCreateInfo::builder()
-      .flags(vk::DescriptorSetLayoutCreateFlags::PUSH_DESCRIPTOR_KHR)
-      .bindings(&[binding_diff_tex])
-      .build();
-
-    unsafe {
-      device
-        .create_descriptor_set_layout(&ubo_descriptors_create_info, None)
-        .expect("Failed to create DescriptorSetLayout")
-    }
+    )]
   }
 
   fn create_pipeline(
@@ -107,43 +100,20 @@ impl PresentPass {
     render_pass: &vk::RenderPass,
     pipeline_layout: &vk::PipelineLayout,
   ) -> vk::Pipeline {
-    // create shaders
-    let (module_vs, stage_vs, module_fs, stage_fs) = load_render_shaders(
+    let vertex_desc = ps_vertex_empty();
+
+    create_pipeline_with_defaults(
       device,
-      "./assets/shaders-compiled/fullscreenQuad.vert.spv",
-      "./assets/shaders-compiled/present.frag.spv",
-    );
-
-    let vertex_input_state = ps_vertex_empty();
-
-    let dynamic_state = ps_dynamic_state(&[vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR]);
-
-    // create pipeline itself
-    // TODO create util for this in `pipeline.rs` for fullscreen quad.
-    //      Due to references may have to provide `modify_pipeline_create_info`?
-    //      pub fn create_fs_quad_pipeline(..., modify_pipeline_create_info: FnOne(vk::GraphicsPipelineCreateInfo)) -> vk::Pipeline
-    let pipeline_create_info = vk::GraphicsPipelineCreateInfo::builder()
-      .stages(&[stage_vs, stage_fs])
-      .vertex_input_state(&vertex_input_state)
-      .input_assembly_state(&ps_ia_triangle_list())
-      .viewport_state(&ps_viewport_single_dynamic())
-      .rasterization_state(&ps_raster_polygons(vk::CullModeFlags::NONE))
-      .multisample_state(&ps_multisample_disabled())
-      .depth_stencil_state(&ps_depth_always_stencil_always())
-      .color_blend_state(&ps_color_blend_override(COLOR_ATTACHMENT_COUNT))
-      .dynamic_state(&dynamic_state)
-      .layout(*pipeline_layout)
-      .render_pass(*render_pass)
-      .build();
-
-    let pipeline = create_pipeline(device, pipeline_cache, pipeline_create_info);
-
-    unsafe {
-      device.destroy_shader_module(module_vs, None);
-      device.destroy_shader_module(module_fs, None);
-    }
-
-    pipeline
+      render_pass,
+      pipeline_layout,
+      SHADER_PATHS,
+      vertex_desc,
+      COLOR_ATTACHMENT_COUNT,
+      |builder| {
+        let pipeline_create_info = builder.build();
+        create_pipeline(device, pipeline_cache, pipeline_create_info)
+      },
+    )
   }
 
   pub fn create_framebuffer(
@@ -164,57 +134,28 @@ impl PresentPass {
   ) -> () {
     let vk_app = exec_ctx.vk_app;
     let command_buffer = exec_ctx.command_buffer;
-    let size = exec_ctx.size;
-
     let device = vk_app.vk_device();
-    let push_descriptor = &vk_app.push_descriptor;
-    let render_area = size_to_rect_vk(&size);
-    let viewport = create_viewport(&size);
-
-    let render_pass_begin_info = vk::RenderPassBeginInfo::builder()
-      .render_pass(self.render_pass)
-      .framebuffer(*framebuffer)
-      .render_area(render_area)
-      .build();
 
     unsafe {
-      let texture_barrier = previous_pass_render_result.prepare_for_layout_transition(
-        vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
-        vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
-        vk::AccessFlags::SHADER_READ,
-      );
-      device.cmd_pipeline_barrier(
-        command_buffer,
-        vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
-        vk::PipelineStageFlags::FRAGMENT_SHADER,
-        vk::DependencyFlags::empty(),
-        &[],
-        &[],
-        &[texture_barrier],
-      );
+      self.cmd_resource_barriers(device, &command_buffer, previous_pass_render_result);
 
       // start render pass
-      device.cmd_begin_render_pass(
-        command_buffer,
-        &render_pass_begin_info,
-        vk::SubpassContents::INLINE,
+      cmd_begin_render_pass_for_framebuffer(
+        &device,
+        &command_buffer,
+        &self.render_pass,
+        &framebuffer,
+        &exec_ctx.size,
+        &[],
       );
-
-      // draw calls go here
-      device.cmd_set_viewport(command_buffer, 0, &[viewport]);
-      device.cmd_set_scissor(command_buffer, 0, &[render_area]);
       device.cmd_bind_pipeline(
         command_buffer,
         vk::PipelineBindPoint::GRAPHICS,
         self.pipeline,
       );
 
-      // bind uniforms
-      let resouce_binder = ResouceBinder {
-        push_descriptor,
-        command_buffer,
-        pipeline_layout: self.pipeline_layout,
-      };
+      // bind uniforms (do not move this)
+      let resouce_binder = exec_ctx.create_resouce_binder(self.pipeline_layout);
       let uniform_resouces = [BindableResource::Texture {
         binding: BINDING_INDEX_PREV_PASS_RESULT,
         texture: previous_pass_render_result,
@@ -223,11 +164,32 @@ impl PresentPass {
       bind_resources_to_descriptors(&resouce_binder, 0, &uniform_resouces);
 
       // draw calls
-      // TODO vk_app.cmd_draw_fullscreen_quad();
-      device.cmd_draw(command_buffer, 3, 1, 0, 0); // 3 vertices (1 triangle), 1 instance, no special offset
+      cmd_draw_fullscreen_triangle(device, &command_buffer);
 
       // end
       device.cmd_end_render_pass(command_buffer)
     }
+  }
+
+  unsafe fn cmd_resource_barriers(
+    &self,
+    device: &ash::Device,
+    command_buffer: &vk::CommandBuffer,
+    previous_pass_render_result: &mut VkTexture,
+  ) {
+    let texture_barrier = previous_pass_render_result.prepare_for_layout_transition(
+      vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+      vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
+      vk::AccessFlags::SHADER_READ,
+    );
+    device.cmd_pipeline_barrier(
+      *command_buffer,
+      vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
+      vk::PipelineStageFlags::FRAGMENT_SHADER,
+      vk::DependencyFlags::empty(),
+      &[],
+      &[],
+      &[texture_barrier],
+    );
   }
 }
