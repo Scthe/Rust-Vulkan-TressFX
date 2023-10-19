@@ -1,5 +1,5 @@
 use glam::{vec3, Vec3};
-use log::{info, warn};
+use log::{info, trace, warn};
 use winit::{
   dpi::LogicalSize,
   event::{
@@ -165,8 +165,11 @@ fn main() {
           device.device_wait_idle().unwrap();
 
           // destroy resources as all frames finished rendering
+          trace!("Destroying scene objects");
           scene.destroy(vk_app.vk_device(), &vk_app.allocator);
+          trace!("Destroying render graph objects");
           render_graph.destroy(&vk_app);
+          trace!("Destroying vulkan objects");
           vk_app.destroy();
         }
       }

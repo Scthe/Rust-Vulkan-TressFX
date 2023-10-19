@@ -23,15 +23,17 @@ fn get_resource_at_idx<T: std::marker::Copy>(res_name: &str, arr: &Vec<T>, idx: 
 
 /** Kitchen sink for Vulkan stuff */
 pub struct VkCtx {
-  pub entry: ash::Entry,
+  // do not move these fields around, order matters for `Drop` trait
+  pub allocator: vma::Allocator,
+  pub device: VkCtxDevice,
   pub instance: ash::Instance,
+  pub entry: ash::Entry,
+  // rest of fields
   pub swapchain: VkCtxSwapchain,
   pub synchronize: VkCtxSynchronize,
-  pub device: VkCtxDevice,
   pub command_buffers: VkCtxCommandBuffers,
   pub pipeline_cache: vk::PipelineCache,
   pub push_descriptor: PushDescriptor,
-  pub allocator: vma::Allocator,
   /// C'mon you will not use non-linear/nearest sampling anyway, can just create global objects..
   pub default_texture_sampler_linear: vk::Sampler,
   pub default_texture_sampler_nearest: vk::Sampler,
@@ -80,27 +82,30 @@ impl VkCtx {
   }
 
   pub unsafe fn destroy(&mut self) {
-    info!("VkCtx::destroy()");
     let device = &self.device.device;
-    // device.device_wait_idle().unwrap();
 
     self.synchronize.destroy(device);
     self.command_buffers.destroy(device);
     self.swapchain.destroy(device);
     device.destroy_pipeline_cache(self.pipeline_cache, None);
     self.surface_loader.destroy_surface(self.surface_khr, None);
-    // TODO causes error on app close
-    // self.allocator.destroy(); // Used through Drop trait
     device.destroy_sampler(self.default_texture_sampler_linear, None);
+    device.destroy_sampler(self.default_texture_sampler_nearest, None);
 
-    self
-      .debug_utils_loader
-      .destroy_debug_utils_messenger(self.debug_messenger, None);
+    info!("VkCtx::destroy() finished. All app resources should be deleted. Only Device, Allocator and Instance remain.");
+  }
+}
 
-    self.device.destroy();
+impl Drop for VkCtx {
+  fn drop(&mut self) {
+    unsafe {
+      self
+        .debug_utils_loader
+        .destroy_debug_utils_messenger(self.debug_messenger, None);
 
-    self.instance.destroy_instance(None);
-    info!("VkCtx::destroy() finished");
+      // allocator and device are removed through `Drop` trait
+      // self.instance.destroy_instance(None); // ?
+    }
   }
 }
 

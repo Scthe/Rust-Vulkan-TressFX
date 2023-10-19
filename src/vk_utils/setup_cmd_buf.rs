@@ -32,7 +32,7 @@ pub unsafe fn execute_setup_cmd_buf(
     .queue_submit(queue, &[submit_info.build()], vk::Fence::null())
     .expect("Failed with_setup_cb:queue_submit()");
 
-  log::trace!("with_setup_cb: device_wait_idle");
+  // log::trace!("with_setup_cb: device_wait_idle");
   device
     .device_wait_idle()
     .expect("Failed with_setup_cb:device_wait_idle()");

@@ -8,8 +8,10 @@ pub struct VkCtxDevice {
   pub queue: vk::Queue,
 }
 
-impl VkCtxDevice {
-  pub unsafe fn destroy(&self) {
-    self.device.destroy_device(None);
+impl Drop for VkCtxDevice {
+  fn drop(&mut self) {
+    unsafe {
+      self.device.destroy_device(None);
+    }
   }
 }

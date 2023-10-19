@@ -94,12 +94,9 @@ pub fn vk_ctx_initialize(window: &winit::window::Window) -> VkCtx {
   let setup_cbs = create_command_buffers(&device, cmd_pool, 1);
 
   // gpu memory allocator
-  let allocator = vma::Allocator::new(vma::AllocatorCreateInfo::new(
-    &instance,
-    &device,
-    phys_device,
-  ))
-  .expect("Failed creating memory allocator (VMA lib init)");
+  let allocator_create_info = vma::AllocatorCreateInfo::new(&instance, &device, phys_device);
+  let allocator = vma::Allocator::new(allocator_create_info)
+    .expect("Failed creating memory allocator (VMA lib init)");
 
   // pipeline_cache
   let pipeline_cache = create_pipeline_cache(&device);
