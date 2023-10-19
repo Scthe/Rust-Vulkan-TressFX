@@ -1,15 +1,12 @@
+use ash::vk;
 use glam::{vec3, vec4, Mat4, Vec3, Vec4Swizzles};
+
+use crate::config::Config;
 
 const ROTATE_SENSITIVITY: f32 = 0.002;
 const MOVE_SENSITIVITY: f32 = 0.3;
 const WHEEL_SENSITIVITY: f32 = 0.2;
 
-pub struct CameraSettings {
-  pub fov_dgr: f32,
-  pub aspect_ratio: f32,
-  pub z_near: f32,
-  pub z_far: f32,
-}
 pub struct Camera {
   view_matrix: Mat4,
   perspective_matrix: Mat4,
@@ -21,10 +18,12 @@ pub struct Camera {
 }
 
 impl Camera {
-  pub fn new(s: CameraSettings) -> Camera {
-    let position = Vec3::new(4.0, 7.5, 9.0);
-    let rotation_yaw = -25f32.to_radians(); // 0.0f32;
-    let rotation_pitch = 0.0f32;
+  pub fn new(config: &Config, window_size: vk::Extent2D) -> Camera {
+    let cam_cfg = &config.camera;
+    let position = cam_cfg.position;
+    let rotation_yaw = cam_cfg.rotation.x.to_radians();
+    let rotation_pitch = cam_cfg.rotation.y.to_radians();
+    let aspect_ratio: f32 = window_size.width as f32 / window_size.height as f32;
 
     Camera {
       position,
@@ -35,10 +34,10 @@ impl Camera {
       // https://www.saschawillems.de/blog/2019/03/29/flipping-the-vulkan-viewport/
       // though glam does have fixes already implemented
       perspective_matrix: Mat4::perspective_rh(
-        s.fov_dgr.to_radians(),
-        s.aspect_ratio,
-        s.z_near,
-        s.z_far,
+        cam_cfg.fov_dgr.to_radians(),
+        aspect_ratio,
+        cam_cfg.z_near,
+        cam_cfg.z_far,
       ),
     }
   }

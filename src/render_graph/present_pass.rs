@@ -5,7 +5,11 @@ use log::trace;
 use crate::vk_ctx::VkCtx;
 use crate::vk_utils::*;
 
-pub const BINDING_INDEX_PREV_PASS_RESULT: u32 = 0;
+use super::PassExecContext;
+
+const BINDING_INDEX_PREV_PASS_RESULT: u32 = 0;
+
+const COLOR_ATTACHMENT_COUNT: usize = 1;
 
 pub struct PresentPass {
   pub render_pass: vk::RenderPass,
@@ -22,8 +26,9 @@ impl PresentPass {
 
     let render_pass = PresentPass::create_render_pass(device, image_format);
     let uniforms_layout = PresentPass::create_uniforms_layout(device);
-    let (pipeline, pipeline_layout) =
-      PresentPass::create_pipeline(device, pipeline_cache, &render_pass, &[uniforms_layout]);
+    let pipeline_layout = create_pipeline_layout(device, &[uniforms_layout]);
+    let pipeline =
+      PresentPass::create_pipeline(device, pipeline_cache, &render_pass, &pipeline_layout);
 
     PresentPass {
       render_pass,
@@ -100,15 +105,12 @@ impl PresentPass {
     device: &ash::Device,
     pipeline_cache: &vk::PipelineCache,
     render_pass: &vk::RenderPass,
-    uniform_layouts: &[vk::DescriptorSetLayout],
-  ) -> (vk::Pipeline, vk::PipelineLayout) {
-    // pipeline layout
-    let pipeline_layout = create_pipeline_layout(device, uniform_layouts);
-
+    pipeline_layout: &vk::PipelineLayout,
+  ) -> vk::Pipeline {
     // create shaders
     let (module_vs, stage_vs, module_fs, stage_fs) = load_render_shaders(
       device,
-      "./assets/shaders-compiled/present.vert.spv",
+      "./assets/shaders-compiled/fullscreenQuad.vert.spv",
       "./assets/shaders-compiled/present.frag.spv",
     );
 
@@ -120,7 +122,6 @@ impl PresentPass {
     // TODO create util for this in `pipeline.rs` for fullscreen quad.
     //      Due to references may have to provide `modify_pipeline_create_info`?
     //      pub fn create_fs_quad_pipeline(..., modify_pipeline_create_info: FnOne(vk::GraphicsPipelineCreateInfo)) -> vk::Pipeline
-    let color_attachment_count: usize = 1;
     let pipeline_create_info = vk::GraphicsPipelineCreateInfo::builder()
       .stages(&[stage_vs, stage_fs])
       .vertex_input_state(&vertex_input_state)
@@ -129,9 +130,9 @@ impl PresentPass {
       .rasterization_state(&ps_raster_polygons(vk::CullModeFlags::NONE))
       .multisample_state(&ps_multisample_disabled())
       .depth_stencil_state(&ps_depth_always_stencil_always())
-      .color_blend_state(&ps_color_blend_override(color_attachment_count))
+      .color_blend_state(&ps_color_blend_override(COLOR_ATTACHMENT_COUNT))
       .dynamic_state(&dynamic_state)
-      .layout(pipeline_layout)
+      .layout(*pipeline_layout)
       .render_pass(*render_pass)
       .build();
 
@@ -142,7 +143,7 @@ impl PresentPass {
       device.destroy_shader_module(module_fs, None);
     }
 
-    (pipeline, pipeline_layout)
+    pipeline
   }
 
   pub fn create_framebuffer(
@@ -157,12 +158,14 @@ impl PresentPass {
 
   pub fn execute(
     &self,
-    vk_app: &VkCtx,
-    command_buffer: vk::CommandBuffer,
+    exec_ctx: &PassExecContext,
     framebuffer: &vk::Framebuffer,
-    size: vk::Extent2D,
     previous_pass_render_result: &mut VkTexture,
   ) -> () {
+    let vk_app = exec_ctx.vk_app;
+    let command_buffer = exec_ctx.command_buffer;
+    let size = exec_ctx.size;
+
     let device = vk_app.vk_device();
     let push_descriptor = &vk_app.push_descriptor;
     let render_area = size_to_rect_vk(&size);

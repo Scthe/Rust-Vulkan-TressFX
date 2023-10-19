@@ -4,6 +4,7 @@ use ash;
 use ash::vk;
 use bytemuck;
 
+use crate::config::Config;
 use crate::scene::World;
 use crate::vk_ctx::VkCtx;
 use crate::vk_utils::*;
@@ -86,7 +87,13 @@ impl RenderGraph {
     })
   }
 
-  pub fn execute_render_graph(&mut self, vk_app: &VkCtx, scene: &World, frame_idx: usize) {
+  pub fn execute_render_graph(
+    &mut self,
+    vk_app: &VkCtx,
+    config: &Config,
+    scene: &World,
+    frame_idx: usize,
+  ) {
     // 'heavy' ash's objects
     let device = vk_app.vk_device();
     let swapchain = &vk_app.swapchain;
@@ -114,7 +121,7 @@ impl RenderGraph {
 
     // update per-frame uniforms
     let config_vk_buffer = &self.config_uniform_buffers[swapchain_image_index as usize];
-    self.update_config_uniform_buffer(vk_app, scene, config_vk_buffer);
+    self.update_config_uniform_buffer(vk_app, config, scene, config_vk_buffer);
     self.update_model_uniform_buffers(scene, swapchain_image_index as usize);
 
     // sync between frames
@@ -126,6 +133,17 @@ impl RenderGraph {
         .reset_fences(&[frame_data.draw_command_fence])
         .expect("vkResetFences at frame start failed");
     }
+
+    // pass ctx
+    let pass_ctx = PassExecContext {
+      swapchain_image_idx: swapchain_image_index as usize,
+      vk_app,
+      config,
+      scene,
+      command_buffer: cmd_buf,
+      size: vk_app.window_size(),
+      config_buffer: config_vk_buffer,
+    };
 
     //
     // start record command buffer
@@ -142,22 +160,14 @@ impl RenderGraph {
     // info!("Start forward_pass");
     let framebuffers = &mut self.framebuffers[swapchain_image_index as usize];
 
-    self.forward_pass.execute(
-      vk_app,
-      scene,
-      cmd_buf,
-      &mut framebuffers.forward_pass,
-      swapchain.size,
-      config_vk_buffer,
-      swapchain_image_index as usize,
-    );
+    self
+      .forward_pass
+      .execute(&pass_ctx, &mut framebuffers.forward_pass);
 
     // info!("Start present_pass");
     self.present_pass.execute(
-      vk_app,
-      cmd_buf,
+      &pass_ctx,
       &mut framebuffers.present_pass,
-      swapchain.size,
       &mut framebuffers.forward_pass.diffuse_tex,
     );
 
@@ -198,9 +208,15 @@ impl RenderGraph {
     }
   }
 
-  fn update_config_uniform_buffer(&self, vk_app: &VkCtx, scene: &World, vk_buffer: &VkBuffer) {
+  fn update_config_uniform_buffer(
+    &self,
+    vk_app: &VkCtx,
+    config: &Config,
+    scene: &World,
+    vk_buffer: &VkBuffer,
+  ) {
     let camera = &scene.camera;
-    let data = GlobalConfigUBO::new(camera, vk_app);
+    let data = GlobalConfigUBO::new(vk_app, config, camera);
     let data_bytes = bytemuck::bytes_of(&data);
     vk_buffer.write_to_mapped(data_bytes);
   }

@@ -1,7 +1,11 @@
 use bytemuck;
-use glam::{Vec2, Vec3, Vec4};
+use glam::{vec4, Vec2, Vec3, Vec4};
 
-use crate::{scene::Camera, vk_ctx::VkCtx};
+use crate::{
+  config::{spherical_to_cartesian_dgr, Config, LightAmbient, LightCfg},
+  scene::Camera,
+  vk_ctx::VkCtx,
+};
 
 /// Global config data, updated per-frame
 #[derive(Copy, Clone, Debug)] // , bytemuck::Zeroable, bytemuck::Pod
@@ -30,20 +34,32 @@ unsafe impl bytemuck::Zeroable for GlobalConfigUBO {}
 unsafe impl bytemuck::Pod for GlobalConfigUBO {}
 
 impl GlobalConfigUBO {
-  pub fn new(camera: &Camera, vk_app: &VkCtx) -> GlobalConfigUBO {
+  pub fn new(vk_app: &VkCtx, config: &Config, camera: &Camera) -> GlobalConfigUBO {
     let vp = vk_app.window_size();
     GlobalConfigUBO {
       u_camera_position: camera.position(),
       u_viewport: Vec2::new(vp.width as f32, vp.height as f32),
-      u_ao_and_shadow_contrib: Vec4::new(0.0, 0.0, 0.5, 1.0),
+      u_ao_and_shadow_contrib: Vec4::new(0.0, 0.0, config.shadows.strength, 1.0),
       // lights
-      u_light_ambient: Vec4::new(1.0, 1.0, 1.0, 0.1),
-      u_light0_position: Vec3::new(10.0, 10.0, 10.0),
-      u_light0_color: Vec4::new(1.0, 1.0, 1.0, 0.8),
-      u_light1_position: Vec3::new(-10.0, -5.0, 10.0),
-      u_light1_color: Vec4::new(0.7, 0.7, 1.0, 0.5),
-      u_light2_position: Vec3::new(-5.0, 2.0, -10.0),
-      u_light2_color: Vec4::new(1.0, 0.4, 0.4, 0.7),
+      u_light_ambient: light_ambient(&config.light_ambient),
+      u_light0_position: light_pos(&config.light0),
+      u_light0_color: light_color(&config.light0),
+      u_light1_position: light_pos(&config.light1),
+      u_light1_color: light_color(&config.light1),
+      u_light2_position: light_pos(&config.light2),
+      u_light2_color: light_color(&config.light2),
     }
   }
+}
+
+fn light_ambient(light: &LightAmbient) -> Vec4 {
+  vec4(light.color[0], light.color[1], light.color[2], light.energy)
+}
+
+fn light_color(light: &LightCfg) -> Vec4 {
+  vec4(light.color[0], light.color[1], light.color[2], light.energy)
+}
+
+fn light_pos(light: &LightCfg) -> Vec3 {
+  spherical_to_cartesian_dgr(light.pos_phi, light.pos_theta, light.pos_distance)
 }

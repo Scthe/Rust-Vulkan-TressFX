@@ -3,13 +3,6 @@ use glam::Mat4;
 
 use crate::scene::{Camera, WorldEntity};
 
-/*
-TODO next commits
-- fix warnings/TODOs
-- config
-- restore present pass?
-*/
-
 // All below must match shader-defined consts
 const FLAG_IS_METALIC: i32 = 1;
 const FLAG_USE_SPECULAR_TEXTURE: i32 = 2;

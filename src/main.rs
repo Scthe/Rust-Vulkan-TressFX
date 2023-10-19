@@ -1,5 +1,5 @@
 use glam::{vec3, Vec3};
-use log::info;
+use log::{info, warn};
 use winit::{
   dpi::LogicalSize,
   event::{
@@ -10,11 +10,10 @@ use winit::{
 };
 
 use crate::{
-  render_graph::RenderGraph,
-  scene::{load_scene, CameraSettings},
-  vk_ctx::vk_ctx_initialize,
+  config::Config, render_graph::RenderGraph, scene::load_scene, vk_ctx::vk_ctx_initialize,
 };
 
+mod config;
 mod render_graph;
 mod scene;
 mod vk_ctx;
@@ -28,12 +27,15 @@ fn main() {
   log::set_max_level(log::LevelFilter::Trace);
   info!("-- Start --");
 
+  // config
+  let config = Config::new();
+
   // init window
   let event_loop = EventLoop::new();
   let window = WindowBuilder::new()
     .with_title("Rust TressFX")
     .with_resizable(false)
-    .with_inner_size(LogicalSize::new(800f64, 600f64))
+    .with_inner_size(LogicalSize::new(config.window_width, config.window_height))
     .build(&event_loop)
     .unwrap();
   info!("Window init: OK!");
@@ -43,17 +45,7 @@ fn main() {
   info!("Vulkan init: OK!");
 
   // scene
-  let app_window_size = vk_app.window_size();
-  let aspect_ratio: f32 = app_window_size.width as f32 / app_window_size.height as f32;
-  let mut scene = load_scene(
-    &vk_app,
-    CameraSettings {
-      fov_dgr: 75.0,
-      aspect_ratio,
-      z_near: 0.1,
-      z_far: 100.0,
-    },
-  );
+  let mut scene = load_scene(&vk_app, &config);
   info!("Scene init: OK!");
 
   let mut render_graph = RenderGraph::new(&vk_app);
@@ -154,8 +146,13 @@ fn main() {
 
       // redraw
       Event::MainEventsCleared => {
-        render_graph.execute_render_graph(&vk_app, &scene, current_frame_in_flight_idx);
+        render_graph.execute_render_graph(&vk_app, &config, &scene, current_frame_in_flight_idx);
         current_frame_in_flight_idx = (current_frame_in_flight_idx + 1) % vk_app.frames_in_flight();
+
+        if config.only_first_frame {
+          warn!("Closing app as `Config.only_first_frame` is set to true!");
+          *control_flow = ControlFlow::Exit;
+        }
       }
 
       // before destroy

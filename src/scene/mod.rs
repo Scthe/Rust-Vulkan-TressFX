@@ -7,6 +7,7 @@ use glam::Vec3;
 use log::info;
 use tobj;
 
+use crate::config::Config;
 use crate::render_graph::RenderableVertex;
 use crate::vk_ctx::VkCtx;
 use crate::vk_utils::*;
@@ -21,15 +22,15 @@ mod material;
 mod world;
 mod world_entity;
 
-pub fn load_scene(vk_ctx: &VkCtx, cam_settings: CameraSettings) -> World {
-  let scale = 0.8f32; // TODO from config
+pub fn load_scene(vk_ctx: &VkCtx, config: &Config) -> World {
+  let scale = config.model_scale;
   let model_matrix = Mat4::from_scale(Vec3::new(scale, scale, scale));
   let sintel = load_sintel(vk_ctx, model_matrix);
   let sintel_eyes = load_sintel_eyes(vk_ctx, model_matrix);
 
   World {
     entities: vec![sintel, sintel_eyes],
-    camera: Camera::new(cam_settings),
+    camera: Camera::new(config, vk_ctx.window_size()),
   }
 }
 

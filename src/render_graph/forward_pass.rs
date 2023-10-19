@@ -3,9 +3,10 @@ use ash::vk;
 use log::trace;
 
 use crate::render_graph::_shared::RenderableVertex;
-use crate::scene::World;
 use crate::vk_ctx::VkCtx;
 use crate::vk_utils::*;
+
+use super::PassExecContext;
 
 const BINDING_INDEX_CONFIG_UBO: u32 = 0;
 const BINDING_INDEX_MODEL_UBO: u32 = 1;
@@ -18,7 +19,9 @@ const DIFFUSE_TEXTURE_FORMAT: vk::Format = vk::Format::R32G32B32A32_SFLOAT;
 const NORMALS_TEXTURE_FORMAT: vk::Format = vk::Format::R8G8B8A8_UINT;
 const COLOR_ATTACHMENT_COUNT: usize = 2;
 
-// TODO ATM attachment data is split into create_framebuffer, render_pass, execute (cause clear color). Unify
+// TODO ATM attachment data is split into create_framebuffer, render_pass, execute (cause clear color). Unify.
+//      Or create RenderPass abstract class that will get some attachment desc and calc most of things
+
 pub struct ForwardPass {
   render_pass: vk::RenderPass,
   pipeline: vk::Pipeline,
@@ -38,8 +41,9 @@ impl ForwardPass {
 
     let render_pass = ForwardPass::create_render_pass(device);
     let uniforms_layout = ForwardPass::create_uniforms_layout(device);
-    let (pipeline, pipeline_layout) =
-      ForwardPass::create_pipeline(device, pipeline_cache, &render_pass, &[uniforms_layout]);
+    let pipeline_layout = create_pipeline_layout(device, &[uniforms_layout]);
+    let pipeline =
+      ForwardPass::create_pipeline(device, pipeline_cache, &render_pass, &pipeline_layout);
 
     let mut dummy_data_texture = VkTexture::empty(
       device,
@@ -181,11 +185,8 @@ impl ForwardPass {
     device: &ash::Device,
     pipeline_cache: &vk::PipelineCache,
     render_pass: &vk::RenderPass,
-    uniform_layouts: &[vk::DescriptorSetLayout],
-  ) -> (vk::Pipeline, vk::PipelineLayout) {
-    // pipeline layout
-    let pipeline_layout = create_pipeline_layout(device, uniform_layouts);
-
+    pipeline_layout: &vk::PipelineLayout,
+  ) -> vk::Pipeline {
     // create shaders
     let (module_vs, stage_vs, module_fs, stage_fs) = load_render_shaders(
       device,
@@ -212,7 +213,7 @@ impl ForwardPass {
       .depth_stencil_state(&ps_depth_less_stencil_always())
       .color_blend_state(&ps_color_blend_override(COLOR_ATTACHMENT_COUNT))
       .dynamic_state(&dynamic_state)
-      .layout(pipeline_layout)
+      .layout(*pipeline_layout)
       .render_pass(*render_pass)
       .build();
 
@@ -223,7 +224,7 @@ impl ForwardPass {
       device.destroy_shader_module(module_fs, None);
     }
 
-    (pipeline, pipeline_layout)
+    pipeline
   }
 
   pub fn create_framebuffer(
@@ -287,41 +288,30 @@ impl ForwardPass {
 
   pub fn execute(
     &self,
-    vk_app: &VkCtx,
-    scene: &World,
-    command_buffer: vk::CommandBuffer,
+    exec_ctx: &PassExecContext,
     framebuffer: &mut ForwardPassFramebuffer,
-    size: vk::Extent2D,
-    config_buffer: &VkBuffer,
-    frame_id: usize,
   ) -> () {
+    let vk_app = exec_ctx.vk_app;
+    let config = exec_ctx.config;
+    let scene = exec_ctx.scene;
+    let command_buffer = exec_ctx.command_buffer;
+    let size = exec_ctx.size;
+    let config_buffer = exec_ctx.config_buffer;
+    let frame_id = exec_ctx.swapchain_image_idx;
+
     let device = vk_app.vk_device();
     let push_descriptor = &vk_app.push_descriptor;
     let render_area = size_to_rect_vk(&size);
     let viewport = create_viewport(&size);
-    let clear_color = vk::ClearColorValue {
-      float32: [0.2f32, 0.2f32, 0.2f32, 1f32],
-    };
-    let clear_normals = vk::ClearColorValue {
-      float32: [0f32, 0f32, 0f32, 1f32],
-    };
-    let clear_depth = vk::ClearDepthStencilValue {
-      depth: 1.0f32,
-      stencil: 0,
-    };
 
     let render_pass_begin_info = vk::RenderPassBeginInfo::builder()
       .render_pass(self.render_pass)
       .framebuffer(framebuffer.fbo)
       .render_area(render_area)
       .clear_values(&[
-        vk::ClearValue {
-          depth_stencil: clear_depth,
-        },
-        vk::ClearValue { color: clear_color },
-        vk::ClearValue {
-          color: clear_normals,
-        },
+        config.clear_depth_stencil(),
+        config.clear_color(),
+        config.clear_normals(),
       ])
       .build();
 
