@@ -18,6 +18,7 @@ pub struct PassExecContext<'a> {
   pub command_buffer: vk::CommandBuffer,
   pub size: vk::Extent2D,
   pub config_buffer: &'a VkBuffer,
+  pub window: &'a winit::window::Window,
 }
 
 impl PassExecContext<'_> {

@@ -10,9 +10,11 @@ use winit::{
 };
 
 use crate::{
-  config::Config, render_graph::RenderGraph, scene::load_scene, vk_ctx::vk_ctx_initialize,
+  app_ui::AppUI, config::Config, render_graph::RenderGraph, scene::load_scene,
+  vk_ctx::vk_ctx_initialize,
 };
 
+mod app_ui;
 mod config;
 mod render_graph;
 mod scene;
@@ -48,8 +50,13 @@ fn main() {
   let mut scene = load_scene(&vk_app, &config);
   info!("Scene init: OK!");
 
+  // render graph
   let mut render_graph = RenderGraph::new(&vk_app);
   info!("Render Graph init: OK!");
+
+  // ui
+  let mut app_ui = AppUI::new(&window, &vk_app, render_graph.get_last_render_pass());
+  info!("ui init: OK!");
 
   // last pre-run ops
   info!("Starting event loop");
@@ -59,6 +66,8 @@ fn main() {
   // start event loop
   event_loop.run(move |event, _, control_flow| {
     *control_flow = ControlFlow::Wait;
+
+    app_ui.handle_event(&window, &event);
 
     match event {
       // on clicked 'x'
@@ -146,7 +155,14 @@ fn main() {
 
       // redraw
       Event::MainEventsCleared => {
-        render_graph.execute_render_graph(&vk_app, &config, &scene, current_frame_in_flight_idx);
+        render_graph.execute_render_graph(
+          &vk_app,
+          &config,
+          &scene,
+          current_frame_in_flight_idx,
+          &mut app_ui,
+          &window,
+        );
         current_frame_in_flight_idx = (current_frame_in_flight_idx + 1) % vk_app.frames_in_flight();
 
         if config.only_first_frame {

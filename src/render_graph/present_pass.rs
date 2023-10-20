@@ -2,6 +2,7 @@ use ash;
 use ash::vk;
 use log::info;
 
+use crate::app_ui::AppUI;
 use crate::vk_ctx::VkCtx;
 use crate::vk_utils::*;
 
@@ -130,6 +131,7 @@ impl PresentPass {
     &self,
     exec_ctx: &PassExecContext,
     framebuffer: &vk::Framebuffer,
+    app_ui: &mut AppUI,
     previous_pass_render_result: &mut VkTexture,
   ) -> () {
     let vk_app = exec_ctx.vk_app;
@@ -165,6 +167,9 @@ impl PresentPass {
 
       // draw calls
       cmd_draw_fullscreen_triangle(device, &command_buffer);
+
+      // ui
+      app_ui.render_ui(exec_ctx.window, command_buffer);
 
       // end
       device.cmd_end_render_pass(command_buffer)

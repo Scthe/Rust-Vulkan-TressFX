@@ -5,6 +5,7 @@ use ash::vk;
 use bytemuck;
 use log::info;
 
+use crate::app_ui::AppUI;
 use crate::config::Config;
 use crate::scene::World;
 use crate::vk_ctx::VkCtx;
@@ -34,7 +35,6 @@ pub struct RenderGraph {
 impl RenderGraph {
   pub fn new(vk_app: &VkCtx) -> Self {
     let image_format = vk_app.swapchain.surface_format.format;
-    let swapchain_image_views = &vk_app.swapchain.image_views;
     let in_flight_frames = vk_app.frames_in_flight();
 
     // scene uniform buffers - memory allocations + descriptor set
@@ -44,28 +44,17 @@ impl RenderGraph {
     let forward_pass = ForwardPass::new(vk_app);
     let present_pass = PresentPass::new(vk_app, image_format);
 
-    // framebuffers
-    info!("Creating framebuffers - one for each frame in flight");
-    let window_size = &vk_app.window_size();
-    let framebuffers = swapchain_image_views
-      .iter()
-      .enumerate()
-      .map(|(frame_id, &iv)| {
-        let forward_pass = forward_pass.create_framebuffer(vk_app, frame_id, window_size);
-        let present_pass = present_pass.create_framebuffer(vk_app, iv, window_size);
-        FrameFramebuffers {
-          forward_pass,
-          present_pass,
-        }
-      })
-      .collect();
-
-    RenderGraph {
+    let mut render_graph = RenderGraph {
       config_uniform_buffers,
-      framebuffers,
+      framebuffers: Vec::with_capacity(in_flight_frames),
       forward_pass,
       present_pass,
-    }
+    };
+
+    // framebuffers
+    info!("Creating framebuffers - one for each frame in flight");
+    render_graph.initialize_framebuffers(vk_app);
+    render_graph
   }
 
   pub unsafe fn destroy(&mut self, vk_app: &VkCtx) {
@@ -89,12 +78,18 @@ impl RenderGraph {
     })
   }
 
+  pub fn get_last_render_pass(&self) -> vk::RenderPass {
+    self.present_pass.render_pass
+  }
+
   pub fn execute_render_graph(
     &mut self,
     vk_app: &VkCtx,
     config: &Config,
     scene: &World,
     frame_idx: usize,
+    app_ui: &mut AppUI,
+    window: &winit::window::Window,
   ) {
     // 'heavy' ash's objects
     let device = vk_app.vk_device();
@@ -145,6 +140,7 @@ impl RenderGraph {
       command_buffer: cmd_buf,
       size: vk_app.window_size(),
       config_buffer: config_vk_buffer,
+      window,
     };
 
     //
@@ -170,6 +166,7 @@ impl RenderGraph {
     self.present_pass.execute(
       &pass_ctx,
       &mut framebuffers.present_pass,
+      app_ui,
       &mut framebuffers.forward_pass.diffuse_tex,
     );
 
@@ -231,6 +228,27 @@ impl RenderGraph {
       let buffer = entity.get_ubo_buffer(frame_id);
       buffer.write_to_mapped(data_bytes);
     });
+  }
+
+  fn initialize_framebuffers(&mut self, vk_app: &VkCtx) {
+    let swapchain_image_views = &vk_app.swapchain.image_views;
+    let window_size = &vk_app.window_size();
+
+    swapchain_image_views
+      .iter()
+      .enumerate()
+      .for_each(|(frame_id, &iv)| {
+        let forward_pass = self
+          .forward_pass
+          .create_framebuffer(vk_app, frame_id, window_size);
+        let present_pass = self
+          .present_pass
+          .create_framebuffer(vk_app, iv, window_size);
+        self.framebuffers.push(FrameFramebuffers {
+          forward_pass,
+          present_pass,
+        });
+      });
   }
 }
 
