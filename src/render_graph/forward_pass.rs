@@ -17,7 +17,7 @@ const BINDING_INDEX_HAIR_SHADOW_TEXTURE: u32 = 4;
 
 const DEPTH_TEXTURE_FORMAT: vk::Format = vk::Format::D24_UNORM_S8_UINT;
 const DIFFUSE_TEXTURE_FORMAT: vk::Format = vk::Format::R32G32B32A32_SFLOAT;
-const NORMALS_TEXTURE_FORMAT: vk::Format = vk::Format::R8G8B8A8_UINT;
+const NORMALS_TEXTURE_FORMAT: vk::Format = vk::Format::R8G8B8A8_UINT; // TODO try float?
 const COLOR_ATTACHMENT_COUNT: usize = 2;
 const SHADER_PATHS: (&str, &str) = (
   "./assets/shaders-compiled/forward.vert.spv",
@@ -47,7 +47,7 @@ impl ForwardPass {
     let render_pass = ForwardPass::create_render_pass(device);
     let uniforms_desc = ForwardPass::get_uniforms_layout();
     let uniforms_layout = create_push_descriptor_layout(device, uniforms_desc);
-    let pipeline_layout = create_pipeline_layout(device, &[uniforms_layout]);
+    let pipeline_layout = create_pipeline_layout(device, &[uniforms_layout], &[]);
     let pipeline =
       ForwardPass::create_pipeline(device, pipeline_cache, &render_pass, &pipeline_layout);
 
@@ -255,8 +255,8 @@ impl ForwardPass {
     framebuffer: &mut ForwardPassFramebuffer,
   ) -> () {
     let vk_app = exec_ctx.vk_app;
-    let config = exec_ctx.config;
     let scene = exec_ctx.scene;
+    let config = &exec_ctx.config;
     let command_buffer = exec_ctx.command_buffer;
     let device = vk_app.vk_device();
 

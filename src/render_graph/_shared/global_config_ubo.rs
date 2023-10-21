@@ -1,5 +1,5 @@
 use bytemuck;
-use glam::{vec4, Vec2, Vec3, Vec4};
+use glam::{vec3, vec4, Vec3, Vec4};
 
 use crate::{
   config::{spherical_to_cartesian_dgr, Config, LightAmbient, LightCfg},
@@ -12,7 +12,7 @@ use crate::{
 #[repr(C)]
 pub struct GlobalConfigUBO {
   pub u_camera_position: Vec3,
-  pub u_viewport: Vec2,
+  pub u_viewport_and_near_far: Vec4,
   // Shadow
   // vec4 u_directionalShadowCasterPosition; // [position.xyz, bias (negative if pcss)]
   // int u_directionalShadowSampleRadius;
@@ -28,6 +28,8 @@ pub struct GlobalConfigUBO {
   pub u_light1_color: Vec4,
   pub u_light2_position: Vec3,
   pub u_light2_color: Vec4,
+  // FXAA
+  pub u_fxaa_settings: Vec3,
 }
 
 unsafe impl bytemuck::Zeroable for GlobalConfigUBO {}
@@ -36,9 +38,17 @@ unsafe impl bytemuck::Pod for GlobalConfigUBO {}
 impl GlobalConfigUBO {
   pub fn new(vk_app: &VkCtx, config: &Config, camera: &Camera) -> GlobalConfigUBO {
     let vp = vk_app.window_size();
+    let cam_cfg = &config.camera;
+    let postfx = &config.postfx;
+
     GlobalConfigUBO {
       u_camera_position: camera.position(),
-      u_viewport: Vec2::new(vp.width as f32, vp.height as f32),
+      u_viewport_and_near_far: vec4(
+        vp.width as f32,
+        vp.height as f32,
+        cam_cfg.z_near,
+        cam_cfg.z_far,
+      ),
       u_ao_and_shadow_contrib: Vec4::new(0.0, 0.0, config.shadows.strength, 1.0),
       // lights
       u_light_ambient: light_ambient(&config.light_ambient),
@@ -48,6 +58,12 @@ impl GlobalConfigUBO {
       u_light1_color: light_color(&config.light1),
       u_light2_position: light_pos(&config.light2),
       u_light2_color: light_color(&config.light2),
+      // FXAA
+      u_fxaa_settings: vec3(
+        postfx.subpixel,
+        config.fxaa_edge_threshold(),
+        postfx.edge_threshold_min,
+      ),
     }
   }
 }

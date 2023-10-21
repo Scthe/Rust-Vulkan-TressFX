@@ -30,7 +30,7 @@ fn main() {
   info!("-- Start --");
 
   // config
-  let config = Config::new();
+  let mut config = Config::new();
 
   // init window
   let event_loop = EventLoop::new();
@@ -157,7 +157,7 @@ fn main() {
       Event::MainEventsCleared => {
         render_graph.execute_render_graph(
           &vk_app,
-          &config,
+          &mut config,
           &scene,
           current_frame_in_flight_idx,
           &mut app_ui,

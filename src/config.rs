@@ -29,10 +29,20 @@ pub struct CameraConfig {
   pub z_far: f32,
 }
 
+pub struct PostFxCfg {
+  // fxaa
+  pub use_fxaa: bool,
+  pub subpixel: f32,
+  pub edge_threshold: f32,
+  pub edge_threshold_min: f32,
+}
+
 /// https://github.com/Scthe/WebFX/blob/master/src/Config.ts
 pub struct Config {
   /// crash program after first frame to read init errors
   pub only_first_frame: bool,
+  /// debug display mode, see UISystem for modes
+  pub display_mode: usize,
   // window
   pub window_width: f64,
   pub window_height: f64,
@@ -51,14 +61,19 @@ pub struct Config {
   pub light2: LightCfg,
   // shadows
   pub shadows: ShadowsConfig,
+  // postfx
+  pub postfx: PostFxCfg,
   // misc
   // showDebugPositions = false;
   // useMSAA = true; // ok, technically it's brute force supersampling, but who cares?
-  // displayMode: number = 0; // debug display mode, see UISystem for modes
   // center_of_gravity: Vec3(0, 3.0, 0), // used for calulating hair normals (remember, no cards!)
 }
 
 impl Config {
+  // Must match consts in `present.frag.glsl`
+  pub const DISPLAY_MODE_FINAL: usize = 0;
+  pub const DISPLAY_MODE_NORMALS: usize = 1;
+
   // public readonly stencilConsts = {
   // skin: 1 << 0,
   // hair: 1 << 1,
@@ -95,6 +110,7 @@ impl Config {
 
     Config {
       only_first_frame: false,
+      display_mode: Config::DISPLAY_MODE_FINAL,
       // window
       window_width: 800f64,
       window_height: 600f64,
@@ -122,6 +138,13 @@ impl Config {
       light2,
       // shadows
       shadows: ShadowsConfig { strength: 0.7 },
+      // postfx
+      postfx: PostFxCfg {
+        use_fxaa: true, // TODO test, add UI
+        subpixel: 0.75,
+        edge_threshold: 0.125,
+        edge_threshold_min: 0.0625,
+      },
     }
   }
 
@@ -149,6 +172,14 @@ impl Config {
         depth: self.clear_depth,
         stencil: self.clear_stencil as u32,
       },
+    }
+  }
+
+  pub fn fxaa_edge_threshold(&self) -> f32 {
+    if self.postfx.use_fxaa {
+      self.postfx.edge_threshold
+    } else {
+      0.0
     }
   }
 }
@@ -252,11 +283,6 @@ pub struct ColorGradingPerRangeSettings {
     whitePoint: 1.0,
     acesC: 0.8,
     acesS: 1.0,
-    // fxaa
-    useFxaa: true,
-    subpixel: 0.75,
-    edgeThreshold: 0.125,
-    edgeThresholdMin: 0.0625,
     // color grading
     // @see https://docs.unrealengine.com/en-us/Engine/Rendering/PostProcessEffects/ColorGrading
     colorGrading: {

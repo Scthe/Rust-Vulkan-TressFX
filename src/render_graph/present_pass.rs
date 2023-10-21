@@ -1,3 +1,5 @@
+use std::mem::size_of;
+
 use ash;
 use ash::vk;
 use log::info;
@@ -8,7 +10,9 @@ use crate::vk_utils::*;
 
 use super::PassExecContext;
 
-const BINDING_INDEX_PREV_PASS_RESULT: u32 = 0;
+const BINDING_INDEX_CONFIG_UBO: u32 = 0;
+const BINDING_INDEX_TONEMAPPED_RESULT: u32 = 1;
+const BINDING_INDEX_NORMALS: u32 = 2;
 
 const COLOR_ATTACHMENT_COUNT: usize = 1;
 const SHADER_PATHS: (&str, &str) = (
@@ -31,8 +35,10 @@ impl PresentPass {
 
     let render_pass = PresentPass::create_render_pass(device, image_format);
     let uniforms_desc = PresentPass::get_uniforms_layout();
+    let push_constant_ranges = PresentPass::get_push_constant_layout();
     let uniforms_layout = create_push_descriptor_layout(device, uniforms_desc);
-    let pipeline_layout = create_pipeline_layout(device, &[uniforms_layout]);
+    let pipeline_layout =
+      create_pipeline_layout(device, &[uniforms_layout], &[push_constant_ranges]);
     let pipeline =
       PresentPass::create_pipeline(device, pipeline_cache, &render_pass, &pipeline_layout);
 
@@ -89,10 +95,22 @@ impl PresentPass {
   }
 
   fn get_uniforms_layout() -> Vec<vk::DescriptorSetLayoutBinding> {
-    vec![create_texture_binding(
-      BINDING_INDEX_PREV_PASS_RESULT,
-      vk::ShaderStageFlags::FRAGMENT,
-    )]
+    vec![
+      create_ubo_binding(BINDING_INDEX_CONFIG_UBO, vk::ShaderStageFlags::FRAGMENT),
+      create_texture_binding(
+        BINDING_INDEX_TONEMAPPED_RESULT,
+        vk::ShaderStageFlags::FRAGMENT,
+      ),
+      create_texture_binding(BINDING_INDEX_NORMALS, vk::ShaderStageFlags::FRAGMENT),
+    ]
+  }
+
+  fn get_push_constant_layout() -> vk::PushConstantRange {
+    vk::PushConstantRange::builder()
+      .offset(0)
+      .size(size_of::<PresentPassPushConstants>() as _)
+      .stage_flags(vk::ShaderStageFlags::FRAGMENT)
+      .build()
   }
 
   fn create_pipeline(
@@ -129,17 +147,18 @@ impl PresentPass {
 
   pub fn execute(
     &self,
-    exec_ctx: &PassExecContext,
+    exec_ctx: &mut PassExecContext,
     framebuffer: &vk::Framebuffer,
     app_ui: &mut AppUI,
-    previous_pass_render_result: &mut VkTexture,
+    tonemapped_result: &mut VkTexture,
+    normals_texture: &mut VkTexture,
   ) -> () {
     let vk_app = exec_ctx.vk_app;
     let command_buffer = exec_ctx.command_buffer;
     let device = vk_app.vk_device();
 
     unsafe {
-      self.cmd_resource_barriers(device, &command_buffer, previous_pass_render_result);
+      self.cmd_resource_barriers(device, &command_buffer, tonemapped_result, normals_texture);
 
       // start render pass
       cmd_begin_render_pass_for_framebuffer(
@@ -157,32 +176,75 @@ impl PresentPass {
       );
 
       // bind uniforms (do not move this)
-      let resouce_binder = exec_ctx.create_resouce_binder(self.pipeline_layout);
-      let uniform_resouces = [BindableResource::Texture {
-        binding: BINDING_INDEX_PREV_PASS_RESULT,
-        texture: previous_pass_render_result,
-        sampler: vk_app.default_texture_sampler_nearest,
-      }];
-      bind_resources_to_descriptors(&resouce_binder, 0, &uniform_resouces);
+      self.bind_uniforms(exec_ctx, tonemapped_result, normals_texture);
 
       // draw calls
       cmd_draw_fullscreen_triangle(device, &command_buffer);
 
       // ui
-      app_ui.render_ui(exec_ctx.window, command_buffer);
+      app_ui.render_ui(exec_ctx.window, command_buffer, exec_ctx.config);
 
       // end
       device.cmd_end_render_pass(command_buffer)
     }
   }
 
+  unsafe fn bind_uniforms(
+    &self,
+    exec_ctx: &PassExecContext,
+    tonemapped_result: &mut VkTexture,
+    normals_texture: &mut VkTexture,
+  ) {
+    let vk_app = exec_ctx.vk_app;
+    let command_buffer = exec_ctx.command_buffer;
+    let device = vk_app.vk_device();
+    let resouce_binder = exec_ctx.create_resouce_binder(self.pipeline_layout);
+
+    let uniform_resouces = [
+      BindableResource::Uniform {
+        binding: BINDING_INDEX_CONFIG_UBO,
+        buffer: exec_ctx.config_buffer,
+      },
+      BindableResource::Texture {
+        binding: BINDING_INDEX_TONEMAPPED_RESULT,
+        texture: tonemapped_result,
+        sampler: vk_app.default_texture_sampler_nearest,
+      },
+      BindableResource::Texture {
+        binding: BINDING_INDEX_NORMALS,
+        texture: &normals_texture,
+        sampler: vk_app.default_texture_sampler_nearest,
+      },
+    ];
+    bind_resources_to_descriptors(&resouce_binder, 0, &uniform_resouces);
+
+    // push constants
+    let push_constants = PresentPassPushConstants {
+      display_mode: exec_ctx.config.display_mode as _,
+    };
+    let push_constants_bytes = bytemuck::bytes_of(&push_constants);
+    device.cmd_push_constants(
+      command_buffer,
+      self.pipeline_layout,
+      vk::ShaderStageFlags::FRAGMENT,
+      0,
+      push_constants_bytes,
+    );
+  }
+
   unsafe fn cmd_resource_barriers(
     &self,
     device: &ash::Device,
     command_buffer: &vk::CommandBuffer,
-    previous_pass_render_result: &mut VkTexture,
+    tonemapped_result: &mut VkTexture,
+    normals_texture: &mut VkTexture,
   ) {
-    let texture_barrier = previous_pass_render_result.prepare_for_layout_transition(
+    let tonemapped_barrier = tonemapped_result.prepare_for_layout_transition(
+      vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+      vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
+      vk::AccessFlags::SHADER_READ,
+    );
+    let normals_barrier = normals_texture.prepare_for_layout_transition(
       vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
       vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
       vk::AccessFlags::SHADER_READ,
@@ -194,7 +256,16 @@ impl PresentPass {
       vk::DependencyFlags::empty(),
       &[],
       &[],
-      &[texture_barrier],
+      &[tonemapped_barrier, normals_barrier],
     );
   }
 }
+
+#[derive(Copy, Clone, Debug)] // , bytemuck::Zeroable, bytemuck::Pod
+#[repr(C)]
+struct PresentPassPushConstants {
+  display_mode: i32,
+}
+
+unsafe impl bytemuck::Zeroable for PresentPassPushConstants {}
+unsafe impl bytemuck::Pod for PresentPassPushConstants {}

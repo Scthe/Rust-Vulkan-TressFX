@@ -85,7 +85,7 @@ impl RenderGraph {
   pub fn execute_render_graph(
     &mut self,
     vk_app: &VkCtx,
-    config: &Config,
+    config: &mut Config,
     scene: &World,
     frame_idx: usize,
     app_ui: &mut AppUI,
@@ -132,7 +132,7 @@ impl RenderGraph {
     }
 
     // pass ctx
-    let pass_ctx = PassExecContext {
+    let mut pass_ctx = PassExecContext {
       swapchain_image_idx: swapchain_image_index as usize,
       vk_app,
       config,
@@ -164,10 +164,11 @@ impl RenderGraph {
 
     // info!("Start present_pass");
     self.present_pass.execute(
-      &pass_ctx,
+      &mut pass_ctx,
       &mut framebuffers.present_pass,
       app_ui,
       &mut framebuffers.forward_pass.diffuse_tex,
+      &mut framebuffers.forward_pass.normals_tex,
     );
 
     unsafe {

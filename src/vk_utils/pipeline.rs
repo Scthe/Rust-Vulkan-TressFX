@@ -16,9 +16,11 @@ pub fn create_pipeline_cache(device: &ash::Device) -> vk::PipelineCache {
 pub fn create_pipeline_layout(
   device: &ash::Device,
   uniform_layouts: &[vk::DescriptorSetLayout],
+  push_constant_ranges: &[vk::PushConstantRange],
 ) -> vk::PipelineLayout {
   let create_info = vk::PipelineLayoutCreateInfo::builder()
     .set_layouts(uniform_layouts)
+    .push_constant_ranges(push_constant_ranges)
     .build();
   unsafe {
     device

@@ -13,7 +13,7 @@ pub struct PassExecContext<'a> {
   /// Index of the swapchain image, range: [0, frames_in_flight)
   pub swapchain_image_idx: usize,
   pub vk_app: &'a VkCtx,
-  pub config: &'a Config,
+  pub config: &'a mut Config,
   pub scene: &'a World,
   pub command_buffer: vk::CommandBuffer,
   pub size: vk::Extent2D,

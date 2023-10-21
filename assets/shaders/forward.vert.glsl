@@ -25,5 +25,7 @@ void main() {
   v_Position = (u_M * pos).xyz;
   // v_PositionLightShadowSpace = u_directionalShadowMatrix_MVP * pos; // TODO
   v_Normal = in_Normal; // TODO technically we should have rotation matrix here, but not needed for app as simple as this
+  // v_Normal = vec3(-0.5,1.0,-0.5);
+  // v_Normal = vec3(0.0, 1.0, 0.0);
   v_UV = in_UV;
 }

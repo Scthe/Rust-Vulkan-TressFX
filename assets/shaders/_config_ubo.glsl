@@ -1,7 +1,7 @@
 layout(binding = 0) 
 uniform GlobalConfigUniformBuffer {
   vec3 u_cameraPosition;
-  vec2 u_viewport;
+  vec4 u_viewportAndNearFar;
   // ao
   // float u_aoStrength;
   // float u_aoExp;
@@ -21,10 +21,17 @@ uniform GlobalConfigUniformBuffer {
   vec4 u_light1_Color;
   vec3 u_light2_Position;
   vec4 u_light2_Color;
+  // FXAA
+  vec3 u_fxaaSettings;
 };
 
+#define u_viewport (u_viewportAndNearFar.xy)
+#define u_nearAndFar (u_viewportAndNearFar.zw)
 #define u_aoStrength (u_aoAndShadowContrib.r)
 #define u_aoExp (u_aoAndShadowContrib.g)
 #define u_maxShadowContribution (u_aoAndShadowContrib.b)
 // #define BIAS_FROM_UI (u_directionalShadowCasterPosition.w)
 // #define USE_PCSS_SHADOWS (u_directionalShadowCasterPosition.w < 0.0f)
+#define u_subpixel (u_fxaaSettings.x)
+#define u_edgeThreshold (u_fxaaSettings.y)
+#define u_edgeThresholdMin (u_fxaaSettings.z)

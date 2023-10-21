@@ -28,7 +28,7 @@ layout(location = 2) in vec2 v_UV;
 // layout(location = 3) in vec4 v_PositionLightShadowSpace;
 
 layout(location = 0) out vec4 outColor1;
-layout(location = 1) out vec4 outColor2;
+layout(location = 1) out uvec4 outColor2;
 
 
 // required by SSSSS import, but not used here (used in SSS blur)
@@ -53,18 +53,6 @@ const int FLAG_IS_METALIC = 1;
 const int FLAG_USE_SPECULAR_TEXTURE = 2;
 const int FLAG_USE_HAIR_SHADOW_TEXTURE = 4;
 
-
-// srgb handled by hardware (we defined texture format in rust as such)
-vec3 readModelTexture_srgb(sampler2D tex, vec2 coords) {
-  coords = fixOpenGLTextureCoords_AxisY(coords);
-  return texture(tex, coords).rgb; // as uint [0-255]
-}
-
-vec3 readModelTexture_uint(usampler2D tex, vec2 coords) {
-  coords = fixOpenGLTextureCoords_AxisY(coords);
-  uvec3 value = texture(tex, coords).rgb; // as uint [0-255]
-  return vec3(value) / 255.0;
-}
 
 float readSpecular() {
   // we are going to pretend that specular is same as smoothness. Probably is not, but..
@@ -92,7 +80,7 @@ float readHairShadow() {
 
 Material createMaterial() {
   Material material;
-  material.normal = v_Normal; // TODO normalize here (cause it was interpolated between 3 vertices and is no longer normalized)
+  material.normal = normalize(v_Normal); // TODO normalize here (cause it was interpolated between 3 vertices and is no longer normalized)
   material.toEye = normalize(u_cameraPosition - v_Position);
   material.albedo = readModelTexture_srgb(u_albedoTexture, v_UV);
   material.positionWS = v_Position;
@@ -175,5 +163,17 @@ void main() {
   color = doShading(material, lights);
 
   outColor1 = vec4(color, 1.0);
-  outColor2 = vec4(to_0_1(material.normal), 1.0);
+  // outColor2 = vec4(packNormal(material.normal), 1.0);
+  outColor2 = uvec4(packNormal(material.normal), 255);
+  
+  // vec3 n = vec3(0.0, 0.5, 1.0);
+  // vec3 n = material.normal;
+
+  // outColor2 = vec4(n, 1.0);
+  // outColor2 = uvec4(0, 128, 255, 255);
+  // outColor2 = vec4(to_0_1(n), 1.0);
+  // outColor2 = vec4(abs(material.normal), 1.0);
+  // outColor2 = vec4(abs(normalize(v_Normal)), 1.0);
+  // outColor2 = vec4(v_Normal, 1.0);
+  // outColor2 = vec4(v_Normal, 1.0);
 }

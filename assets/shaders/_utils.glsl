@@ -4,18 +4,26 @@ vec2 fixOpenGLTextureCoords_AxisY(vec2 uv) {
   return vec2(uv.x, 1.0 - uv.y);
 }
 
-/** Vulkan and OpenGL have different coordinate system. I'm used to OpenGL's. */
-vec4 oglTexture(sampler2D texSampler, vec2 texCoord) {
-  vec2 fixedTexCoord = vec2(texCoord.x, 1.0f - texCoord.y);
-  return texture(texSampler, fixedTexCoord);
+// srgb handled by hardware (we defined texture format in rust as such)
+vec3 readModelTexture_srgb(sampler2D tex, vec2 coords) {
+  coords = fixOpenGLTextureCoords_AxisY(coords);
+  return texture(tex, coords).rgb; // as uint [0-255]
 }
 
+vec3 readModelTexture_uint(usampler2D tex, vec2 coords) {
+  coords = fixOpenGLTextureCoords_AxisY(coords);
+  uvec3 value = texture(tex, coords).rgb; // as uint [0-255]
+  return vec3(value) / 255.0;
+}
+
+/* Preferably use *_SRGB attachment textures to auto apply gamma
 float doGamma (float color, float gammaValue) {
   return pow(color, 1.0 / gammaValue);
 }
 vec3 doGamma (vec3 color, float gammaValue) {
   return pow(color, vec3(1.0 / gammaValue));
 }
+*/
 float sRGBtoLinear (float color, float gammaValue) {
   // http://renderwonk.com/blog/index.php/archive/adventures-with-gamma-correct-rendering/
   if (color > 0.04045) {
@@ -82,7 +90,7 @@ vec2 to_0_1  (vec2  v) { return 0.5 * v + 0.5; }
 vec3 to_0_1  (vec3  v) { return 0.5 * v + 0.5; }
 vec4 to_0_1  (vec4  v) { return 0.5 * v + 0.5; }
 
-// [-1..1] -> [0..1]
+// [-x..x] -> [0..1]
 float saturate (float v) { return clamp(v, 0.0, 1.0); }
 vec2  saturate (vec2  v) { return clamp(v, vec2(0.0, 0.0), vec2(1.0, 1.0)); }
 vec3  saturate (vec3  v) { return clamp(v, vec3(0.0, 0.0, 0.0), vec3(1.0, 1.0, 1.0)); }
@@ -113,4 +121,14 @@ vec3 hash(vec3 a) {
 //
 bool isFlag(int flags, int flagValue) {
   return (flags & flagValue) > 0;
+}
+
+uvec3 packNormal(vec3 normal) {
+  vec3 n = to_0_1(normal);
+  return uvec3(n * 255);
+}
+
+vec3 unpackNormal(usampler2D tex, vec2 coords) {
+  vec3 normal = readModelTexture_uint(tex, coords).xyz;
+  return normalize(to_neg1_1(normal));
 }
