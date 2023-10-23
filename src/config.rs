@@ -1,6 +1,7 @@
 use ash;
 use ash::vk;
 use glam::{vec2, vec3, Vec2, Vec3};
+use mint::Vector3;
 
 pub struct LightAmbient {
   pub color: Vec3,
@@ -29,9 +30,72 @@ pub struct CameraConfig {
   pub z_far: f32,
 }
 
+pub enum TonemappingMode {
+  Linear = 0,
+  Reinhard = 1,
+  Uncharted2 = 2,
+  Photographic = 3,
+  AcesUe4 = 4,
+}
+
+pub struct ColorGradingProp {
+  pub color: Vector3<f32>,
+  pub value: f32,
+}
+
+impl ColorGradingProp {
+  pub fn new(color: Vec3, value: f32) -> Self {
+    Self {
+      color: Vector3::from_slice(color.as_ref()),
+      value,
+    }
+  }
+}
+
+pub struct ColorGradingPerRangeSettings {
+  pub saturation: ColorGradingProp,
+  pub contrast: ColorGradingProp,
+  pub gamma: ColorGradingProp,
+  pub gain: ColorGradingProp,
+  pub offset: ColorGradingProp,
+}
+
+impl Default for ColorGradingPerRangeSettings {
+  fn default() -> Self {
+    Self {
+      saturation: ColorGradingProp::new(vec3(1.0, 1.0, 1.0), 1.0),
+      contrast: ColorGradingProp::new(vec3(1.0, 1.0, 1.0), 1.0),
+      gamma: ColorGradingProp::new(vec3(1.0, 1.0, 1.0), 1.0),
+      gain: ColorGradingProp::new(vec3(1.0, 1.0, 1.0), 1.0),
+      offset: ColorGradingProp::new(vec3(0.0, 0.0, 0.0), 0.0),
+    }
+  }
+}
+
+pub struct ColorGradingCfg {
+  pub global: ColorGradingPerRangeSettings,
+  pub shadows: ColorGradingPerRangeSettings,
+  pub midtones: ColorGradingPerRangeSettings,
+  pub highlights: ColorGradingPerRangeSettings,
+  // cutoffs:
+  pub shadows_max: f32,
+  pub highlights_min: f32,
+}
+
 pub struct PostFxCfg {
+  pub dither_strength: f32,
+  // tonemapping
+  pub tonemapping_op: usize,
+  pub exposure: f32, // or calc automatically?
+  pub white_point: f32,
+  pub aces_c: f32,
+  pub aces_s: f32,
+  // color grading
+  // @see https://docs.unrealengine.com/en-us/Engine/Rendering/PostProcessEffects/ColorGrading
+  pub color_grading: ColorGradingCfg,
   // fxaa
   pub use_fxaa: bool,
+  pub fxaa_luma_gamma: f32,
   pub subpixel: f32,
   pub edge_threshold: f32,
   pub edge_threshold_min: f32,
@@ -66,11 +130,12 @@ pub struct Config {
   // misc
   // showDebugPositions = false;
   // useMSAA = true; // ok, technically it's brute force supersampling, but who cares?
-  // center_of_gravity: Vec3(0, 3.0, 0), // used for calulating hair normals (remember, no cards!)
+  // center_of_gravity: vec3(0, 3.0, 0), // used for calulating hair normals (remember, no cards!)
 }
 
 impl Config {
-  // Must match consts in `present.frag.glsl`
+  // Must match consts in `present.frag.glsl`. TODO switch to enum?
+  // TODO add luma/raw render debug
   pub const DISPLAY_MODE_FINAL: usize = 0;
   pub const DISPLAY_MODE_NORMALS: usize = 1;
 
@@ -81,6 +146,17 @@ impl Config {
 
   pub fn new() -> Config {
     let clear_col = to_col8(93);
+
+    let camera = CameraConfig {
+      position: vec3(4.0, 7.5, 9.0),
+      // position: vec3(0.0, 2.5, 5.0), // en face
+      // position: vec3(0, 3.5, 2), // closeup on hair
+      rotation: vec2(-25f32, 0.0), // degrees
+      // rotation: vec2(0.0, 0.0), // degrees
+      fov_dgr: 75.0,
+      z_near: 0.1,
+      z_far: 100.0,
+    };
 
     let light_ambient = LightAmbient {
       color: vec3(to_col8(160), to_col8(160), to_col8(160)),
@@ -108,6 +184,32 @@ impl Config {
       energy: 0.55,
     };
 
+    let postfx = PostFxCfg {
+      dither_strength: 1.5,
+      // tonemapping
+      tonemapping_op: TonemappingMode::AcesUe4 as _,
+      exposure: 1.0, // or calc automatically?
+      white_point: 1.0,
+      aces_c: 0.8,
+      aces_s: 1.0,
+      // color grading
+      // @see https://docs.unrealengine.com/en-us/Engine/Rendering/PostProcessEffects/ColorGrading
+      color_grading: ColorGradingCfg {
+        shadows_max: 0.09,
+        highlights_min: 0.5,
+        global: ColorGradingPerRangeSettings::default(),
+        shadows: ColorGradingPerRangeSettings::default(),
+        midtones: ColorGradingPerRangeSettings::default(),
+        highlights: ColorGradingPerRangeSettings::default(),
+      },
+      // fxaa
+      use_fxaa: true, // TODO test how good it works
+      subpixel: 0.75,
+      edge_threshold: 0.125,
+      edge_threshold_min: 0.0625,
+      fxaa_luma_gamma: 2.2,
+    };
+
     Config {
       only_first_frame: false,
       display_mode: Config::DISPLAY_MODE_FINAL,
@@ -120,17 +222,8 @@ impl Config {
       clear_depth: 1.0,
       clear_stencil: 0,
       // scene
-      model_scale: 1.0,
-      camera: CameraConfig {
-        position: vec3(4.0, 7.5, 9.0),
-        // position: vec3(0.0, 2.5, 5.0), // en face
-        // position: vec3(0, 3.5, 2), // closeup on hair
-        rotation: vec2(-25f32, 0.0), // degrees
-        // rotation: vec2(0.0, 0.0), // degrees
-        fov_dgr: 75.0,
-        z_near: 0.1,
-        z_far: 100.0,
-      },
+      model_scale: 1.0, // TODO it was 0.3 in webfx?
+      camera,
       // lights
       light_ambient,
       light0,
@@ -139,12 +232,7 @@ impl Config {
       // shadows
       shadows: ShadowsConfig { strength: 0.7 },
       // postfx
-      postfx: PostFxCfg {
-        use_fxaa: true, // TODO test, add UI
-        subpixel: 0.75,
-        edge_threshold: 0.125,
-        edge_threshold_min: 0.0625,
-      },
+      postfx,
     }
   }
 
@@ -205,21 +293,6 @@ pub fn spherical_to_cartesian_rad(phi: f32, theta: f32, distance: f32) -> Vec3 {
 /*
 const SHADOWS_ORTHO_SIZE = 5;
 
-pub struct ColorGradingProp {
-  color: Vec3,
-  value: f32,
-}
-// const createColorGradingProp = (color: Vec3, value: number) =>
-  // ({ color, value });
-
-pub struct ColorGradingPerRangeSettings {
-  saturation: ColorGradingProp,
-  contrast: ColorGradingProp,
-  gamma: ColorGradingProp,
-  gain: ColorGradingProp,
-  offset: ColorGradingProp,
-}
-
   public readonly shadows = {
     shadowmapSize: 1024 * 2,
     usePCSS: false,
@@ -242,8 +315,9 @@ pub struct ColorGradingPerRangeSettings {
     },
     showDebugView: false,
   };
+*/
 
-
+/*
   public readonly lightSSS = {
     // forward scatter
     depthmapSize: 1024,
@@ -256,8 +330,9 @@ pub struct ColorGradingPerRangeSettings {
     blurFollowSurface: false, // slight changes for incident angles ~90dgr
     // will reuse target & projection settings from shadows - safer this way..
   };
+*/
 
-
+/*
   // <editor-fold> SSAO
   public readonly ssao = {
     textureSizeMul: 0.5, // half/quater-res, wrt. MSAA
@@ -271,54 +346,4 @@ pub struct ColorGradingPerRangeSettings {
     aoExp: 3, // only meshes
   };
   // </editor-fold> // END: SSAO
-
-
-  // <editor-fold> POSTFX
-  public readonly postfx = {
-    gamma: 2.2,
-    ditherStrength: 1.5,
-    // tonemapping
-    tonemappingOp: TonemappingMode.ACES_UE4,
-    exposure: 1.0, // or calc automatically?
-    whitePoint: 1.0,
-    acesC: 0.8,
-    acesS: 1.0,
-    // color grading
-    // @see https://docs.unrealengine.com/en-us/Engine/Rendering/PostProcessEffects/ColorGrading
-    colorGrading: {
-      global: {
-        saturation: createColorGradingProp(Vec3(1, 1, 1), 1),
-        contrast: createColorGradingProp(Vec3(1, 1, 1), 1),
-        gamma: createColorGradingProp(Vec3(1, 1, 1), 1),
-        gain: createColorGradingProp(Vec3(1, 1, 1), 1),
-        offset: createColorGradingProp(Vec3(0, 0, 0), 0),
-        // tint: createColorGradingProp(Vec3(0, 0, 0), 0),
-      },
-      shadows: {
-        saturation: createColorGradingProp(Vec3(1, 1, 1), 1),
-        contrast: createColorGradingProp(Vec3(1, 1, 1), 1),
-        gamma: createColorGradingProp(Vec3(1, 1, 1), 1),
-        gain: createColorGradingProp(Vec3(1, 1, 1), 1),
-        offset: createColorGradingProp(Vec3(0, 0, 0), 0),
-        shadowsMax: 0.09,
-      },
-      midtones: {
-        saturation: createColorGradingProp(Vec3(1, 1, 1), 1),
-        contrast: createColorGradingProp(Vec3(1, 1, 1), 1),
-        gamma: createColorGradingProp(Vec3(1, 1, 1), 1),
-        gain: createColorGradingProp(Vec3(1, 1, 1), 1),
-        offset: createColorGradingProp(Vec3(0, 0, 0), 0),
-      },
-      highlights: {
-        saturation: createColorGradingProp(Vec3(1, 1, 1), 1),
-        contrast: createColorGradingProp(Vec3(1, 1, 1), 1),
-        gamma: createColorGradingProp(Vec3(1, 1, 1), 1),
-        gain: createColorGradingProp(Vec3(1, 1, 1), 1),
-        offset: createColorGradingProp(Vec3(0, 0, 0), 0),
-        highlightsMin: 0.5,
-      },
-    },
-  };
-  // </editor-fold> // END: POSTFX
-
-  */
+*/

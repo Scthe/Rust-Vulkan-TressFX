@@ -13,9 +13,11 @@ use crate::vk_utils::{create_image_barrier, create_image_view};
 
 use super::{MemoryMapPointer, VkMemoryResource, WithSetupCmdBuffer};
 
+const DEBUG_LAYOUT_TRANSITIONS: bool = false;
+
 pub struct VkTexture {
   // For debugging
-  pub name: String,
+  name: String,
   pub width: u32,
   pub height: u32,
   /// Native Vulkan image
@@ -79,7 +81,7 @@ impl VkTexture {
     let image_view = create_image_view(device, image, create_info.format, aspect);
 
     VkTexture {
-      name,
+      name: create_texture_name(name, size.width, size.height),
       width: size.width,
       height: size.height,
       image,
@@ -154,8 +156,9 @@ impl VkTexture {
     let image_view = create_image_view(device, image, create_info.format, aspect_flags);
 
     let name = path.file_name().unwrap_or(OsStr::new(path));
+    let name_str = name.to_string_lossy().to_string();
     let mut texture = VkTexture {
-      name: name.to_string_lossy().to_string(),
+      name: create_texture_name(name_str, width, height),
       width,
       height,
       image,
@@ -219,6 +222,15 @@ impl VkTexture {
     src_access_mask: vk::AccessFlags,
     dst_access_mask: vk::AccessFlags,
   ) -> vk::ImageMemoryBarrier {
+    if DEBUG_LAYOUT_TRANSITIONS {
+      trace!(
+        "VkTexture::LayoutTransition '{}' ({:?} -> {:?})",
+        self.get_name(),
+        self.layout,
+        new_layout
+      );
+    }
+
     let barrier = create_image_barrier(
       self.image,
       self.aspect_flags,
@@ -291,4 +303,8 @@ impl VkMemoryResource for VkTexture {
   fn set_mapped_pointer(&mut self, next_ptr: Option<MemoryMapPointer>) {
     self.mapped_pointer = next_ptr;
   }
+}
+
+fn create_texture_name(name: String, width: u32, height: u32) -> String {
+  format!("VkTexture({}, {}x{})", name, width, height)
 }

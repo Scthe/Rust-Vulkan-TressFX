@@ -14,13 +14,16 @@ use crate::vk_utils::*;
 mod _shared;
 mod forward_pass;
 mod present_pass;
+mod tonemapping_pass;
 
 pub use self::_shared::*;
 use self::forward_pass::{ForwardPass, ForwardPassFramebuffer};
+use self::tonemapping_pass::{TonemappingPass, TonemappingPassFramebuffer};
 use self::{_shared::GlobalConfigUBO, present_pass::PresentPass};
 
 // TODO add check when compiling shader if .glsl is newer than .spv. Then panic and say to recompile shaders
 
+/// https://github.com/Scthe/WebFX/blob/master/src/main.ts#L144
 pub struct RenderGraph {
   /// Refreshed once every frame. Contains e.g. all config settings, camera data
   /// One per frame-in-flight.
@@ -29,6 +32,7 @@ pub struct RenderGraph {
 
   // passes
   forward_pass: ForwardPass,
+  tonemapping_pass: TonemappingPass,
   present_pass: PresentPass,
 }
 
@@ -42,12 +46,14 @@ impl RenderGraph {
 
     // create passes
     let forward_pass = ForwardPass::new(vk_app);
+    let tonemapping_pass = TonemappingPass::new(vk_app);
     let present_pass = PresentPass::new(vk_app, image_format);
 
     let mut render_graph = RenderGraph {
       config_uniform_buffers,
       framebuffers: Vec::with_capacity(in_flight_frames),
       forward_pass,
+      tonemapping_pass,
       present_pass,
     };
 
@@ -62,12 +68,14 @@ impl RenderGraph {
 
     // passes
     self.present_pass.destroy(device);
+    self.tonemapping_pass.destroy(device);
     self.forward_pass.destroy(vk_app);
 
     // framebuffers
     self.framebuffers.iter_mut().for_each(|framebuffer| {
       device.destroy_framebuffer(framebuffer.present_pass, None);
       framebuffer.forward_pass.destroy(vk_app);
+      framebuffer.tonemapping_pass.destroy(vk_app);
     });
 
     // uniform buffers
@@ -155,19 +163,29 @@ impl RenderGraph {
       .expect("Failed - begin_command_buffer");
     }
 
-    // info!("Start forward_pass");
     let framebuffers = &mut self.framebuffers[swapchain_image_index as usize];
 
+    // forward rendering
+    RenderGraph::debug_start_pass(&pass_ctx, "forward_pass");
     self
       .forward_pass
       .execute(&pass_ctx, &mut framebuffers.forward_pass);
 
-    // info!("Start present_pass");
+    // color grading + tonemapping
+    RenderGraph::debug_start_pass(&pass_ctx, "tonemapping_pass");
+    self.tonemapping_pass.execute(
+      &pass_ctx,
+      &mut framebuffers.tonemapping_pass,
+      &mut framebuffers.forward_pass.diffuse_tex,
+    );
+
+    // final pass to render output to OS window framebuffer
+    RenderGraph::debug_start_pass(&pass_ctx, "present_pass");
     self.present_pass.execute(
       &mut pass_ctx,
       &mut framebuffers.present_pass,
       app_ui,
-      &mut framebuffers.forward_pass.diffuse_tex,
+      &mut framebuffers.tonemapping_pass.tonemapped_tex,
       &mut framebuffers.forward_pass.normals_tex,
     );
 
@@ -208,6 +226,12 @@ impl RenderGraph {
     }
   }
 
+  fn debug_start_pass(exec_ctx: &PassExecContext, name: &str) {
+    if exec_ctx.config.only_first_frame {
+      info!("Start {}", name);
+    }
+  }
+
   fn update_config_uniform_buffer(
     &self,
     vk_app: &VkCtx,
@@ -242,11 +266,16 @@ impl RenderGraph {
         let forward_pass = self
           .forward_pass
           .create_framebuffer(vk_app, frame_id, window_size);
+        let tonemapping_pass =
+          self
+            .tonemapping_pass
+            .create_framebuffer(vk_app, frame_id, window_size);
         let present_pass = self
           .present_pass
           .create_framebuffer(vk_app, iv, window_size);
         self.framebuffers.push(FrameFramebuffers {
           forward_pass,
+          tonemapping_pass,
           present_pass,
         });
       });
@@ -276,5 +305,6 @@ fn allocate_config_uniform_buffers(vk_app: &VkCtx, in_flight_frames: usize) -> V
 
 struct FrameFramebuffers {
   forward_pass: ForwardPassFramebuffer,
+  tonemapping_pass: TonemappingPassFramebuffer,
   present_pass: vk::Framebuffer,
 }

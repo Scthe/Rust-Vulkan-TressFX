@@ -16,14 +16,15 @@ vec3 readModelTexture_uint(usampler2D tex, vec2 coords) {
   return vec3(value) / 255.0;
 }
 
-/* Preferably use *_SRGB attachment textures to auto apply gamma
+/** Preferably use *_SRGB attachment textures to auto apply gamma */
 float doGamma (float color, float gammaValue) {
   return pow(color, 1.0 / gammaValue);
 }
+/** Preferably use *_SRGB attachment textures to auto apply gamma */
 vec3 doGamma (vec3 color, float gammaValue) {
   return pow(color, vec3(1.0 / gammaValue));
 }
-*/
+
 float sRGBtoLinear (float color, float gammaValue) {
   // http://renderwonk.com/blog/index.php/archive/adventures-with-gamma-correct-rendering/
   if (color > 0.04045) {

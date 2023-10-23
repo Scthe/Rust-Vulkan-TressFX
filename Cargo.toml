@@ -30,6 +30,8 @@ lazy_static = "1.4.0"
 # clap = "2.33.1"
 # --MATH
 glam = { version = "^0.24.2", features = ["debug-glam-assert"] }
+# --MATH - interoperability with imgui
+mint = "0.5.9"
 # --FILE WATCHER
 # inotify = "0.8.2"
 # --DOT ENV

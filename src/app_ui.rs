@@ -1,15 +1,29 @@
 use ash;
 use ash::vk;
-use imgui::{Condition, Context, TreeNodeFlags, Ui};
+use imgui::{ColorEditFlags, Condition, Context, TreeNodeFlags, Ui};
 use imgui_rs_vulkan_renderer::{Options, Renderer};
 use imgui_winit_support::{HiDpiMode, WinitPlatform};
+use lazy_static::lazy_static;
 use winit::event::Event;
 
-use crate::{config::Config, vk_ctx::VkCtx};
+use crate::{
+  config::{ColorGradingPerRangeSettings, ColorGradingProp, Config, PostFxCfg, TonemappingMode},
+  vk_ctx::VkCtx,
+};
 
-pub const WIDGET_HALF: f32 = 150.0;
+const WIDGET_HALF: f32 = 150.0;
 
-/// Controls examples: https://magnum.graphics/showcase/imgui/
+lazy_static! {
+  static ref HEADER_FLAGS: TreeNodeFlags =
+    TreeNodeFlags::FRAMED | TreeNodeFlags::FRAME_PADDING | TreeNodeFlags::SPAN_FULL_WIDTH;
+  static ref COLOR_FLAGS: ColorEditFlags = ColorEditFlags::NO_INPUTS;
+}
+
+/// Controls examples:
+/// - https://magnum.graphics/showcase/imgui/
+///
+/// In rust:
+/// - https://github.com/adrien-ben/imgui-rs-vulkan-renderer/blob/master/examples/color_button.rs
 ///
 /// Why mouse has to be moved after click etc.:
 /// https://github.com/rib/gputop/issues/172
@@ -54,6 +68,11 @@ impl AppUI {
       .handle_event(self.imgui.io_mut(), window, &event);
   }
 
+  pub fn intercepted_event(&self) -> bool {
+    let io = self.imgui.io();
+    io.want_capture_mouse || io.want_capture_keyboard || io.want_text_input
+  }
+
   /// https://github.com/Scthe/WebFX/blob/master/src/UISystem.ts
   pub fn render_ui(
     &mut self,
@@ -75,11 +94,21 @@ impl AppUI {
         .size([300.0, 500.0], Condition::Always)
         .resizable(false)
         .build(|| {
-          // let _ = ui.push_item_width(150.0); // TODO does not work? How to set it as default?
-
-          AppUI::draw_general_ui(ui, config);
+          Self::draw_general_ui(ui, config);
           ui.spacing();
-          AppUI::draw_fxaa_ui(ui, config);
+
+          let postfx = &mut config.postfx;
+          Self::draw_post_fx(ui, postfx);
+          {
+            let cg = &mut postfx.color_grading;
+            let sm = Some((&mut cg.shadows_max, "shadowsMax"));
+            let hl = Some((&mut cg.highlights_min, "highlightsMin"));
+            Self::draw_color_grading(ui, "general", &mut cg.global, None);
+            Self::draw_color_grading(ui, "shadows", &mut cg.shadows, sm);
+            Self::draw_color_grading(ui, "midtones", &mut cg.midtones, None);
+            Self::draw_color_grading(ui, "highlights", &mut cg.highlights, hl);
+          }
+          Self::draw_fxaa_ui(ui, config);
         });
       // UI END
 
@@ -94,6 +123,8 @@ impl AppUI {
   }
 
   fn draw_general_ui(ui: &Ui, config: &mut Config) {
+    let push_token = ui.push_id("GeneralUI");
+
     ui.combo(
       "Display mode",
       &mut config.display_mode,
@@ -106,13 +137,98 @@ impl AppUI {
         }
       },
     );
+
+    push_token.end();
+  }
+
+  fn draw_color_grading(
+    ui: &Ui,
+    label: &str,
+    postfx: &mut ColorGradingPerRangeSettings,
+    slider: Option<(&mut f32, &str)>,
+  ) {
+    let title = format!("Color grading - {}", label);
+    let push_token = ui.push_id(title.clone());
+
+    if ui.collapsing_header(title, *HEADER_FLAGS) {
+      if let Some(mut s) = slider {
+        next_widget_small(ui);
+        ui.slider(s.1, 0.0, 1.0, &mut s.0);
+      }
+      Self::draw_color_grading_prop(ui, "Saturation", 0.0, 2.0, &mut postfx.saturation);
+      Self::draw_color_grading_prop(ui, "Contrast", 0.0, 2.0, &mut postfx.contrast);
+      Self::draw_color_grading_prop(ui, "Gamma", 0.0, 2.0, &mut postfx.gamma);
+      Self::draw_color_grading_prop(ui, "Gain", 0.0, 2.0, &mut postfx.gain);
+      Self::draw_color_grading_prop(ui, "Offset", -1.0, 1.0, &mut postfx.offset);
+    }
+
+    push_token.end();
+  }
+
+  fn draw_color_grading_prop(
+    ui: &Ui,
+    label: &str,
+    min: f32,
+    max: f32,
+    prop: &mut ColorGradingProp,
+  ) {
+    ui.color_edit3_config(format!("##{}-color", label), &mut prop.color)
+      .flags(*COLOR_FLAGS)
+      .build();
+    ui.same_line();
+    next_widget_small(ui);
+    ui.slider(label, min, max, &mut prop.value);
+  }
+
+  fn draw_post_fx(ui: &Ui, postfx: &mut PostFxCfg) {
+    let push_token = ui.push_id("PostFX");
+
+    if ui.collapsing_header("PostFX", *HEADER_FLAGS) {
+      ui.slider("Dither", 0.0, 2.0, &mut postfx.dither_strength);
+
+      ui.combo(
+        "Tonemapping",
+        &mut postfx.tonemapping_op,
+        &[
+          TonemappingMode::Linear,
+          TonemappingMode::Reinhard,
+          TonemappingMode::Uncharted2,
+          TonemappingMode::Photographic,
+          TonemappingMode::AcesUe4,
+        ],
+        |idx| match *idx {
+          TonemappingMode::Linear => std::borrow::Cow::Borrowed("Linear"),
+          TonemappingMode::Reinhard => std::borrow::Cow::Borrowed("Reinhard"),
+          TonemappingMode::Uncharted2 => std::borrow::Cow::Borrowed("Uncharted2"),
+          TonemappingMode::Photographic => std::borrow::Cow::Borrowed("Photographic"),
+          _ => std::borrow::Cow::Borrowed("ACES_UE4"),
+        },
+      );
+
+      if postfx.tonemapping_op == TonemappingMode::AcesUe4 as _ {
+        ui.slider("AcesC", 0.5, 1.5, &mut postfx.aces_c);
+        ui.slider("AcesS", 0.0, 2.0, &mut postfx.aces_s);
+      }
+      if postfx.tonemapping_op == TonemappingMode::Linear as _
+        || postfx.tonemapping_op == TonemappingMode::Reinhard as _
+        || postfx.tonemapping_op == TonemappingMode::Uncharted2 as _
+      {
+        ui.slider("Exposure", 0.5, 2.0, &mut postfx.exposure);
+      }
+      if postfx.tonemapping_op == TonemappingMode::Uncharted2 as _
+        || postfx.tonemapping_op == TonemappingMode::Photographic as _
+      {
+        ui.slider("White point", 0.5, 2.0, &mut postfx.white_point);
+      }
+    }
+
+    push_token.end();
   }
 
   fn draw_fxaa_ui(ui: &Ui, config: &mut Config) {
-    let flags: TreeNodeFlags =
-      TreeNodeFlags::FRAMED | TreeNodeFlags::FRAME_PADDING | TreeNodeFlags::SPAN_FULL_WIDTH;
+    let push_token = ui.push_id("fxaa");
 
-    if ui.collapsing_header("Fxaa", flags) {
+    if ui.collapsing_header("Fxaa", *HEADER_FLAGS) {
       ui.checkbox("Use FXAA", &mut config.postfx.use_fxaa);
       next_widget_small(ui);
       ui.slider("Subpixel aa", 0.0, 1.0, &mut config.postfx.subpixel);
@@ -131,6 +247,8 @@ impl AppUI {
         &mut config.postfx.edge_threshold_min,
       );
     }
+
+    push_token.end();
   }
 }
 

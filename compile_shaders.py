@@ -1,4 +1,5 @@
 import re
+import os
 import sys
 import subprocess
 from os import listdir
@@ -69,15 +70,15 @@ def process_shader_file(path, import_stack=[]):
 	with open(path) as file:
 		for line in file:
 			is_include_line = line.lstrip().startswith(SHADER_IMPORT)
+			line = line.rstrip()
 			# print(line)
 			if is_include_line:
-				line = line.rstrip()
 				trace(f"\tFound import '{line}'")
 				imported_filepath = get_path_of_imported_file(path, line.lstrip(), import_stack)
 				imported_file_content = process_shader_file(imported_filepath, import_stack)
-				buffer.append(f"// START IMPORT: '{imported_filepath}'\n")
+				buffer.extend([f"// START IMPORT: '{imported_filepath}'", ""])
 				buffer.extend(imported_file_content)
-				buffer.append(f"\n// END IMPORT: '{imported_filepath}'\n")
+				buffer.extend(["", f"// END IMPORT: '{imported_filepath}'", ""])
 			else:
 				buffer.append(line)
 	return buffer
@@ -88,20 +89,20 @@ def write_processed_shader_file(path, lines):
 	
 	with open(out_path, 'w') as f:
 		for line in lines:
-			f.write(line)
+			f.write(line + '\n')
 	
 	return out_path
 
 # SECTION: COMPILE
 def print_compile_error_line(error_line, shader_lines):
-	print(error_line)
+	# print(error_line)
 	matches = re.search(COMPILER_ERROR_REGEX, error_line, re.IGNORECASE)
 	line_printed = False
 
 	if matches:
 		try:
 			line_no, level, msg = int(matches.group(1)), matches.group(2), matches.group(3)
-			# print(line_no, level, msg)
+			# print("----------------", line_no, len(shader_lines))
 			line = shader_lines[line_no - 1].strip()
 			is_warn = level == 'warning'
 			col = Colors.YELLOW if is_warn else Colors.RED
@@ -109,7 +110,8 @@ def print_compile_error_line(error_line, shader_lines):
 			print('{}[L{}] {}: {}'.format(col, line_no, level_str, msg))
 			print('{}   > {}{}'.format(Colors.CYAN, line, Colors.WHITE))
 			line_printed = True
-		except:
+		except Exception as e:
+			# print (e)
 			pass
 	
 	if not line_printed:
@@ -134,10 +136,12 @@ def compile_shader(path, shader_lines):
 		capture_output=True, text=True
 	)
 
+	clickable_path = join(os.getcwd(), path) # full path starting from drive letter. Clickable in terminal.
 	if result.returncode == 0:
-		trace(f"\tSuccessully compiled to '{out_path}'")
+		# trace(f"\tSuccessully compiled to '{out_path}'")
+		print(f"\tDone, preview: '{clickable_path}'")
 	else:
-		print(f"Error compiling '{path}'")
+		print(f"\nError compiling '{clickable_path}'")
 		error_lines = result.stderr.split("\n")
 		for error_line in error_lines:
 			print_compile_error_line(error_line, shader_lines)
@@ -156,4 +160,3 @@ for shader_file in shader_files:
 	lines = process_shader_file(shader_file)
 	processed_shader_path = write_processed_shader_file(shader_file, lines)
 	compile_shader(processed_shader_path, lines)
-	print(f"\tDone, preview: '{processed_shader_path}'")

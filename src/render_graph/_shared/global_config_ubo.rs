@@ -1,8 +1,8 @@
 use bytemuck;
-use glam::{vec3, vec4, Vec3, Vec4};
+use glam::{vec4, Vec3, Vec4};
 
 use crate::{
-  config::{spherical_to_cartesian_dgr, Config, LightAmbient, LightCfg},
+  config::{spherical_to_cartesian_dgr, ColorGradingProp, Config, LightAmbient, LightCfg},
   scene::Camera,
   vk_ctx::VkCtx,
 };
@@ -29,7 +29,31 @@ pub struct GlobalConfigUBO {
   pub u_light2_position: Vec3,
   pub u_light2_color: Vec4,
   // FXAA
-  pub u_fxaa_settings: Vec3,
+  pub u_fxaa_settings: Vec4,
+  // Color correction
+  pub u_tonemapping: Vec4,
+  pub u_tonemapping2: Vec4,
+  // TONEMAPPING
+  pub u_color_saturation: Vec4, // general
+  pub u_color_contrast: Vec4,
+  pub u_color_gamma: Vec4,
+  pub u_color_gain: Vec4,
+  pub u_color_offset: Vec4,
+  pub u_color_saturation_shadows: Vec4, // shadows
+  pub u_color_contrast_shadows: Vec4,
+  pub u_color_gamma_shadows: Vec4,
+  pub u_color_gain_shadows: Vec4,
+  pub u_color_offset_shadows: Vec4,
+  pub u_color_saturation_midtones: Vec4, // midtones
+  pub u_color_contrast_midtones: Vec4,
+  pub u_color_gamma_midtones: Vec4,
+  pub u_color_gain_midtones: Vec4,
+  pub u_color_offset_midtones: Vec4,
+  pub u_color_saturation_highlights: Vec4, // highlights
+  pub u_color_contrast_highlights: Vec4,
+  pub u_color_gamma_highlights: Vec4,
+  pub u_color_gain_highlights: Vec4,
+  pub u_color_offset_highlights: Vec4,
 }
 
 unsafe impl bytemuck::Zeroable for GlobalConfigUBO {}
@@ -40,6 +64,7 @@ impl GlobalConfigUBO {
     let vp = vk_app.window_size();
     let cam_cfg = &config.camera;
     let postfx = &config.postfx;
+    let color_grading = &postfx.color_grading;
 
     GlobalConfigUBO {
       u_camera_position: camera.position(),
@@ -59,11 +84,46 @@ impl GlobalConfigUBO {
       u_light2_position: light_pos(&config.light2),
       u_light2_color: light_color(&config.light2),
       // FXAA
-      u_fxaa_settings: vec3(
+      u_fxaa_settings: vec4(
         postfx.subpixel,
         config.fxaa_edge_threshold(),
         postfx.edge_threshold_min,
+        postfx.fxaa_luma_gamma,
       ),
+      // Color correction
+      u_tonemapping: vec4(
+        postfx.exposure,
+        postfx.white_point,
+        postfx.aces_c,
+        postfx.aces_s,
+      ),
+      u_tonemapping2: vec4(
+        postfx.dither_strength,
+        postfx.tonemapping_op as f32,
+        color_grading.shadows_max,
+        color_grading.highlights_min,
+      ),
+      // TONEMAPPING
+      u_color_saturation: pack_color_grading_prop(&color_grading.global.saturation), // general
+      u_color_contrast: pack_color_grading_prop(&color_grading.global.contrast),
+      u_color_gamma: pack_color_grading_prop(&color_grading.global.gamma),
+      u_color_gain: pack_color_grading_prop(&color_grading.global.gain),
+      u_color_offset: pack_color_grading_prop(&color_grading.global.offset),
+      u_color_saturation_shadows: pack_color_grading_prop(&color_grading.shadows.saturation), // shadows
+      u_color_contrast_shadows: pack_color_grading_prop(&color_grading.shadows.contrast),
+      u_color_gamma_shadows: pack_color_grading_prop(&color_grading.shadows.gamma),
+      u_color_gain_shadows: pack_color_grading_prop(&color_grading.shadows.gain),
+      u_color_offset_shadows: pack_color_grading_prop(&color_grading.shadows.offset),
+      u_color_saturation_midtones: pack_color_grading_prop(&color_grading.midtones.saturation), // midtones
+      u_color_contrast_midtones: pack_color_grading_prop(&color_grading.midtones.contrast),
+      u_color_gamma_midtones: pack_color_grading_prop(&color_grading.midtones.gamma),
+      u_color_gain_midtones: pack_color_grading_prop(&color_grading.midtones.gain),
+      u_color_offset_midtones: pack_color_grading_prop(&color_grading.midtones.offset),
+      u_color_saturation_highlights: pack_color_grading_prop(&color_grading.highlights.saturation), // highlights
+      u_color_contrast_highlights: pack_color_grading_prop(&color_grading.highlights.contrast),
+      u_color_gamma_highlights: pack_color_grading_prop(&color_grading.highlights.gamma),
+      u_color_gain_highlights: pack_color_grading_prop(&color_grading.highlights.gain),
+      u_color_offset_highlights: pack_color_grading_prop(&color_grading.highlights.offset),
     }
   }
 }
@@ -78,4 +138,8 @@ fn light_color(light: &LightCfg) -> Vec4 {
 
 fn light_pos(light: &LightCfg) -> Vec3 {
   spherical_to_cartesian_dgr(light.pos_phi, light.pos_theta, light.pos_distance)
+}
+
+fn pack_color_grading_prop(prop: &ColorGradingProp) -> Vec4 {
+  vec4(prop.color.x, prop.color.y, prop.color.z, prop.value)
 }

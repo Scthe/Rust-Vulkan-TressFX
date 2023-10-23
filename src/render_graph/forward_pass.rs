@@ -17,7 +17,7 @@ const BINDING_INDEX_HAIR_SHADOW_TEXTURE: u32 = 4;
 
 const DEPTH_TEXTURE_FORMAT: vk::Format = vk::Format::D24_UNORM_S8_UINT;
 const DIFFUSE_TEXTURE_FORMAT: vk::Format = vk::Format::R32G32B32A32_SFLOAT;
-const NORMALS_TEXTURE_FORMAT: vk::Format = vk::Format::R8G8B8A8_UINT; // TODO try float?
+const NORMALS_TEXTURE_FORMAT: vk::Format = vk::Format::R8G8B8A8_UINT;
 const COLOR_ATTACHMENT_COUNT: usize = 2;
 const SHADER_PATHS: (&str, &str) = (
   "./assets/shaders-compiled/forward.vert.spv",
@@ -287,6 +287,7 @@ impl ForwardPass {
 
       // draw calls
       for entity in &scene.entities {
+        // bind uniforms + mesh buffers
         self.bind_entity_ubos(exec_ctx, entity);
         device.cmd_bind_vertex_buffers(command_buffer, 0, &[entity.vertex_buffer.buffer], &[0]);
         device.cmd_bind_index_buffer(

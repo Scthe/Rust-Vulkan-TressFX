@@ -25,7 +25,10 @@ mod vk_utils;
 // spirv-dis.exe vert.spv
 
 fn main() {
-  simple_logger::SimpleLogger::new().init().unwrap();
+  simple_logger::SimpleLogger::new()
+    .with_module_level("imgui_rs_vulkan_renderer", log::LevelFilter::Debug)
+    .init()
+    .unwrap();
   log::set_max_level(log::LevelFilter::Trace);
   info!("-- Start --");
 
@@ -83,6 +86,9 @@ fn main() {
         event: WindowEvent::KeyboardInput { input, .. },
         ..
       } => {
+        if app_ui.intercepted_event() {
+          return;
+        }
         if input.virtual_keycode == Some(VirtualKeyCode::Escape) {
           *control_flow = ControlFlow::Exit;
         }
@@ -106,6 +112,9 @@ fn main() {
         event: WindowEvent::MouseWheel { delta, .. },
         ..
       } => {
+        if app_ui.intercepted_event() {
+          return;
+        }
         if let MouseScrollDelta::LineDelta(_, delta_y) = delta {
           scene.camera.move_forward(-delta_y);
         }
@@ -116,6 +125,9 @@ fn main() {
         event: DeviceEvent::MouseMotion { delta, .. },
         ..
       } => {
+        if app_ui.intercepted_event() {
+          return;
+        }
         if is_left_mouse_button_pressed {
           // info!("Mouse delta {:?}", delta);
           scene
@@ -129,6 +141,9 @@ fn main() {
         event: WindowEvent::MouseInput { button, state, .. },
         ..
       } => {
+        if app_ui.intercepted_event() {
+          return;
+        }
         // info!("button={:?}, state={:?}", button, state);
         if button == MouseButton::Left {
           is_left_mouse_button_pressed = state == ElementState::Pressed;

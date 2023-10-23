@@ -14,7 +14,7 @@ layout(push_constant) uniform Constants {
 
 
 layout(binding = 1)
-uniform sampler2D u_tonemappedTex;
+uniform sampler2D u_tonemappedTex; // TODO usampler2D
 layout(binding = 2)
 uniform usampler2D u_normalsTex;
 // layout(binding = 3)
@@ -30,12 +30,12 @@ const int DISPLAY_MODE_NORMALS = 1;
 layout(location = 0) in vec2 v_position;
 layout(location = 0) out vec4 color1;
 
-
 vec3 doFxaa (vec2 uv) {
   vec4 color;
 
   if (u_edgeThreshold == 0.0) {
-    color = texture(u_tonemappedTex, uv);
+    // color = vec4(readModelTexture_uint(u_tonemappedTex, uv), 1.0);
+    color = vec4(texture(u_tonemappedTex, uv).rgb, 1.0);
   } else {
     color = FxaaPixelShader(
       uv, // in [0-1]
