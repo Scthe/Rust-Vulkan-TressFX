@@ -140,6 +140,7 @@ impl TonemappingPass {
       vk::ImageTiling::OPTIMAL,
       vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED,
       vk::ImageAspectFlags::COLOR,
+      vk::MemoryPropertyFlags::DEVICE_LOCAL,
     );
 
     let fbo = create_framebuffer(
@@ -206,6 +207,7 @@ impl TonemappingPass {
       BindableResource::Texture {
         binding: BINDING_INDEX_PREVIOUS_RESULT,
         texture: previous_result,
+        image_view: None,
         sampler: vk_app.default_texture_sampler_nearest,
       },
     ];
@@ -219,19 +221,16 @@ impl TonemappingPass {
     framebuffer: &mut TonemappingPassFramebuffer,
     previous_result: &mut VkTexture,
   ) {
-    let source_barrier = previous_result.prepare_for_layout_transition(
-      vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
-      vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
-      vk::AccessFlags::SHADER_READ,
-    );
-    let result_barrier = framebuffer.tonemapped_tex.prepare_for_layout_transition(
-      vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
-      vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
-      vk::AccessFlags::SHADER_READ,
-    );
+    let source_barrier = previous_result.barrier_prepare_attachment_for_shader_read();
+    let result_barrier = framebuffer
+      .tonemapped_tex
+      .barrier_prepare_attachment_for_write();
+
     device.cmd_pipeline_barrier(
       *command_buffer,
+      // wait for this
       vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
+      // before we execute fragment shader
       vk::PipelineStageFlags::FRAGMENT_SHADER,
       vk::DependencyFlags::empty(),
       &[],

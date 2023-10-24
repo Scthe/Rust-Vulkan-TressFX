@@ -199,7 +199,7 @@ impl ForwardPass {
     let device = vk_app.vk_device();
     let allocator = &vk_app.allocator;
 
-    let depth_tex = VkTexture::empty(
+    let depth_stencil_tex = VkTexture::empty(
       device,
       allocator,
       format!("ForwardPass.depth#{}", frame_id),
@@ -207,7 +207,8 @@ impl ForwardPass {
       DEPTH_TEXTURE_FORMAT,
       vk::ImageTiling::OPTIMAL,
       vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT | vk::ImageUsageFlags::SAMPLED,
-      vk::ImageAspectFlags::DEPTH,
+      vk::ImageAspectFlags::DEPTH | vk::ImageAspectFlags::STENCIL,
+      vk::MemoryPropertyFlags::DEVICE_LOCAL,
     );
     let diffuse_tex = VkTexture::empty(
       device,
@@ -218,6 +219,7 @@ impl ForwardPass {
       vk::ImageTiling::OPTIMAL,
       vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED,
       vk::ImageAspectFlags::COLOR,
+      vk::MemoryPropertyFlags::DEVICE_LOCAL,
     );
     let normals_tex = VkTexture::empty(
       device,
@@ -228,21 +230,26 @@ impl ForwardPass {
       vk::ImageTiling::OPTIMAL,
       vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED,
       vk::ImageAspectFlags::COLOR,
+      vk::MemoryPropertyFlags::DEVICE_LOCAL,
     );
 
     let fbo = create_framebuffer(
       device,
       self.render_pass,
       &[
-        depth_tex.image_view(),
+        depth_stencil_tex.image_view(),
         diffuse_tex.image_view(),
         normals_tex.image_view(),
       ],
       &size,
     );
 
+    let depth_image_view =
+      depth_stencil_tex.create_extra_image_view(device, vk::ImageAspectFlags::DEPTH);
+
     ForwardPassFramebuffer {
-      depth_tex,
+      depth_stencil_tex,
+      depth_image_view,
       diffuse_tex,
       normals_tex,
       fbo,
@@ -310,24 +317,27 @@ impl ForwardPass {
     command_buffer: &vk::CommandBuffer,
     framebuffer: &mut ForwardPassFramebuffer,
   ) {
-    let diffuse_barrier = framebuffer.diffuse_tex.prepare_for_layout_transition(
-      vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
-      vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
-      vk::AccessFlags::SHADER_READ,
-    );
-    let normal_barrier = framebuffer.normals_tex.prepare_for_layout_transition(
-      vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
-      vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
-      vk::AccessFlags::SHADER_READ,
-    );
+    let diffuse_barrier = framebuffer
+      .diffuse_tex
+      .barrier_prepare_attachment_for_write();
+    let normal_barrier = framebuffer
+      .normals_tex
+      .barrier_prepare_attachment_for_write();
+    let depth_barrier = framebuffer
+      .depth_stencil_tex
+      .barrier_prepare_attachment_for_write();
+
     device.cmd_pipeline_barrier(
       *command_buffer,
-      vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
+      // wait for this
+      vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT
+        | vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS,
+      // before we execute fragment shader
       vk::PipelineStageFlags::FRAGMENT_SHADER,
       vk::DependencyFlags::empty(),
       &[],
       &[],
-      &[diffuse_barrier, normal_barrier],
+      &[depth_barrier, diffuse_barrier, normal_barrier],
     );
   }
 
@@ -348,6 +358,7 @@ impl ForwardPass {
       BindableResource::Texture {
         binding: BINDING_INDEX_DIFFUSE_TEXTURE,
         texture: &entity.material.albedo_tex,
+        image_view: None,
         sampler: vk_app.default_texture_sampler_linear,
       },
       BindableResource::Texture {
@@ -357,6 +368,7 @@ impl ForwardPass {
           .specular_tex
           .as_ref()
           .unwrap_or(&self.dummy_data_texture),
+        image_view: None,
         sampler: vk_app.default_texture_sampler_nearest,
       },
       BindableResource::Texture {
@@ -366,6 +378,7 @@ impl ForwardPass {
           .hair_shadow_tex
           .as_ref()
           .unwrap_or(&self.dummy_data_texture),
+        image_view: None,
         sampler: vk_app.default_texture_sampler_nearest,
       },
     ];
@@ -388,6 +401,7 @@ impl ForwardPass {
       vk::ImageTiling::OPTIMAL,
       vk::ImageUsageFlags::SAMPLED,
       vk::ImageAspectFlags::COLOR,
+      vk::MemoryPropertyFlags::DEVICE_LOCAL,
     );
     dummy_data_texture.force_image_layout(vk_app, vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL);
 
@@ -396,7 +410,9 @@ impl ForwardPass {
 }
 
 pub struct ForwardPassFramebuffer {
-  pub depth_tex: VkTexture,
+  pub depth_stencil_tex: VkTexture,
+  /// Used to read only depth from `depth_stencil_tex`
+  pub depth_image_view: vk::ImageView,
   pub diffuse_tex: VkTexture,
   pub normals_tex: VkTexture,
   pub fbo: vk::Framebuffer,
@@ -408,7 +424,8 @@ impl ForwardPassFramebuffer {
     let allocator = &vk_app.allocator;
 
     device.destroy_framebuffer(self.fbo, None);
-    self.depth_tex.delete(device, allocator);
+    device.destroy_image_view(self.depth_image_view, None);
+    self.depth_stencil_tex.delete(device, allocator);
     self.diffuse_tex.delete(device, allocator);
     self.normals_tex.delete(device, allocator);
   }

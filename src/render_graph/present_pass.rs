@@ -208,11 +208,13 @@ impl PresentPass {
       BindableResource::Texture {
         binding: BINDING_INDEX_TONEMAPPED_RESULT,
         texture: tonemapped_result,
+        image_view: None,
         sampler: vk_app.default_texture_sampler_nearest,
       },
       BindableResource::Texture {
         binding: BINDING_INDEX_NORMALS,
         texture: &normals_texture,
+        image_view: None,
         sampler: vk_app.default_texture_sampler_nearest,
       },
     ];
@@ -239,19 +241,14 @@ impl PresentPass {
     tonemapped_result: &mut VkTexture,
     normals_texture: &mut VkTexture,
   ) {
-    let tonemapped_barrier = tonemapped_result.prepare_for_layout_transition(
-      vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
-      vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
-      vk::AccessFlags::SHADER_READ,
-    );
-    let normals_barrier = normals_texture.prepare_for_layout_transition(
-      vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
-      vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
-      vk::AccessFlags::SHADER_READ,
-    );
+    let tonemapped_barrier = tonemapped_result.barrier_prepare_attachment_for_shader_read();
+    let normals_barrier = normals_texture.barrier_prepare_attachment_for_shader_read();
+
     device.cmd_pipeline_barrier(
       *command_buffer,
+      // wait for this
       vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
+      // before we execute fragment shader
       vk::PipelineStageFlags::FRAGMENT_SHADER,
       vk::DependencyFlags::empty(),
       &[],

@@ -106,6 +106,7 @@ pub enum BindableResource<'a> {
   Texture {
     binding: u32,
     texture: &'a VkTexture,
+    image_view: Option<vk::ImageView>,
     sampler: vk::Sampler,
   },
 }
@@ -143,10 +144,12 @@ pub unsafe fn bind_resources_to_descriptors(
           binding,
           texture,
           sampler,
+          image_view,
         } => {
+          let iv: vk::ImageView = image_view.unwrap_or(texture.image_view());
           image_infos.push(vk::DescriptorImageInfo {
             image_layout: texture.layout,
-            image_view: texture.image_view(),
+            image_view: iv,
             sampler: *sampler,
           });
           let data_slice = &image_infos[(image_infos.len() - 1)..image_infos.len()];
