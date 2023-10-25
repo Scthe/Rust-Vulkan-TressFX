@@ -2,10 +2,9 @@ use bytemuck;
 use glam::{vec4, Mat4, Vec3, Vec4};
 
 use crate::{
-  config::{
-    spherical_to_cartesian_dgr, ColorGradingProp, Config, LightAmbient, LightCfg, SSAOConfig,
-  },
+  config::{ColorGradingProp, Config, LightAmbient, LightCfg, SSAOConfig},
   scene::Camera,
+  utils::spherical_to_cartesian_dgr,
   vk_ctx::VkCtx,
 };
 

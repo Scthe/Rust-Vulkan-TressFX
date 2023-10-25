@@ -18,6 +18,7 @@ mod app_ui;
 mod config;
 mod render_graph;
 mod scene;
+mod utils;
 mod vk_ctx;
 mod vk_utils;
 

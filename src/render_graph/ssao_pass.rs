@@ -1,11 +1,9 @@
 use ash;
 use ash::vk;
-use glam::Vec3;
 use log::info;
-use rand::rngs::ThreadRng;
-use rand::Rng;
 
 use crate::config::{Config, SSAOConfig};
+use crate::utils::RngVectorGenerator;
 use crate::vk_ctx::VkCtx;
 use crate::vk_utils::*;
 
@@ -41,9 +39,11 @@ pub struct SSAOPass {
   pipeline: vk::Pipeline,
   pipeline_layout: vk::PipelineLayout,
   uniforms_layout: vk::DescriptorSetLayout,
-  /// Random vectors used to create tangent-bitangent-normal coordinate system
+  /// Random unit vectors used to create tangent-bitangent-normal coordinate system.
   rng_vectors_texture: VkTexture,
-  /// Sampling vectors from currently shaded point
+  /// Sampling vectors from currently shaded point.
+  /// Not unit vectors, we want to sample not only the 'shell' of the hemisphere
+  /// around us, but it's content.
   rng_sample_directions_kernel: VkBuffer,
 }
 
@@ -341,16 +341,8 @@ fn create_random_sampling_texture(vk_app: &VkCtx, size_px: u32) -> VkTexture {
 fn create_random_sampling_texture_data(size: vk::Extent2D) -> Vec<u8> {
   let mut rng = RngVectorGenerator::new();
 
-  VkTexture::create_texture_bytes(size, |_, _, idx| {
-    let mut tmp = rng.generate_rng_hemisphere_vector();
-
-    // get_random_point_in_hemisphere
-    // ATM points lie on edge of sphere, randomize then inside
-    let kernel_size: f32 = (size.width * size.height) as _;
-    let mut scale_fac = (idx as f32) / kernel_size;
-    scale_fac = 0.1 + 0.9 * scale_fac * scale_fac; // lerp(0.1, 1.0, scale_fac * scale_fac);
-    tmp = tmp * scale_fac;
-
+  VkTexture::create_texture_bytes(size, |_, _, _| {
+    let tmp = rng.generate_rng_hemisphere_vector();
     vec![tmp[0], tmp[1], tmp[2]]
   })
 }
@@ -360,13 +352,8 @@ fn create_random_directions_kernel(vk_app: &VkCtx, count: u32) -> VkBuffer {
   let mut data: Vec<f32> = Vec::with_capacity(count as _);
 
   (0..count).for_each(|idx| {
-    let mut tmp = rng.generate_rng_hemisphere_vector();
-
-    // get_random_point_in_hemisphere
-    // ATM points lie on edge of sphere, randomize then inside
-    let mut scale_fac = (idx as f32) / (count as f32);
-    scale_fac = 0.1 + 0.9 * scale_fac * scale_fac; // lerp(0.1, 1.0, scale_fac * scale_fac);
-    tmp = tmp * scale_fac;
+    let weight = (idx as f32) / (count as f32);
+    let tmp = rng.generate_rng_hemisphere_point(weight);
     data.push(tmp[0]);
     data.push(tmp[1]);
     data.push(tmp[2]);
@@ -380,27 +367,4 @@ fn create_random_directions_kernel(vk_app: &VkCtx, count: u32) -> VkBuffer {
     &vk_app.allocator,
     vk_app.device.queue_family_index,
   )
-}
-
-struct RngVectorGenerator {
-  rng: ThreadRng,
-}
-
-impl RngVectorGenerator {
-  pub fn new() -> Self {
-    Self {
-      rng: rand::thread_rng(),
-    }
-  }
-
-  /// Get random direction in hemisphere.
-  /// Not exactly uniform distribution, but meh..
-  pub fn generate_rng_hemisphere_vector(&mut self) -> Vec3 {
-    let tmp = glam::vec3(
-      self.rng.gen::<f32>() * 2.0 - 1.0, // [-1, 1]
-      self.rng.gen::<f32>() * 2.0 - 1.0, // [-1, 1]
-      self.rng.gen::<f32>(),             // [0, 1], HEMIsphere, not full sphere
-    );
-    tmp.normalize()
-  }
 }
