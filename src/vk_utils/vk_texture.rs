@@ -252,6 +252,7 @@ impl VkTexture {
   /// in subsequent commands.
   ///
   /// ## Docs
+  /// * https://github.com/KhronosGroup/Vulkan-Docs/wiki/Synchronization-Examples-(Legacy-synchronization-APIs)
   /// * https://www.khronos.org/blog/understanding-vulkan-synchronization
   /// * https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkAccessFlagBits.html
   /// * https://vulkan-tutorial.com/Texture_mapping/Images#page_Transition-barrier-masks
@@ -308,7 +309,7 @@ impl VkTexture {
       self.barrier_prepare_for_layout_transition(
         vk::ImageLayout::DEPTH_STENCIL_READ_ONLY_OPTIMAL,
         vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE, // prev op
-        vk::AccessFlags::SHADER_READ,                    // our op
+        vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_READ,  // our op
       )
     } else {
       panic!("Tried to transition texture {} for shader read, but it's neither color or depth-stencil texture.", self.get_name());
@@ -319,14 +320,14 @@ impl VkTexture {
     if self.is_color() {
       self.barrier_prepare_for_layout_transition(
         vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
-        vk::AccessFlags::COLOR_ATTACHMENT_WRITE, // prev op
-        vk::AccessFlags::SHADER_READ,            // our op TODO ???
+        vk::AccessFlags::SHADER_READ,            // prev op
+        vk::AccessFlags::COLOR_ATTACHMENT_WRITE, // our op
       )
     } else if self.is_depth_stencil() {
       self.barrier_prepare_for_layout_transition(
         vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-        vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE, // prev op ??? DEPTH_STENCIL_ATTACHMENT_READ
-        vk::AccessFlags::SHADER_READ,                    // our op TODO ???
+        vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_READ, // prev op
+        vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE, // our op
       )
     } else {
       panic!("Tried to transition texture {} for shader write, but it's neither color or depth-stencil texture.", self.get_name());

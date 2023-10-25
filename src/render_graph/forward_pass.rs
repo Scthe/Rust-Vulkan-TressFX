@@ -329,11 +329,12 @@ impl ForwardPass {
 
     device.cmd_pipeline_barrier(
       *command_buffer,
-      // wait for this
-      vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT
-        | vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS,
-      // before we execute fragment shader
+      // wait for previous use in:
       vk::PipelineStageFlags::FRAGMENT_SHADER,
+      // before we: execute depth test or write output
+      vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS
+        | vk::PipelineStageFlags::LATE_FRAGMENT_TESTS
+        | vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
       vk::DependencyFlags::empty(),
       &[],
       &[],

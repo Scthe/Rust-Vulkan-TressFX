@@ -222,20 +222,31 @@ impl TonemappingPass {
     previous_result: &mut VkTexture,
   ) {
     let source_barrier = previous_result.barrier_prepare_attachment_for_shader_read();
-    let result_barrier = framebuffer
-      .tonemapped_tex
-      .barrier_prepare_attachment_for_write();
-
     device.cmd_pipeline_barrier(
       *command_buffer,
-      // wait for this
+      // wait for previous use in:
       vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
-      // before we execute fragment shader
+      // before we: execute fragment shader
       vk::PipelineStageFlags::FRAGMENT_SHADER,
       vk::DependencyFlags::empty(),
       &[],
       &[],
-      &[result_barrier, source_barrier],
+      &[source_barrier],
+    );
+
+    let result_barrier = framebuffer
+      .tonemapped_tex
+      .barrier_prepare_attachment_for_write();
+    device.cmd_pipeline_barrier(
+      *command_buffer,
+      // wait for previous use in:
+      vk::PipelineStageFlags::FRAGMENT_SHADER,
+      // before we: write
+      vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
+      vk::DependencyFlags::empty(),
+      &[],
+      &[],
+      &[result_barrier],
     );
   }
 }

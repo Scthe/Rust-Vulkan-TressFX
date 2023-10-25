@@ -246,9 +246,11 @@ impl PresentPass {
 
     device.cmd_pipeline_barrier(
       *command_buffer,
-      // wait for this
-      vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
-      // before we execute fragment shader
+      // wait for previous use in:
+      vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT
+        | vk::PipelineStageFlags::LATE_FRAGMENT_TESTS
+        | vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS,
+      // before we: execute fragment shader
       vk::PipelineStageFlags::FRAGMENT_SHADER,
       vk::DependencyFlags::empty(),
       &[],

@@ -25,13 +25,9 @@ const SHADER_PATHS: (&str, &str) = (
 
 /*
 TODOs
-1. split config into subfolder, use default trait
-  1.1 investigate texture write barriers, the stages are reversed?
-  1.2 move render_graph to main dir
-  1.3? scene too?
-2. draw as debug display mode
-3. make it work
-4. use in forward pass
+1. draw as debug display mode
+2. make it work
+3. use in forward pass
 */
 
 pub struct SSAOPass {
@@ -245,20 +241,31 @@ impl SSAOPass {
   ) {
     let depth_barrier = depth_stencil_tex.barrier_prepare_attachment_for_shader_read();
     let normals_barrier = normals_tex.barrier_prepare_attachment_for_shader_read();
-    let result_barrier = framebuffer.ssao_tex.barrier_prepare_attachment_for_write();
-
     device.cmd_pipeline_barrier(
       *command_buffer,
-      // wait for this
+      // wait for previous use in:
       vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT
         | vk::PipelineStageFlags::LATE_FRAGMENT_TESTS
         | vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS,
-      // before we execute fragment shader
+      // before we: execute fragment shader
       vk::PipelineStageFlags::FRAGMENT_SHADER,
       vk::DependencyFlags::empty(),
       &[],
       &[],
-      &[depth_barrier, normals_barrier, result_barrier],
+      &[depth_barrier, normals_barrier],
+    );
+
+    let result_barrier = framebuffer.ssao_tex.barrier_prepare_attachment_for_write();
+    device.cmd_pipeline_barrier(
+      *command_buffer,
+      // wait for previous use in:
+      vk::PipelineStageFlags::FRAGMENT_SHADER,
+      // before we: write
+      vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
+      vk::DependencyFlags::empty(),
+      &[],
+      &[],
+      &[result_barrier],
     );
   }
 

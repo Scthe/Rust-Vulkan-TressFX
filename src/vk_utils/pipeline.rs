@@ -45,6 +45,7 @@ pub fn create_pipeline(
   }
 }
 
+// Alternatively, create PipelineBuilderWithDefaults that wraps `vk::GraphicsPipelineCreateInfoBuilder` and provides 2-3 fns that actually are used
 pub fn create_pipeline_with_defaults(
   device: &ash::Device,
   render_pass: &vk::RenderPass,
