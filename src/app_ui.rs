@@ -7,7 +7,9 @@ use lazy_static::lazy_static;
 use winit::event::Event;
 
 use crate::{
-  config::{ColorGradingPerRangeSettings, ColorGradingProp, Config, PostFxCfg, TonemappingMode},
+  config::{
+    ColorGradingPerRangeSettings, ColorGradingProp, Config, PostFxCfg, SSAOConfig, TonemappingMode,
+  },
   vk_ctx::VkCtx,
 };
 
@@ -97,6 +99,7 @@ impl AppUI {
           Self::draw_general_ui(ui, config);
           ui.spacing();
 
+          Self::draw_ssao(ui, &mut config.ssao);
           let postfx = &mut config.postfx;
           Self::draw_post_fx(ui, postfx);
           {
@@ -137,6 +140,41 @@ impl AppUI {
         }
       },
     );
+
+    push_token.end();
+  }
+
+  fn draw_ssao(ui: &Ui, ssao: &mut SSAOConfig) {
+    let push_token = ui.push_id("ssao");
+
+    if ui.collapsing_header("SSAO", *HEADER_FLAGS) {
+      next_widget_small(ui);
+      ui.slider(
+        "Kernel size",
+        1,
+        SSAOConfig::MAX_KERNEL_VALUES,
+        &mut ssao.kernel_size,
+      );
+      next_widget_small(ui);
+      ui.slider("Radius", 0.1, 3.0, &mut ssao.radius);
+      next_widget_small(ui);
+      ui.slider("Bias", 0.0, 0.1, &mut ssao.bias);
+      next_widget_small(ui);
+      ui.slider("Blur radius", 0, 9, &mut ssao.blur_radius);
+      next_widget_small(ui);
+      ui.slider("Blur gauss sigma", 1.0, 6.0, &mut ssao.blur_gauss_sigma); // delta 0.1
+      next_widget_small(ui);
+      ui.slider(
+        "Blur depth diff",
+        0.01,
+        0.4,
+        &mut ssao.blur_max_depth_distance,
+      );
+      next_widget_small(ui);
+      ui.slider("AO strength", 0.0, 1.0, &mut ssao.ao_strength); // delta 0.01
+      next_widget_small(ui);
+      ui.slider("AO exp", 0.0, 5.0, &mut ssao.ao_exp); // delta 0.1
+    }
 
     push_token.end();
   }

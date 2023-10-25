@@ -17,6 +17,8 @@ debug = 0
 
 
 [dependencies]
+# -- part of std lib, but rust is...
+rand = "*"
 # --LOGGING
 log = "^0.4"
 simple_logger = "^1.11.0"

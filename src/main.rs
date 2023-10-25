@@ -54,7 +54,7 @@ fn main() {
   info!("Scene init: OK!");
 
   // render graph
-  let mut render_graph = RenderGraph::new(&vk_app);
+  let mut render_graph = RenderGraph::new(&vk_app, &config);
   info!("Render Graph init: OK!");
 
   // ui

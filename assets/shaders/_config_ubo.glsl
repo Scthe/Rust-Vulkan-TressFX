@@ -2,6 +2,9 @@ layout(binding = 0)
 uniform GlobalConfigUniformBuffer {
   vec3 u_cameraPosition;
   vec4 u_viewportAndNearFar;
+  mat4 u_viewMat;
+  mat4 u_projection;
+  mat4 u_invProjectionMat; // inverse projection matrix
   // ao
   // float u_aoStrength;
   // float u_aoExp;
@@ -21,6 +24,9 @@ uniform GlobalConfigUniformBuffer {
   vec4 u_light1_Color;
   vec3 u_light2_Position;
   vec4 u_light2_Color;
+  // SSAO
+  vec4 u_ssao;
+  vec4 u_ssao2;
   // FXAA
   vec4 u_fxaaSettings;
   // Color correction
@@ -70,3 +76,7 @@ uniform GlobalConfigUniformBuffer {
 #define u_tonemappingMode (int(u_tonemapping2.y + 0.5))
 #define u_colorCorrectionShadowsMax (u_tonemapping2.z)
 #define u_colorCorrectionHighlightsMin (u_tonemapping2.w)
+#define u_noiseScale (u_ssao.xy)
+#define u_radius (u_ssao.z)
+#define u_bias (u_ssao.w)
+#define u_kernelSize (int(u_ssao2.x) + 0.5)

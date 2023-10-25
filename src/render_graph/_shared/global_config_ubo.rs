@@ -1,8 +1,10 @@
 use bytemuck;
-use glam::{vec4, Vec3, Vec4};
+use glam::{vec4, Mat4, Vec3, Vec4};
 
 use crate::{
-  config::{spherical_to_cartesian_dgr, ColorGradingProp, Config, LightAmbient, LightCfg},
+  config::{
+    spherical_to_cartesian_dgr, ColorGradingProp, Config, LightAmbient, LightCfg, SSAOConfig,
+  },
   scene::Camera,
   vk_ctx::VkCtx,
 };
@@ -13,6 +15,9 @@ use crate::{
 pub struct GlobalConfigUBO {
   pub u_camera_position: Vec3,
   pub u_viewport_and_near_far: Vec4,
+  pub u_view_mat: Mat4,
+  pub u_projection: Mat4,
+  pub u_inv_projection_mat: Mat4, // inverse projection matrix
   // Shadow
   // vec4 u_directionalShadowCasterPosition; // [position.xyz, bias (negative if pcss)]
   // int u_directionalShadowSampleRadius;
@@ -28,6 +33,9 @@ pub struct GlobalConfigUBO {
   pub u_light1_color: Vec4,
   pub u_light2_position: Vec3,
   pub u_light2_color: Vec4,
+  // SSAO
+  pub u_ssao: Vec4,
+  pub u_ssao2: Vec4,
   // FXAA
   pub u_fxaa_settings: Vec4,
   // Color correction
@@ -65,6 +73,7 @@ impl GlobalConfigUBO {
     let cam_cfg = &config.camera;
     let postfx = &config.postfx;
     let color_grading = &postfx.color_grading;
+    let ssao_vp = config.get_ssao_viewport_size();
 
     GlobalConfigUBO {
       u_camera_position: camera.position(),
@@ -74,6 +83,9 @@ impl GlobalConfigUBO {
         cam_cfg.z_near,
         cam_cfg.z_far,
       ),
+      u_view_mat: *camera.view_matrix(),
+      u_projection: *camera.perspective_matrix(),
+      u_inv_projection_mat: camera.perspective_matrix().inverse(),
       u_ao_and_shadow_contrib: Vec4::new(0.0, 0.0, config.shadows.strength, 1.0),
       // lights
       u_light_ambient: light_ambient(&config.light_ambient),
@@ -83,6 +95,14 @@ impl GlobalConfigUBO {
       u_light1_color: light_color(&config.light1),
       u_light2_position: light_pos(&config.light2),
       u_light2_color: light_color(&config.light2),
+      // SSAO
+      u_ssao: vec4(
+        (ssao_vp.width / SSAOConfig::RNG_VECTOR_TEXTURE_SIZE) as _,
+        (ssao_vp.height / SSAOConfig::RNG_VECTOR_TEXTURE_SIZE) as _,
+        config.ssao.radius,
+        config.ssao.bias,
+      ),
+      u_ssao2: vec4(config.ssao.kernel_size as f32, 0.0, 0.0, 0.0),
       // FXAA
       u_fxaa_settings: vec4(
         postfx.subpixel,

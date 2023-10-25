@@ -14,10 +14,12 @@ use crate::vk_utils::*;
 mod _shared;
 mod forward_pass;
 mod present_pass;
+mod ssao_pass;
 mod tonemapping_pass;
 
 pub use self::_shared::*;
 use self::forward_pass::{ForwardPass, ForwardPassFramebuffer};
+use self::ssao_pass::{SSAOPass, SSAOPassFramebuffer};
 use self::tonemapping_pass::{TonemappingPass, TonemappingPassFramebuffer};
 use self::{_shared::GlobalConfigUBO, present_pass::PresentPass};
 
@@ -32,12 +34,13 @@ pub struct RenderGraph {
 
   // passes
   forward_pass: ForwardPass,
+  ssao_pass: SSAOPass,
   tonemapping_pass: TonemappingPass,
   present_pass: PresentPass,
 }
 
 impl RenderGraph {
-  pub fn new(vk_app: &VkCtx) -> Self {
+  pub fn new(vk_app: &VkCtx, config: &Config) -> Self {
     let image_format = vk_app.swapchain.surface_format.format;
     let in_flight_frames = vk_app.frames_in_flight();
 
@@ -46,6 +49,7 @@ impl RenderGraph {
 
     // create passes
     let forward_pass = ForwardPass::new(vk_app);
+    let ssao_pass = SSAOPass::new(vk_app);
     let tonemapping_pass = TonemappingPass::new(vk_app);
     let present_pass = PresentPass::new(vk_app, image_format);
 
@@ -53,13 +57,14 @@ impl RenderGraph {
       config_uniform_buffers,
       framebuffers: Vec::with_capacity(in_flight_frames),
       forward_pass,
+      ssao_pass,
       tonemapping_pass,
       present_pass,
     };
 
     // framebuffers
     info!("Creating framebuffers - one for each frame in flight");
-    render_graph.initialize_framebuffers(vk_app);
+    render_graph.initialize_framebuffers(vk_app, config);
     render_graph
   }
 
@@ -69,12 +74,14 @@ impl RenderGraph {
     // passes
     self.present_pass.destroy(device);
     self.tonemapping_pass.destroy(device);
+    self.ssao_pass.destroy(vk_app);
     self.forward_pass.destroy(vk_app);
 
     // framebuffers
     self.framebuffers.iter_mut().for_each(|framebuffer| {
       device.destroy_framebuffer(framebuffer.present_pass, None);
       framebuffer.forward_pass.destroy(vk_app);
+      framebuffer.ssao_pass.destroy(vk_app);
       framebuffer.tonemapping_pass.destroy(vk_app);
     });
 
@@ -171,6 +178,16 @@ impl RenderGraph {
       .forward_pass
       .execute(&pass_ctx, &mut framebuffers.forward_pass);
 
+    // ssao
+    RenderGraph::debug_start_pass(&pass_ctx, "ssao_pass");
+    self.ssao_pass.execute(
+      &pass_ctx,
+      &mut framebuffers.ssao_pass,
+      &mut framebuffers.forward_pass.depth_stencil_tex,
+      framebuffers.forward_pass.depth_image_view,
+      &mut framebuffers.forward_pass.normals_tex,
+    );
+
     // color grading + tonemapping
     RenderGraph::debug_start_pass(&pass_ctx, "tonemapping_pass");
     self.tonemapping_pass.execute(
@@ -255,7 +272,7 @@ impl RenderGraph {
     });
   }
 
-  fn initialize_framebuffers(&mut self, vk_app: &VkCtx) {
+  fn initialize_framebuffers(&mut self, vk_app: &VkCtx, config: &Config) {
     let swapchain_image_views = &vk_app.swapchain.image_views;
     let window_size = &vk_app.window_size();
 
@@ -266,6 +283,7 @@ impl RenderGraph {
         let forward_pass = self
           .forward_pass
           .create_framebuffer(vk_app, frame_id, window_size);
+        let ssao_pass = self.ssao_pass.create_framebuffer(vk_app, frame_id, config);
         let tonemapping_pass =
           self
             .tonemapping_pass
@@ -273,8 +291,10 @@ impl RenderGraph {
         let present_pass = self
           .present_pass
           .create_framebuffer(vk_app, iv, window_size);
+
         self.framebuffers.push(FrameFramebuffers {
           forward_pass,
+          ssao_pass,
           tonemapping_pass,
           present_pass,
         });
@@ -305,6 +325,7 @@ fn allocate_config_uniform_buffers(vk_app: &VkCtx, in_flight_frames: usize) -> V
 
 struct FrameFramebuffers {
   forward_pass: ForwardPassFramebuffer,
+  ssao_pass: SSAOPassFramebuffer,
   tonemapping_pass: TonemappingPassFramebuffer,
   present_pass: vk::Framebuffer,
 }

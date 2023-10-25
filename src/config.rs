@@ -3,6 +3,8 @@ use ash::vk;
 use glam::{vec2, vec3, Vec2, Vec3};
 use mint::Vector3;
 
+// TODO refactor this into subdir, use Default trait
+
 pub struct LightAmbient {
   pub color: Vec3,
   pub energy: f32,
@@ -36,6 +38,27 @@ pub enum TonemappingMode {
   Uncharted2 = 2,
   Photographic = 3,
   AcesUe4 = 4,
+}
+
+pub struct SSAOConfig {
+  /// - 2 - half-res
+  /// - 4 - quater-res
+  pub texture_size_div: u32,
+  pub kernel_size: u32,
+  pub radius: f32,
+  pub bias: f32,
+  pub blur_radius: usize,
+  pub blur_gauss_sigma: f32,
+  pub blur_max_depth_distance: f32,
+  /// only meshes
+  pub ao_strength: f32,
+  /// only meshes
+  pub ao_exp: f32,
+}
+
+impl SSAOConfig {
+  pub const RNG_VECTOR_TEXTURE_SIZE: u32 = 4;
+  pub const MAX_KERNEL_VALUES: u32 = 256;
 }
 
 pub struct ColorGradingProp {
@@ -125,6 +148,8 @@ pub struct Config {
   pub light2: LightCfg,
   // shadows
   pub shadows: ShadowsConfig,
+  // ssao
+  pub ssao: SSAOConfig,
   // postfx
   pub postfx: PostFxCfg,
   // misc
@@ -184,6 +209,18 @@ impl Config {
       energy: 0.55,
     };
 
+    let ssao = SSAOConfig {
+      texture_size_div: 2,
+      kernel_size: 24,
+      radius: 0.5,
+      bias: 0.025,
+      blur_radius: 7,
+      blur_gauss_sigma: 3.0,
+      blur_max_depth_distance: 0.06,
+      ao_strength: 0.3,
+      ao_exp: 3.0,
+    };
+
     let postfx = PostFxCfg {
       dither_strength: 1.5,
       // tonemapping
@@ -229,10 +266,19 @@ impl Config {
       light0,
       light1,
       light2,
+      // ssao
+      ssao,
       // shadows
       shadows: ShadowsConfig { strength: 0.7 },
       // postfx
       postfx,
+    }
+  }
+
+  pub fn get_ssao_viewport_size(&self) -> vk::Extent2D {
+    vk::Extent2D {
+      width: (self.window_width as u32) / self.ssao.texture_size_div,
+      height: (self.window_height as u32) / self.ssao.texture_size_div,
     }
   }
 
