@@ -17,15 +17,16 @@ layout(binding = 1)
 uniform sampler2D u_tonemappedTex; // TODO usampler2D
 layout(binding = 2)
 uniform usampler2D u_normalsTex;
+layout(binding = 3)
+uniform sampler2D u_ssaoTex;
 // layout(binding = 3)
 // uniform sampler2D u_linearDepthTex;
-// layout(binding = 4)
-// uniform sampler2D u_ssaoTex;
 
 const int DISPLAY_MODE_FINAL = 0;
 const int DISPLAY_MODE_NORMALS = 1;
-// const int DISPLAY_MODE_LINEAR_DEPTH = 2;
-// const int DISPLAY_MODE_SSAO = 3;
+const int DISPLAY_MODE_LUMA = 2;
+const int DISPLAY_MODE_SSAO = 3;
+// const int DISPLAY_MODE_LINEAR_DEPTH = 4;
 
 layout(location = 0) in vec2 v_position;
 layout(location = 0) out vec4 color1;
@@ -63,18 +64,26 @@ void main() {
       result = abs(normal);
       break;
     }
+    
+    case DISPLAY_MODE_LUMA: {
+      vec2 uv = fixOpenGLTextureCoords_AxisY(v_position);
+      float luma = texture(u_tonemappedTex, uv).a;
+      result = vec3(luma, luma, luma);
+      break;
+    }
+
+    case DISPLAY_MODE_SSAO: {
+      vec2 uv = fixOpenGLTextureCoords_AxisY(v_position);
+      float ssao = texture(u_ssaoTex, uv).r;
+      result = vec3(ssao, ssao, ssao);
+      break;
+    }
+    
     /*
     case DISPLAY_MODE_LINEAR_DEPTH: {
       float depth = texture(u_linearDepthTex, uv).r;
       float d = u_nearAndFar.y - u_nearAndFar.x;
       result = vec3(depth / d);
-      break;
-    }
-
-
-    case DISPLAY_MODE_SSAO: {
-      float ssao = texture(u_ssaoTex, uv).r;
-      result = vec3(ssao);
       break;
     }
     */

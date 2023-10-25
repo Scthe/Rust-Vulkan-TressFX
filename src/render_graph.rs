@@ -204,6 +204,7 @@ impl RenderGraph {
       app_ui,
       &mut framebuffers.tonemapping_pass.tonemapped_tex,
       &mut framebuffers.forward_pass.normals_tex,
+      &mut framebuffers.ssao_pass.ssao_tex,
     );
 
     unsafe {

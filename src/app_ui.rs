@@ -4,11 +4,13 @@ use imgui::{ColorEditFlags, Condition, Context, TreeNodeFlags, Ui};
 use imgui_rs_vulkan_renderer::{Options, Renderer};
 use imgui_winit_support::{HiDpiMode, WinitPlatform};
 use lazy_static::lazy_static;
+use std::borrow::Cow;
 use winit::event::Event;
 
 use crate::{
   config::{
-    ColorGradingPerRangeSettings, ColorGradingProp, Config, PostFxCfg, SSAOConfig, TonemappingMode,
+    ColorGradingPerRangeSettings, ColorGradingProp, Config, DisplayMode, PostFxCfg, SSAOConfig,
+    TonemappingMode,
   },
   vk_ctx::VkCtx,
 };
@@ -131,13 +133,17 @@ impl AppUI {
     ui.combo(
       "Display mode",
       &mut config.display_mode,
-      &[Config::DISPLAY_MODE_FINAL, Config::DISPLAY_MODE_NORMALS],
-      |idx| {
-        if *idx == Config::DISPLAY_MODE_NORMALS {
-          std::borrow::Cow::Borrowed("Normals")
-        } else {
-          std::borrow::Cow::Borrowed("Final")
-        }
+      &[
+        DisplayMode::Final,
+        DisplayMode::Normals,
+        DisplayMode::Luma,
+        DisplayMode::SSAO,
+      ],
+      |idx| match *idx {
+        DisplayMode::Normals => Cow::Borrowed("Normals"),
+        DisplayMode::Luma => Cow::Borrowed("Luma"),
+        DisplayMode::SSAO => Cow::Borrowed("SSAO"),
+        _ => Cow::Borrowed("Final"),
       },
     );
 
@@ -235,11 +241,11 @@ impl AppUI {
           TonemappingMode::AcesUe4,
         ],
         |idx| match *idx {
-          TonemappingMode::Linear => std::borrow::Cow::Borrowed("Linear"),
-          TonemappingMode::Reinhard => std::borrow::Cow::Borrowed("Reinhard"),
-          TonemappingMode::Uncharted2 => std::borrow::Cow::Borrowed("Uncharted2"),
-          TonemappingMode::Photographic => std::borrow::Cow::Borrowed("Photographic"),
-          _ => std::borrow::Cow::Borrowed("ACES_UE4"),
+          TonemappingMode::Linear => Cow::Borrowed("Linear"),
+          TonemappingMode::Reinhard => Cow::Borrowed("Reinhard"),
+          TonemappingMode::Uncharted2 => Cow::Borrowed("Uncharted2"),
+          TonemappingMode::Photographic => Cow::Borrowed("Photographic"),
+          _ => Cow::Borrowed("ACES_UE4"),
         },
       );
 

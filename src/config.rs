@@ -13,11 +13,19 @@ pub mod postfx;
 pub mod shadows;
 pub mod ssao;
 
+// Must match consts in `present.frag.glsl`.
+pub enum DisplayMode {
+  Final = 0,
+  Normals = 1,
+  Luma = 2,
+  SSAO = 3,
+}
+
 /// https://github.com/Scthe/WebFX/blob/master/src/Config.ts
 pub struct Config {
   /// crash program after first frame to read init errors
   pub only_first_frame: bool,
-  /// debug display mode, see UISystem for modes
+  /// debug display mode
   pub display_mode: usize,
   // window
   pub window_width: f64,
@@ -48,11 +56,6 @@ pub struct Config {
 }
 
 impl Config {
-  // Must match consts in `present.frag.glsl`. TODO switch to enum?
-  // TODO add luma/raw render debug
-  pub const DISPLAY_MODE_FINAL: usize = 0;
-  pub const DISPLAY_MODE_NORMALS: usize = 1;
-
   // public readonly stencilConsts = {
   // skin: 1 << 0,
   // hair: 1 << 1,
@@ -63,7 +66,7 @@ impl Config {
 
     Config {
       only_first_frame: false,
-      display_mode: Config::DISPLAY_MODE_FINAL,
+      display_mode: DisplayMode::Final as _,
       // window
       window_width: 800f64,
       window_height: 600f64,

@@ -25,7 +25,6 @@ const SHADER_PATHS: (&str, &str) = (
 
 /*
 TODOs
-1. draw as debug display mode
 2. make it work
 3. use in forward pass
 */
