@@ -23,6 +23,7 @@ run: build_shaders
 	cargo run
 
 # build: clean build_shaders
+# TODO shaders with no debug info
 build:
 	cargo build --release
 

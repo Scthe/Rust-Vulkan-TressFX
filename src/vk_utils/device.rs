@@ -155,7 +155,14 @@ pub fn pick_device_and_queue(
 
   // Arseny:
   // https://github.com/zeux/niagara/blob/master/src/device.cpp#L181
-  let device_extension_names_raw = [Swapchain::name().as_ptr(), PushDescriptor::name().as_ptr()];
+  let shader_non_semantic_info_ext = unsafe {
+    ::std::ffi::CStr::from_bytes_with_nul_unchecked(b"VK_KHR_shader_non_semantic_info\0")
+  };
+  let device_extension_names_raw = [
+    Swapchain::name().as_ptr(),
+    PushDescriptor::name().as_ptr(),
+    shader_non_semantic_info_ext.as_ptr(),
+  ];
 
   let device_create_info = vk::DeviceCreateInfo::builder()
     .queue_create_infos(&[queue_create_infos])

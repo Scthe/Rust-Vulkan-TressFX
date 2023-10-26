@@ -117,6 +117,19 @@ def print_compile_error_line(error_line, shader_lines):
 	if not line_printed:
 		print(error_line)
 
+def add_debug_data(path_glsl, path_spv):
+	# glslangValidator.exe -e main -gVS -V -o "assets/shaders-compiled/ssao.frag.spv" "assets/shaders-compiled/ssao.frag.glsl"
+	result = subprocess.run(
+		["glslangValidator.exe", "-e", "main", "-gVS", "-V", "-o", path_spv, path_glsl],
+		capture_output=True, text=True
+	)
+	if result.returncode == 0:
+		print(f"\tDebug data added")
+	else:
+		print(f"\nError adding debug datacompiling '{clickable_path}'")
+		print(result.stderr)
+		sys.exit(1)
+
 def compile_shader(path, shader_lines):
 	# glslc.exe -O -fshader-stage=frag $< -o $@
 	shader_stage = None
@@ -140,6 +153,7 @@ def compile_shader(path, shader_lines):
 	if result.returncode == 0:
 		# trace(f"\tSuccessully compiled to '{out_path}'")
 		print(f"\tDone, preview: '{clickable_path}'")
+		add_debug_data(path, out_path)
 	else:
 		print(f"\nError compiling '{clickable_path}'")
 		error_lines = result.stderr.split("\n")
