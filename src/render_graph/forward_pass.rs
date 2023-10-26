@@ -202,6 +202,7 @@ impl ForwardPass {
     let depth_stencil_tex = VkTexture::empty(
       device,
       allocator,
+      vk_app,
       format!("ForwardPass.depth#{}", frame_id),
       *size,
       DEPTH_TEXTURE_FORMAT,
@@ -209,10 +210,12 @@ impl ForwardPass {
       vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT | vk::ImageUsageFlags::SAMPLED,
       vk::ImageAspectFlags::DEPTH | vk::ImageAspectFlags::STENCIL,
       vk::MemoryPropertyFlags::DEVICE_LOCAL,
+      vk::ImageLayout::DEPTH_STENCIL_READ_ONLY_OPTIMAL,
     );
     let diffuse_tex = VkTexture::empty(
       device,
       allocator,
+      vk_app,
       format!("ForwardPass.diffuse#{}", frame_id),
       *size,
       DIFFUSE_TEXTURE_FORMAT,
@@ -220,10 +223,12 @@ impl ForwardPass {
       vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED,
       vk::ImageAspectFlags::COLOR,
       vk::MemoryPropertyFlags::DEVICE_LOCAL,
+      vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
     );
     let normals_tex = VkTexture::empty(
       device,
       allocator,
+      vk_app,
       format!("ForwardPass.normal#{}", frame_id),
       *size,
       NORMALS_TEXTURE_FORMAT,
@@ -231,6 +236,7 @@ impl ForwardPass {
       vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED,
       vk::ImageAspectFlags::COLOR,
       vk::MemoryPropertyFlags::DEVICE_LOCAL,
+      vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
     );
 
     let fbo = create_framebuffer(
@@ -390,9 +396,10 @@ impl ForwardPass {
 
   fn create_dummy_texture(vk_app: &VkCtx) -> VkTexture {
     let device = vk_app.vk_device();
-    let mut dummy_data_texture = VkTexture::empty(
+    VkTexture::empty(
       device,
       &vk_app.allocator,
+      vk_app,
       "ForwardPassDummyDataTex".to_string(),
       vk::Extent2D {
         width: 4,
@@ -403,10 +410,8 @@ impl ForwardPass {
       vk::ImageUsageFlags::SAMPLED,
       vk::ImageAspectFlags::COLOR,
       vk::MemoryPropertyFlags::DEVICE_LOCAL,
-    );
-    dummy_data_texture.force_image_layout(vk_app, vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL);
-
-    dummy_data_texture
+      vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+    )
   }
 }
 

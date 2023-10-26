@@ -26,6 +26,7 @@ const SHADER_PATHS: (&str, &str) = (
 /*
 TODOs
 2. make it work
+  2.1 Restore rand vector texture
 3. use in forward pass
 */
 
@@ -160,9 +161,10 @@ impl SSAOPass {
     let allocator = &vk_app.allocator;
     let size = config.get_ssao_viewport_size();
 
-    let ssao_tex = VkTexture::empty(
+    let mut ssao_tex = VkTexture::empty(
       device,
       allocator,
+      vk_app,
       format!("SSAOPass.ssao#{}", frame_id),
       size,
       RESULT_TEXTURE_FORMAT,
@@ -170,6 +172,7 @@ impl SSAOPass {
       vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED,
       vk::ImageAspectFlags::COLOR,
       vk::MemoryPropertyFlags::DEVICE_LOCAL,
+      vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
     );
 
     let fbo = create_framebuffer(device, self.render_pass, &[ssao_tex.image_view()], &size);
@@ -338,8 +341,8 @@ fn create_random_sampling_texture(vk_app: &VkCtx, size_px: u32) -> VkTexture {
     &vk_app.allocator,
     vk_app,
     "SSAOPass.noiseTexture".to_string(),
-    NOISE_TEXTURE_FORMAT,
     size,
+    NOISE_TEXTURE_FORMAT,
     &data_bytes,
   )
 }

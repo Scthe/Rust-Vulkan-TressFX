@@ -21,8 +21,6 @@ const SHADER_PATHS: (&str, &str) = (
   "./assets/shaders-compiled/present.frag.spv",
 );
 
-// TODO check how good FXAA really works
-
 pub struct PresentPass {
   pub render_pass: vk::RenderPass,
   pipeline: vk::Pipeline,

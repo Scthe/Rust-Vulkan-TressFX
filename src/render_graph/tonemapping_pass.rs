@@ -134,6 +134,7 @@ impl TonemappingPass {
     let tonemapped_tex = VkTexture::empty(
       device,
       allocator,
+      vk_app,
       format!("TonemappingPass.tonemapped#{}", frame_id),
       *size,
       RESULT_TEXTURE_FORMAT,
@@ -141,6 +142,7 @@ impl TonemappingPass {
       vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED,
       vk::ImageAspectFlags::COLOR,
       vk::MemoryPropertyFlags::DEVICE_LOCAL,
+      vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
     );
 
     let fbo = create_framebuffer(

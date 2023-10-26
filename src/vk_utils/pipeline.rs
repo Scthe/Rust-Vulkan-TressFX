@@ -220,6 +220,10 @@ fn ps_color_attachments_write_all(
   let write_all = vk::PipelineColorBlendAttachmentState::builder()
     .color_write_mask(vk::ColorComponentFlags::RGBA)
     .blend_enable(false)
+    .src_color_blend_factor(vk::BlendFactor::ONE) // shader output
+    .dst_color_blend_factor(vk::BlendFactor::ZERO) // existing value on destination attachment
+    .src_alpha_blend_factor(vk::BlendFactor::ONE) // shader output
+    .dst_alpha_blend_factor(vk::BlendFactor::ZERO) // existing value on destination attachment
     .build();
 
   let mut attachments =

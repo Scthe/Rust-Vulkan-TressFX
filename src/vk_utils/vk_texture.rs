@@ -36,6 +36,7 @@ impl VkTexture {
   /// As opposed to diffuse/albedo texture that are _SRGB.
   pub const RAW_DATA_TEXTURE_FORMAT: vk::Format = vk::Format::R8G8B8A8_UINT;
 
+  /// ### Params
   /// * `tiling` -  `vk::ImageTiling::OPTIMAL` if uploaded from staging buffer. `vk::ImageTiling::LINEAR` if written from CPU (mapped).
   /// * `usage` - usually `vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED`
   ///     (or `vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT` for depth)
@@ -45,13 +46,15 @@ impl VkTexture {
   pub fn empty(
     device: &ash::Device,
     allocator: &vma::Allocator,
+    app_init: &impl WithSetupCmdBuffer,
     name: String,
     size: vk::Extent2D,
     format: vk::Format,
-    tiling: vk::ImageTiling, // always vk::ImageTiling::OPTIMAL?
+    tiling: vk::ImageTiling,
     usage: vk::ImageUsageFlags,
     aspect: vk::ImageAspectFlags,
     allocation_flags: vk::MemoryPropertyFlags,
+    initial_layout: vk::ImageLayout,
   ) -> VkTexture {
     let create_info = vk::ImageCreateInfo::builder()
       .image_type(vk::ImageType::TYPE_2D)
@@ -64,7 +67,7 @@ impl VkTexture {
       .tiling(tiling)
       .usage(usage)
       // https://stackoverflow.com/questions/76945200/how-to-properly-use-vk-image-layout-preinitialized
-      .initial_layout(vk::ImageLayout::PREINITIALIZED)
+      .initial_layout(vk::ImageLayout::PREINITIALIZED) // required by validation layers
       // verbose properties, but vulkan requires
       .sharing_mode(vk::SharingMode::EXCLUSIVE)
       .samples(vk::SampleCountFlags::TYPE_1)
@@ -86,8 +89,7 @@ impl VkTexture {
     };
 
     let image_view = create_image_view(device, image, create_info.format, aspect);
-
-    VkTexture {
+    let mut texture = VkTexture {
       name: create_texture_name(name, size.width, size.height),
       width: size.width,
       height: size.height,
@@ -98,7 +100,12 @@ impl VkTexture {
       image_view,
       aspect_flags: aspect,
       format,
+    };
+
+    if initial_layout != vk::ImageLayout::PREINITIALIZED {
+      texture.set_initial_image_layout(app_init, initial_layout);
     }
+    texture
   }
 
   /// * `format` - usually `vk::Format::R8G8B8A8_SRGB` for diffuse, but raw data
@@ -137,6 +144,7 @@ impl VkTexture {
     let mut texture = VkTexture::empty(
       device,
       allocator,
+      app_init,
       name_str,
       size,
       format,
@@ -144,6 +152,7 @@ impl VkTexture {
       vk::ImageUsageFlags::SAMPLED,
       vk::ImageAspectFlags::COLOR,
       vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
+      vk::ImageLayout::PREINITIALIZED,
     );
 
     // map image and copy content
@@ -152,7 +161,7 @@ impl VkTexture {
     texture.unmap_memory(allocator);
 
     // change layout after write
-    texture.force_image_layout(app_init, vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL);
+    texture.set_initial_image_layout(app_init, vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL);
 
     texture
   }
@@ -162,8 +171,8 @@ impl VkTexture {
     allocator: &vma::Allocator,
     app_init: &impl WithSetupCmdBuffer,
     name: String,
-    format: vk::Format,
     size: vk::Extent2D,
+    format: vk::Format,
     data_bytes: &Vec<u8>,
   ) -> VkTexture {
     let pixel_cnt = (size.width * size.height) as usize;
@@ -181,6 +190,7 @@ impl VkTexture {
     let mut texture = VkTexture::empty(
       device,
       allocator,
+      app_init,
       name,
       size,
       format,
@@ -188,6 +198,7 @@ impl VkTexture {
       vk::ImageUsageFlags::SAMPLED,
       vk::ImageAspectFlags::COLOR,
       vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
+      vk::ImageLayout::PREINITIALIZED,
     );
 
     // map image and copy content
@@ -196,27 +207,27 @@ impl VkTexture {
     texture.unmap_memory(allocator);
 
     // change layout after write
-    texture.force_image_layout(app_init, vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL);
+    texture.set_initial_image_layout(app_init, vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL);
 
     texture
   }
 
-  pub fn force_image_layout(
+  fn set_initial_image_layout(
     &mut self,
     app_init: &impl WithSetupCmdBuffer,
     target_layout: vk::ImageLayout,
   ) {
+    self.trace_log_layout_transition("[INIT]", target_layout);
     let barrier = self.barrier_prepare_for_layout_transition(
       target_layout,
-      vk::AccessFlags::empty(),     // src_access_mask
-      vk::AccessFlags::SHADER_READ, // dst_access_mask
+      vk::AccessFlags::HOST_WRITE, // src_access_mask
+      vk::AccessFlags::empty(),    // dst_access_mask
     );
 
     // https://vulkan-tutorial.com/Texture_mapping/Images#page_Transition-barrier-masks
     // as early as possible
-    let source_stage = vk::PipelineStageFlags::TOP_OF_PIPE;
-    // do not do any SHADER_READ in FRAGMENT_SHADER before this
-    let destination_stage = vk::PipelineStageFlags::FRAGMENT_SHADER;
+    let source_stage = vk::PipelineStageFlags::HOST;
+    let destination_stage = vk::PipelineStageFlags::TOP_OF_PIPE;
 
     app_init.with_setup_cb(|device, cmd_buf| {
       unsafe {
@@ -262,27 +273,30 @@ impl VkTexture {
   ///     or `SHADER_READ_ONLY_OPTIMAL`
   /// * `src_access_mask` - previous op e.g. `COLOR_ATTACHMENT_WRITE`
   /// * `dst_access_mask` - op we will do e.g. `COLOR_ATTACHMENT_READ`
+  ///
+  /// TODO return Option if layout already matches? What if we want barrier with no layout change (Read-After-Read?)
   pub fn barrier_prepare_for_layout_transition(
     &mut self,
     new_layout: vk::ImageLayout,
     src_access_mask: vk::AccessFlags,
     dst_access_mask: vk::AccessFlags,
   ) -> vk::ImageMemoryBarrier {
-    if DEBUG_LAYOUT_TRANSITIONS {
-      trace!(
-        "VkTexture::LayoutTransition '{}' ({:?} -> {:?})",
-        self.get_name(),
-        self.layout,
-        new_layout
-      );
-    }
+    self.trace_log_layout_transition("", new_layout);
+
+    // Best practices, will require VK_PIPELINE_STAGE_HOST_BIT. Triggered only on the first use.
+    // Please set the texture to proper layout after you create it!
+    let src_access_mask2 = if self.layout == vk::ImageLayout::PREINITIALIZED {
+      vk::AccessFlags::HOST_WRITE
+    } else {
+      src_access_mask
+    };
 
     let barrier = create_image_barrier(
       self.image,
       self.aspect_flags,
       self.layout,
       new_layout,
-      src_access_mask,
+      src_access_mask2,
       dst_access_mask,
     );
 
@@ -303,7 +317,7 @@ impl VkTexture {
       self.barrier_prepare_for_layout_transition(
         vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
         vk::AccessFlags::COLOR_ATTACHMENT_WRITE, // prev op
-        vk::AccessFlags::SHADER_READ,            // our op
+        vk::AccessFlags::SHADER_READ | vk::AccessFlags::INPUT_ATTACHMENT_READ, // our op
       )
     } else if self.is_depth_stencil() {
       self.barrier_prepare_for_layout_transition(
@@ -331,6 +345,18 @@ impl VkTexture {
       )
     } else {
       panic!("Tried to transition texture {} for shader write, but it's neither color or depth-stencil texture.", self.get_name());
+    }
+  }
+
+  fn trace_log_layout_transition(&mut self, tag: &str, new_layout: vk::ImageLayout) {
+    if DEBUG_LAYOUT_TRANSITIONS {
+      trace!(
+        "VkTexture::LayoutTransition {} '{}' ({:?} -> {:?})",
+        tag,
+        self.get_name(),
+        self.layout,
+        new_layout
+      );
     }
   }
 

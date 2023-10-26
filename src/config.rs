@@ -1,6 +1,6 @@
 use ash;
 use ash::vk;
-use glam::{vec3, Vec3};
+use glam::Vec3;
 
 use crate::utils::color_hex_to_vec;
 
@@ -32,7 +32,7 @@ pub struct Config {
   pub window_height: f64,
   // clear colors
   pub clear_color: Vec3,
-  pub clear_normal: Vec3,
+  pub clear_normal: [u32; 4],
   pub clear_depth: f32,
   pub clear_stencil: i8,
   // scene-related
@@ -72,7 +72,7 @@ impl Config {
       window_height: 600f64,
       // clear colors
       clear_color: color_hex_to_vec(clear_col, clear_col, clear_col),
-      clear_normal: vec3(0.0, 0.0, 0.0),
+      clear_normal: [0, 0, 0, 0], // or [1,1,1,1] for performance reasons
       clear_depth: 1.0,
       clear_stencil: 0,
       // scene
@@ -106,10 +106,9 @@ impl Config {
   }
 
   pub fn clear_normals(&self) -> vk::ClearValue {
-    let cc = self.clear_normal;
     vk::ClearValue {
       color: vk::ClearColorValue {
-        float32: [cc[0], cc[1], cc[2], 1f32],
+        uint32: self.clear_normal,
       },
     }
   }

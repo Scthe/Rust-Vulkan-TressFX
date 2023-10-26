@@ -21,7 +21,7 @@ pub fn create_color_attachment(
   .samples(vk::SampleCountFlags::TYPE_1) // single sampled
   .load_op(load_op)
   .store_op(store_op)
-  // .initial_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
+  .initial_layout(final_layout)
   .final_layout(final_layout)
   .build();
 
@@ -49,7 +49,7 @@ pub fn create_depth_stencil_attachment(
   .store_op(depth_store_op)
   .stencil_load_op(stencil_load_op)
   .stencil_store_op(stencil_store_op)
-  // .initial_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
+  .initial_layout(final_layout)
   .final_layout(final_layout)
   .build();
 

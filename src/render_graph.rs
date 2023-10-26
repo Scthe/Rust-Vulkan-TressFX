@@ -300,6 +300,8 @@ impl RenderGraph {
           present_pass,
         });
       });
+
+    transition_window_framebuffers_for_present_khr(vk_app);
   }
 }
 
