@@ -71,12 +71,14 @@ bool outOfScreen (vec2 coord) {
 }
 
 /** https://learnopengl.com/Advanced-OpenGL/Depth-testing */
+/*
 float linearizeDepth(float depth, vec2 nearAndFar) {
   float near = nearAndFar.x;
   float far = nearAndFar.y;
   float z = depth * 2.0 - 1.0; // back to NDC
   return (2.0 * near * far) / (far + near - z * (far - near));
 }
+*/
 
 
 // [0..1] -> [-1..1]
