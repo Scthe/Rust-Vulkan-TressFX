@@ -23,8 +23,8 @@ impl Default for SSAOConfig {
   fn default() -> Self {
     Self {
       texture_size_div: 2,
-      kernel_size: 24,
-      radius: 0.5,
+      kernel_size: 24, // 24?
+      radius: 2.3,     // 0.5?
       bias: 0.025,
       blur_radius: 7,
       blur_gauss_sigma: 3.0,
@@ -34,19 +34,3 @@ impl Default for SSAOConfig {
     }
   }
 }
-
-/*
-  // <editor-fold> SSAO
-  public readonly ssao = {
-    textureSizeMul: 0.5, // half/quater-res, wrt. MSAA
-    kernelSize: 24,
-    radius: 0.5,
-    bias: 0.025,
-    blurRadius: 7.0,
-    blurGaussSigma: 3.0,
-    blurMaxDepthDistance: 0.06,
-    aoStrength: 0.3, // only meshes
-    aoExp: 3, // only meshes
-  };
-  // </editor-fold> // END: SSAO
-*/

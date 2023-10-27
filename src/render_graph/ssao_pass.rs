@@ -24,10 +24,11 @@ const SHADER_PATHS: (&str, &str) = (
 );
 
 /*
-TODOs
-2. make it work
-  2.1 Restore rand vector texture
-3. use in forward pass
+TODOs [CRITICAL]
+- make it work (ATM. some samples seem to use reverted Y-axis? and there is SSAO where there should not be)
+- Restore rand vector texture
+- add blur pass
+- use in forward pass
 */
 
 pub struct SSAOPass {
@@ -161,7 +162,7 @@ impl SSAOPass {
     let allocator = &vk_app.allocator;
     let size = config.get_ssao_viewport_size();
 
-    let mut ssao_tex = VkTexture::empty(
+    let ssao_tex = VkTexture::empty(
       device,
       allocator,
       vk_app,

@@ -79,4 +79,4 @@ uniform GlobalConfigUniformBuffer {
 #define u_noiseScale (u_ssao.xy)
 #define u_radius (u_ssao.z)
 #define u_bias (u_ssao.w)
-#define u_kernelSize (int(u_ssao2.x) + 0.5)
+#define u_kernelSize (int(u_ssao2.x + 0.5))
