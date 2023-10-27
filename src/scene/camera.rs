@@ -65,7 +65,17 @@ impl Camera {
     let v = self.view_matrix();
     let p = self.perspective_matrix();
     let m = model_matrix;
-    p.mul_mat4(&v).mul_mat4(&m)
+    Self::calc_model_view_projection_matrix(&m, v, p)
+  }
+
+  pub fn calc_model_view_projection_matrix(
+    model_matrix: &Mat4,
+    view_matrix: &Mat4,
+    projection_matrix: &Mat4,
+  ) -> Mat4 {
+    projection_matrix
+      .mul_mat4(&view_matrix)
+      .mul_mat4(&model_matrix)
   }
 
   pub fn rotate_yaw_pitch(&mut self, delta_yaw: f32, delta_pitch: f32) {

@@ -40,6 +40,24 @@ impl WorldEntity {
   pub fn get_ubo_buffer(&self, frame_id: usize) -> &VkBuffer {
     &self.model_ubo[frame_id]
   }
+
+  pub unsafe fn cmd_bind_mesh_buffers(
+    &self,
+    device: &ash::Device,
+    command_buffer: vk::CommandBuffer,
+  ) {
+    device.cmd_bind_vertex_buffers(command_buffer, 0, &[self.vertex_buffer.buffer], &[0]);
+    device.cmd_bind_index_buffer(
+      command_buffer,
+      self.index_buffer.buffer,
+      0,
+      vk::IndexType::UINT32,
+    );
+  }
+
+  pub unsafe fn cmd_draw_mesh(&self, device: &ash::Device, command_buffer: vk::CommandBuffer) {
+    device.cmd_draw_indexed(command_buffer, self.vertex_count, 1, 0, 0, 0);
+  }
 }
 
 fn allocate_model_ubo(vk_ctx: &VkCtx, name: &str, frame_idx: usize) -> VkBuffer {

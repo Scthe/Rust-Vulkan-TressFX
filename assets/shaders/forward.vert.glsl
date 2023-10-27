@@ -20,7 +20,7 @@ layout(location = 2) out vec2 v_UV;
 
 
 void main() {
-  vec4 pos = vec4(in_Position.xyz * 0.3f, 1.0); // magic scale TODO
+  vec4 pos = vec4(in_Position.xyz, 1.0);
   gl_Position = u_MVP * pos;
   v_Position = (u_M * pos).xyz;
   // v_PositionLightShadowSpace = u_directionalShadowMatrix_MVP * pos; // TODO

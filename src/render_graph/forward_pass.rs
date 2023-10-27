@@ -300,16 +300,9 @@ impl ForwardPass {
 
       // draw calls
       for entity in &scene.entities {
-        // bind uniforms + mesh buffers
         self.bind_entity_ubos(exec_ctx, entity);
-        device.cmd_bind_vertex_buffers(command_buffer, 0, &[entity.vertex_buffer.buffer], &[0]);
-        device.cmd_bind_index_buffer(
-          command_buffer,
-          entity.index_buffer.buffer,
-          0,
-          vk::IndexType::UINT32,
-        );
-        device.cmd_draw_indexed(command_buffer, entity.vertex_count, 1, 0, 0, 0);
+        entity.cmd_bind_mesh_buffers(device, command_buffer);
+        entity.cmd_draw_mesh(device, command_buffer);
       }
 
       // end

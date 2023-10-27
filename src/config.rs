@@ -76,7 +76,7 @@ impl Config {
       clear_depth: 1.0,
       clear_stencil: 0,
       // scene
-      model_scale: 1.0, // TODO it was 0.3 in webfx?
+      model_scale: 0.3,
       camera: CameraConfig::default(),
       light_ambient: LightAmbient::default(),
       light0: LightCfg::light0(),
