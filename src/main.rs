@@ -59,7 +59,7 @@ fn main() {
   info!("Render Graph init: OK!");
 
   // ui
-  let mut app_ui = AppUI::new(&window, &vk_app, render_graph.get_last_render_pass());
+  let mut app_ui = AppUI::new(&window, &vk_app, render_graph.get_ui_draw_render_pass());
   info!("ui init: OK!");
 
   // last pre-run ops

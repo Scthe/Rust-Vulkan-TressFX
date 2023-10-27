@@ -67,7 +67,8 @@ pub fn create_pipeline_with_defaults(
   let rasterization_state = ps_raster_polygons(vk::CullModeFlags::NONE);
   let multisample_state = ps_multisample_disabled();
   let depth_stencil_state = ps_depth_always_stencil_always();
-  let color_blend_state = ps_color_blend_override(color_attachment_count);
+  let color_blend_state =
+    ps_color_blend_override(color_attachment_count, vk::ColorComponentFlags::RGBA);
   let create_info_builder = vk::GraphicsPipelineCreateInfo::builder()
     .stages(&stages)
     .vertex_input_state(&vertex_desc)
@@ -210,6 +211,7 @@ pub fn ps_multisample_disabled() -> vk::PipelineMultisampleStateCreateInfo {
 /// Write result to all color attachments, disable blending
 fn ps_color_attachments_write_all(
   attachment_count: usize,
+  color_write_mask: vk::ColorComponentFlags,
 ) -> Vec<vk::PipelineColorBlendAttachmentState> {
   // VULKAN SPEC:
   // > If the independent blending feature is not enabled on the device,
@@ -218,7 +220,7 @@ fn ps_color_attachments_write_all(
 
   // PS. I always hated blend state
   let write_all = vk::PipelineColorBlendAttachmentState::builder()
-    .color_write_mask(vk::ColorComponentFlags::RGBA)
+    .color_write_mask(color_write_mask)
     .blend_enable(false)
     .src_color_blend_factor(vk::BlendFactor::ONE) // shader output
     .dst_color_blend_factor(vk::BlendFactor::ZERO) // existing value on destination attachment
@@ -238,8 +240,10 @@ fn ps_color_attachments_write_all(
 /// Write result to all color attachments, disable blending
 pub fn ps_color_blend_override(
   color_attachment_count: usize,
+  color_write_mask: vk::ColorComponentFlags,
 ) -> vk::PipelineColorBlendStateCreateInfo {
-  let color_attachments_write_all = ps_color_attachments_write_all(color_attachment_count);
+  let color_attachments_write_all =
+    ps_color_attachments_write_all(color_attachment_count, color_write_mask);
   vk::PipelineColorBlendStateCreateInfo::builder()
     .attachments(&color_attachments_write_all)
     .build()

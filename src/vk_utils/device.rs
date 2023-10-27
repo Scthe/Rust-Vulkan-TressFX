@@ -164,9 +164,13 @@ pub fn pick_device_and_queue(
     shader_non_semantic_info_ext.as_ptr(),
   ];
 
+  let mut separate_depth_stencil = vk::PhysicalDeviceSeparateDepthStencilLayoutsFeatures::builder()
+    .separate_depth_stencil_layouts(true)
+    .build();
   let device_create_info = vk::DeviceCreateInfo::builder()
     .queue_create_infos(&[queue_create_infos])
     .enabled_extension_names(&device_extension_names_raw)
+    .push_next(&mut separate_depth_stencil)
     .build();
 
   let device: ash::Device = unsafe {

@@ -311,6 +311,9 @@ impl VkTexture {
   pub fn is_depth_stencil(&self) -> bool {
     self.aspect_flags == (vk::ImageAspectFlags::DEPTH | vk::ImageAspectFlags::STENCIL)
   }
+  pub fn is_depth(&self) -> bool {
+    self.aspect_flags == vk::ImageAspectFlags::DEPTH
+  }
 
   pub fn barrier_prepare_attachment_for_shader_read(&mut self) -> vk::ImageMemoryBarrier {
     if self.is_color() {
@@ -322,6 +325,12 @@ impl VkTexture {
     } else if self.is_depth_stencil() {
       self.barrier_prepare_for_layout_transition(
         vk::ImageLayout::DEPTH_STENCIL_READ_ONLY_OPTIMAL,
+        vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE, // prev op
+        vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_READ,  // our op
+      )
+    } else if self.is_depth() {
+      self.barrier_prepare_for_layout_transition(
+        vk::ImageLayout::DEPTH_READ_ONLY_OPTIMAL,
         vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE, // prev op
         vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_READ,  // our op
       )
@@ -340,6 +349,12 @@ impl VkTexture {
     } else if self.is_depth_stencil() {
       self.barrier_prepare_for_layout_transition(
         vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+        vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_READ, // prev op
+        vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE, // our op
+      )
+    } else if self.is_depth() {
+      self.barrier_prepare_for_layout_transition(
+        vk::ImageLayout::DEPTH_ATTACHMENT_OPTIMAL,
         vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_READ, // prev op
         vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE, // our op
       )
