@@ -101,7 +101,13 @@ impl GlobalConfigUBO {
         config.ssao.radius,
         config.ssao.bias,
       ),
-      u_ssao2: vec4(config.ssao.kernel_size as f32, 0.0, 0.0, 0.0),
+      u_ssao2: vec4(
+        config.ssao.kernel_size as f32,
+        // values are negative!
+        config.linear_depth_preview_range.max_element(), // near
+        config.linear_depth_preview_range.min_element(), // far
+        0.0,
+      ),
       // FXAA
       u_fxaa_settings: vec4(
         postfx.subpixel,

@@ -1,6 +1,6 @@
 use ash;
 use ash::vk;
-use glam::Vec3;
+use glam::{vec2, Vec2, Vec3};
 
 use crate::utils::color_hex_to_vec;
 
@@ -19,6 +19,8 @@ pub enum DisplayMode {
   Normals = 1,
   Luma = 2,
   SSAO = 3,
+  LinearDepth = 4,
+  ShadowMap = 5,
 }
 
 /// https://github.com/Scthe/WebFX/blob/master/src/Config.ts
@@ -27,6 +29,7 @@ pub struct Config {
   pub only_first_frame: bool,
   /// debug display mode
   pub display_mode: usize,
+  pub linear_depth_preview_range: Vec2,
   // window
   pub window_width: f64,
   pub window_height: f64,
@@ -66,7 +69,8 @@ impl Config {
 
     Config {
       only_first_frame: false,
-      display_mode: DisplayMode::Final as _,
+      display_mode: DisplayMode::LinearDepth as _,
+      linear_depth_preview_range: vec2(-2.0, -15.0),
       // window
       window_width: 800f64,
       window_height: 600f64,

@@ -14,6 +14,7 @@ const BINDING_INDEX_CONFIG_UBO: u32 = 0;
 const BINDING_INDEX_TONEMAPPED_RESULT: u32 = 1;
 const BINDING_INDEX_NORMALS: u32 = 2;
 const BINDING_INDEX_SSAO: u32 = 3;
+const BINDING_INDEX_LINEAR_DEPTH: u32 = 4;
 
 const COLOR_ATTACHMENT_COUNT: usize = 1;
 const SHADER_PATHS: (&str, &str) = (
@@ -104,6 +105,7 @@ impl PresentPass {
       ),
       create_texture_binding(BINDING_INDEX_NORMALS, vk::ShaderStageFlags::FRAGMENT),
       create_texture_binding(BINDING_INDEX_SSAO, vk::ShaderStageFlags::FRAGMENT),
+      create_texture_binding(BINDING_INDEX_LINEAR_DEPTH, vk::ShaderStageFlags::FRAGMENT),
     ]
   }
 
@@ -155,6 +157,7 @@ impl PresentPass {
     tonemapped_result: &mut VkTexture,
     normals_texture: &mut VkTexture,
     ssao_texture: &mut VkTexture,
+    linear_depth_texture: &mut VkTexture,
   ) -> () {
     let vk_app = exec_ctx.vk_app;
     let command_buffer = exec_ctx.command_buffer;
@@ -167,6 +170,7 @@ impl PresentPass {
         tonemapped_result,
         normals_texture,
         ssao_texture,
+        linear_depth_texture,
       );
 
       // start render pass
@@ -185,7 +189,13 @@ impl PresentPass {
       );
 
       // bind uniforms (do not move this)
-      self.bind_uniforms(exec_ctx, tonemapped_result, normals_texture, ssao_texture);
+      self.bind_uniforms(
+        exec_ctx,
+        tonemapped_result,
+        normals_texture,
+        ssao_texture,
+        linear_depth_texture,
+      );
 
       // draw calls
       cmd_draw_fullscreen_triangle(device, &command_buffer);
@@ -204,6 +214,7 @@ impl PresentPass {
     tonemapped_result: &mut VkTexture,
     normals_texture: &mut VkTexture,
     ssao_texture: &mut VkTexture,
+    linear_depth_texture: &mut VkTexture,
   ) {
     let vk_app = exec_ctx.vk_app;
     let command_buffer = exec_ctx.command_buffer;
@@ -233,6 +244,12 @@ impl PresentPass {
         image_view: None,
         sampler: vk_app.default_texture_sampler_nearest,
       },
+      BindableResource::Texture {
+        binding: BINDING_INDEX_LINEAR_DEPTH,
+        texture: &linear_depth_texture,
+        image_view: None,
+        sampler: vk_app.default_texture_sampler_nearest,
+      },
     ];
     bind_resources_to_descriptors(&resouce_binder, 0, &uniform_resouces);
 
@@ -257,10 +274,12 @@ impl PresentPass {
     tonemapped_result: &mut VkTexture,
     normals_texture: &mut VkTexture,
     ssao_texture: &mut VkTexture,
+    linear_depth_texture: &mut VkTexture,
   ) {
     let tonemapped_barrier = tonemapped_result.barrier_prepare_attachment_for_shader_read();
     let normals_barrier = normals_texture.barrier_prepare_attachment_for_shader_read();
     let ssao_barrier = ssao_texture.barrier_prepare_attachment_for_shader_read();
+    let linear_depth_barrier = linear_depth_texture.barrier_prepare_attachment_for_shader_read();
 
     device.cmd_pipeline_barrier(
       *command_buffer,
@@ -273,7 +292,12 @@ impl PresentPass {
       vk::DependencyFlags::empty(),
       &[],
       &[],
-      &[tonemapped_barrier, normals_barrier, ssao_barrier],
+      &[
+        tonemapped_barrier,
+        normals_barrier,
+        ssao_barrier,
+        linear_depth_barrier,
+      ],
     );
   }
 }

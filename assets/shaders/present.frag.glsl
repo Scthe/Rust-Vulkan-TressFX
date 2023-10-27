@@ -19,14 +19,14 @@ layout(binding = 2)
 uniform usampler2D u_normalsTex;
 layout(binding = 3)
 uniform sampler2D u_ssaoTex;
-// layout(binding = 3)
-// uniform sampler2D u_linearDepthTex;
+layout(binding = 4)
+uniform sampler2D u_linearDepthTex;
 
 const int DISPLAY_MODE_FINAL = 0;
 const int DISPLAY_MODE_NORMALS = 1;
 const int DISPLAY_MODE_LUMA = 2;
 const int DISPLAY_MODE_SSAO = 3;
-// const int DISPLAY_MODE_LINEAR_DEPTH = 4;
+const int DISPLAY_MODE_LINEAR_DEPTH = 4;
 
 layout(location = 0) in vec2 v_position;
 layout(location = 0) out vec4 color1;
@@ -80,14 +80,15 @@ void main() {
       break;
     }
     
-    /*
     case DISPLAY_MODE_LINEAR_DEPTH: {
-      float depth = texture(u_linearDepthTex, uv).r;
-      float d = u_nearAndFar.y - u_nearAndFar.x;
-      result = vec3(depth / d);
+      vec2 uv = v_position;
+      float depth = -texture(u_linearDepthTex, uv).r; // value is [0.1..100]
+      vec2 nearAndFarPreview = -u_linear_depth_preview_range; // value is e.g. [5, 10]
+      float d = nearAndFarPreview.y - nearAndFarPreview.x; // value for [5, 10] is 5
+      float val = (depth - nearAndFarPreview.x) / d;
+      result = vec3(saturate(val));
       break;
     }
-    */
 
     default:
     case DISPLAY_MODE_FINAL: {

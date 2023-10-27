@@ -26,7 +26,7 @@ uniform GlobalConfigUniformBuffer {
   vec4 u_light2_Color;
   // SSAO
   vec4 u_ssao;
-  vec4 u_ssao2;
+  vec4 u_ssao_and_misc;
   // FXAA
   vec4 u_fxaaSettings;
   // Color correction
@@ -79,4 +79,5 @@ uniform GlobalConfigUniformBuffer {
 #define u_noiseScale (u_ssao.xy)
 #define u_radius (u_ssao.z)
 #define u_bias (u_ssao.w)
-#define u_kernelSize (int(u_ssao2.x + 0.5))
+#define u_kernelSize (int(u_ssao_and_misc.x + 0.5))
+#define u_linear_depth_preview_range (u_ssao_and_misc.yz)

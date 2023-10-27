@@ -138,14 +138,33 @@ impl AppUI {
         DisplayMode::Normals,
         DisplayMode::Luma,
         DisplayMode::SSAO,
+        DisplayMode::LinearDepth,
+        DisplayMode::ShadowMap,
       ],
       |idx| match *idx {
         DisplayMode::Normals => Cow::Borrowed("Normals"),
         DisplayMode::Luma => Cow::Borrowed("Luma"),
         DisplayMode::SSAO => Cow::Borrowed("SSAO"),
+        DisplayMode::LinearDepth => Cow::Borrowed("Linear depth"),
+        DisplayMode::ShadowMap => Cow::Borrowed("Shadows"),
         _ => Cow::Borrowed("Final"),
       },
     );
+
+    if config.display_mode == DisplayMode::LinearDepth as _ {
+      ui.slider(
+        "Near",
+        -config.camera.z_near,
+        -config.camera.z_far,
+        &mut config.linear_depth_preview_range.x,
+      );
+      ui.slider(
+        "Far",
+        -config.camera.z_near,
+        -config.camera.z_far,
+        &mut config.linear_depth_preview_range.y,
+      );
+    }
 
     push_token.end();
   }
