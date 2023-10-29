@@ -1,3 +1,5 @@
+// NOTE: rust packing has problems with raw floats (packing?) - use vec4
+
 layout(binding = 0) 
 uniform GlobalConfigUniformBuffer {
   vec3 u_cameraPosition;
@@ -5,14 +7,11 @@ uniform GlobalConfigUniformBuffer {
   mat4 u_viewMat;
   mat4 u_projection;
   mat4 u_invProjectionMat; // inverse projection matrix
-  // ao
-  // float u_aoStrength;
-  // float u_aoExp;
-  // combined as rust packing has problems with raw floats?
-  vec4 u_aoAndShadowContrib;
-  // Shadow
-  // vec4 u_directionalShadowCasterPosition; // [position.xyz, bias (negative if pcss)]
-  // int u_directionalShadowSampleRadius;
+  // AO + Shadow
+  mat4 u_directionalShadowMatrix_VP;
+  vec4 u_shadowMiscSettings; // [u_directionalShadowSampleRadius, -, -, -]
+  vec4 u_directionalShadowCasterPosition; // [position.xyz, bias (negative if pcss)]
+  vec4 u_aoAndShadowContrib; // (u_aoStrength, u_aoExp, u_maxShadowContribution, u_directionalShadowSampleRadius)
   // sss
   // float u_sssFarPlane;
   // mat4 u_sssMatrix_VP;
@@ -58,26 +57,30 @@ uniform GlobalConfigUniformBuffer {
 
 #define u_viewport (u_viewportAndNearFar.xy)
 #define u_nearAndFar (u_viewportAndNearFar.zw)
+// AO + shadows
+#define u_directionalShadowSampleRadius (readConfigUint(u_shadowMiscSettings.x))
+#define u_shadowBias (abs(u_directionalShadowCasterPosition.w))
+#define u_usePCSS_Shadows (u_directionalShadowCasterPosition.w < 0.0f)
 #define u_aoStrength (u_aoAndShadowContrib.r)
 #define u_aoExp (u_aoAndShadowContrib.g)
 #define u_maxShadowContribution (u_aoAndShadowContrib.b)
-// #define BIAS_FROM_UI (u_directionalShadowCasterPosition.w)
-// #define USE_PCSS_SHADOWS (u_directionalShadowCasterPosition.w < 0.0f)
+// fxaa
 #define u_subpixel (u_fxaaSettings.x)
 #define u_edgeThreshold (u_fxaaSettings.y)
 #define u_edgeThresholdMin (u_fxaaSettings.z)
 #define u_fxaa_luma_gamma (u_fxaaSettings.w)
+  // TONEMAPPING
 #define u_exposure (u_tonemapping.x)
 #define u_whitePoint (u_tonemapping.y)
 #define u_acesC (u_tonemapping.z)
 #define u_acesS (u_tonemapping.w)
 #define u_ditherStrength (u_tonemapping2.x)
-/// actually int
-#define u_tonemappingMode (int(u_tonemapping2.y + 0.5))
+#define u_tonemappingMode (readConfigUint(u_tonemapping2.y))
 #define u_colorCorrectionShadowsMax (u_tonemapping2.z)
 #define u_colorCorrectionHighlightsMin (u_tonemapping2.w)
+// SSAO
 #define u_noiseScale (u_ssao.xy)
 #define u_radius (u_ssao.z)
 #define u_bias (u_ssao.w)
-#define u_kernelSize (int(u_ssao_and_misc.x + 0.5))
+#define u_kernelSize (readConfigUint(u_ssao_and_misc.x))
 #define u_linear_depth_preview_range (u_ssao_and_misc.yz)

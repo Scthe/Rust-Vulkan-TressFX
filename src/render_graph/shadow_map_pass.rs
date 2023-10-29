@@ -250,7 +250,7 @@ impl ShadowMapPass {
 
     // push constants
     let push_constants = ShadowMapPassPushConstants {
-      mvp: get_light_shadow_mvp(exec_ctx.config, entity.model_matrix, light_position),
+      mvp: Self::get_light_shadow_mvp(exec_ctx.config, entity.model_matrix, light_position),
     };
     let push_constants_bytes = bytemuck::bytes_of(&push_constants);
     device.cmd_push_constants(
@@ -260,6 +260,12 @@ impl ShadowMapPass {
       0,
       push_constants_bytes,
     );
+  }
+
+  pub fn get_light_shadow_mvp(cfg: &Config, model_matrix: Mat4, light_pos: Vec3) -> Mat4 {
+    let v_mat = get_depth_view_matrix(cfg, light_pos);
+    let p_mat = get_depth_projection_matrix(cfg);
+    Camera::calc_model_view_projection_matrix(&model_matrix, &v_mat, &p_mat)
   }
 }
 
@@ -290,12 +296,6 @@ unsafe impl bytemuck::Pod for ShadowMapPassPushConstants {}
 
 ///////////////////////////////
 // matrices calc
-
-fn get_light_shadow_mvp(cfg: &Config, model_matrix: Mat4, light_pos: Vec3) -> Mat4 {
-  let v_mat = get_depth_view_matrix(cfg, light_pos);
-  let p_mat = get_depth_projection_matrix(cfg);
-  Camera::calc_model_view_projection_matrix(&model_matrix, &v_mat, &p_mat)
-}
 
 fn get_depth_view_matrix(cfg: &Config, light_pos: Vec3) -> Mat4 {
   let dl = &cfg.shadows.shadow_source;

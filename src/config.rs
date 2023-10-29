@@ -19,7 +19,7 @@ pub enum DisplayMode {
   Normals = 1,
   Luma = 2,
   SSAO = 3,
-  LinearDepth = 4,
+  LinearDepth = 4, // TODO it's depth, not linear depth now?
   ShadowMap = 5,
 }
 
@@ -69,7 +69,7 @@ impl Config {
 
     Config {
       only_first_frame: false,
-      display_mode: DisplayMode::LinearDepth as _,
+      display_mode: DisplayMode::Final as _,
       linear_depth_preview_range: vec2(-2.0, -15.0),
       // window
       window_width: 800f64,
