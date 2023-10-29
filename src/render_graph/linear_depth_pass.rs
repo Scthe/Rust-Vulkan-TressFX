@@ -18,6 +18,7 @@ const SHADER_PATHS: (&str, &str) = (
 );
 
 // TODO verify
+// TODO is this pass even used? What to display in the preview?
 pub struct LinearDepthPass {
   render_pass: vk::RenderPass,
   pipeline: vk::Pipeline,

@@ -1,7 +1,11 @@
 use bytemuck;
 use glam::Mat4;
 
-use crate::scene::{Camera, WorldEntity};
+use crate::{
+  config::Config,
+  render_graph::shadow_map_pass::ShadowMapPass,
+  scene::{Camera, WorldEntity},
+};
 
 // All below must match shader-defined consts
 const FLAG_IS_METALIC: i32 = 1;
@@ -15,6 +19,8 @@ pub struct ForwardModelUBO {
   pub u_model_matrix: Mat4,
   /// model view projection matrix for current camera
   pub u_model_view_projection_matrix: Mat4,
+  /// model view projection matrix for shadow-casting light
+  pub u_shadow_matrix_mvp: Mat4,
   // material
   pub u_specular: f32,
   pub u_specular_mul: f32,
@@ -39,7 +45,7 @@ fn flag_bits(cond: bool, bit: i32) -> i32 {
 }
 
 impl ForwardModelUBO {
-  pub fn new(entity: &WorldEntity, camera: &Camera) -> ForwardModelUBO {
+  pub fn new(config: &Config, entity: &WorldEntity, camera: &Camera) -> ForwardModelUBO {
     let material = &entity.material;
     let mut material_flags: i32 = 0;
     material_flags |= flag_bits(material.is_metallic, FLAG_IS_METALIC);
@@ -52,6 +58,11 @@ impl ForwardModelUBO {
     ForwardModelUBO {
       u_model_matrix: entity.model_matrix,
       u_model_view_projection_matrix: camera.model_view_projection_matrix(entity.model_matrix),
+      u_shadow_matrix_mvp: ShadowMapPass::get_light_shadow_mvp(
+        config,
+        entity.model_matrix,
+        config.shadows.position(),
+      ),
       u_specular: material.specular,
       u_specular_mul: material.specular_mul,
       u_material_flags: material_flags,

@@ -84,3 +84,7 @@ uniform GlobalConfigUniformBuffer {
 #define u_bias (u_ssao.w)
 #define u_kernelSize (readConfigUint(u_ssao_and_misc.x))
 #define u_linear_depth_preview_range (u_ssao_and_misc.yz)
+
+uint readConfigUint(float value) {
+  return uint(abs(value) + 0.5);
+}

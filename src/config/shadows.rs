@@ -40,13 +40,13 @@ impl ShadowsConfig {
   pub const SHADOWS_ORTHO_SIZE: u32 = 5;
 
   pub fn position(&self) -> Vec3 {
-    vec3(-10.0, 10.0, 10.0)
+    // vec3(-10.0, 10.0, 10.0)
     // vec3(-10.0, 4.0, 0.0)
-    // spherical_to_cartesian_dgr( // TODO
-    // self.shadow_source.pos_phi,
-    // self.shadow_source.pos_theta,
-    // self.shadow_source.pos_distance as f32,
-    // )
+    spherical_to_cartesian_dgr(
+      self.shadow_source.pos_phi,
+      self.shadow_source.pos_theta,
+      self.shadow_source.pos_distance as f32,
+    )
   }
 }
 
@@ -67,7 +67,7 @@ impl Default for ShadowsConfig {
         pos_phi: 105.0,
         pos_theta: 45.0,
         pos_distance: ShadowsConfig::SHADOWS_ORTHO_SIZE,
-        look_at_target: vec3(0.0, 4.0, 0.0), // TODO vec3(0.0, 2.0, 0.0),
+        look_at_target: vec3(0.0, 2.0, 0.0),
         projection: ShadowLightProjection {
           left: -proj_box_side,
           right: proj_box_side,
