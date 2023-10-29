@@ -218,7 +218,9 @@ impl RenderGraph {
       &mut frame_resources.tonemapping_pass.tonemapped_tex,
       &mut frame_resources.forward_pass.normals_tex,
       &mut frame_resources.ssao_pass.ssao_tex,
-      &mut frame_resources.linear_depth_pass.linear_depth_tex,
+      &mut frame_resources.forward_pass.depth_stencil_tex,
+      frame_resources.forward_pass.depth_image_view,
+      &mut frame_resources.shadow_map_pass.depth_tex,
     );
 
     unsafe {
