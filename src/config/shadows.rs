@@ -37,7 +37,7 @@ pub struct ShadowsConfig {
 }
 
 impl ShadowsConfig {
-  pub const SHADOWS_ORTHO_SIZE: u32 = 5;
+  pub const SHADOWS_ORTHO_SIZE: u32 = 10;
 
   pub fn position(&self) -> Vec3 {
     // vec3(-10.0, 10.0, 10.0)
@@ -66,15 +66,15 @@ impl Default for ShadowsConfig {
       shadow_source: ShadowLightCfg {
         pos_phi: 105.0,
         pos_theta: 45.0,
-        pos_distance: ShadowsConfig::SHADOWS_ORTHO_SIZE,
-        look_at_target: vec3(0.0, 2.0, 0.0),
+        pos_distance: 20,
+        look_at_target: vec3(0.0, 5.0, 0.0),
         projection: ShadowLightProjection {
           left: -proj_box_side,
           right: proj_box_side,
           top: proj_box_side,
           bottom: -proj_box_side,
           near: 0.1,
-          far: 20.0,
+          far: 40.0,
         },
       },
     }

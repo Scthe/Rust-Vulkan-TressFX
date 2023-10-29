@@ -74,6 +74,30 @@ vec4 getWorldSpacePosition() {
   return reprojectFromDepthBuffer(u_depthTex, v_position, invVP_matrix);
 }
 
+/** Returns distance along the ray (negative if behind). Returns -1.0 if miss. */
+float sphIntersect(vec3 rayOrigin, vec3 rayDir, vec4 sph){
+    vec3 oc = rayOrigin - sph.xyz;
+    float b = dot(oc, rayDir);
+    float c = dot(oc, oc) - sph.w * sph.w;
+    float h = b * b - c;
+    if(h < 0.0){ return -1.0; }
+    h = sqrt(h);
+    return -b - h;
+}
+
+vec4 drawDebugSpheres(){
+  vec4 sphere = vec4(u_directionalShadowCasterPosition.xyz, 0.3); // (pos.xyz, r)
+  vec4 fragPositionWorldSpace = getWorldSpacePosition();
+  vec3 rayDir = normalize(fragPositionWorldSpace.xyz - u_cameraPosition.xyz);
+  vec3 rayOrigin = u_cameraPosition.xyz;
+  float rayHit = sphIntersect(rayOrigin, rayDir, sphere);
+  // vec3 rayHitWorldPos = rayDir * rayHit + rayOrigin;
+  if (rayHit > 0) {
+    return vec4(1,0,0, 1);
+  }
+  return vec4(0,0,0, 0);
+}
+
 
 // Gamma not needed as swapchain image is in SRGB
 void main() {
@@ -138,6 +162,8 @@ void main() {
     case DISPLAY_MODE_FINAL: {
       vec2 uv = fixOpenGLTextureCoords_AxisY(v_position);
       result = doFxaa(uv);
+      vec4 colDpgSpheres = drawDebugSpheres();
+      result = mix(result, colDpgSpheres.rgb, colDpgSpheres.a);
       break;
     }
   }

@@ -69,7 +69,7 @@ uniform GlobalConfigUniformBuffer {
 #define u_edgeThreshold (u_fxaaSettings.y)
 #define u_edgeThresholdMin (u_fxaaSettings.z)
 #define u_fxaa_luma_gamma (u_fxaaSettings.w)
-  // TONEMAPPING
+// TONEMAPPING
 #define u_exposure (u_tonemapping.x)
 #define u_whitePoint (u_tonemapping.y)
 #define u_acesC (u_tonemapping.z)
