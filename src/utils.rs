@@ -35,6 +35,10 @@ pub fn lerp_f32(min: f32, max: f32, weight: f32) -> f32 {
   min + (max - min) * weight
 }
 
+pub fn vec3_to_pretty_str(v: Vec3) -> String {
+  format!("[{:.1}, {:.1}, {:.1}]", v.x, v.y, v.z)
+}
+
 /// Generate random vectors
 pub struct RngVectorGenerator {
   rng: ThreadRng,

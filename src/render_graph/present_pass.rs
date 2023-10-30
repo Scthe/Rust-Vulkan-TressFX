@@ -208,7 +208,12 @@ impl PresentPass {
       cmd_draw_fullscreen_triangle(device, &command_buffer);
 
       // ui
-      app_ui.render_ui(exec_ctx.window, command_buffer, exec_ctx.config);
+      app_ui.render_ui(
+        exec_ctx.window,
+        command_buffer,
+        exec_ctx.config,
+        &mut exec_ctx.scene,
+      );
 
       // end
       device.cmd_end_render_pass(command_buffer)

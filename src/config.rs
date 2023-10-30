@@ -4,7 +4,7 @@ use glam::{vec2, Vec2, Vec3};
 
 use crate::utils::color_hex_to_vec;
 
-pub use self::{camera::*, color_grading::*, light::*, postfx::*, shadows::*, ssao::*};
+pub use self::{camera::*, color_grading::*, light::*, postfx::*, shadows::*, ssao::*, sss::*};
 
 pub mod camera;
 pub mod color_grading;
@@ -12,6 +12,7 @@ pub mod light;
 pub mod postfx;
 pub mod shadows;
 pub mod ssao;
+pub mod sss;
 
 // Must match consts in `present.frag.glsl`.
 pub enum DisplayMode {
@@ -21,6 +22,7 @@ pub enum DisplayMode {
   SSAO = 3,
   LinearDepth = 4, // TODO it's depth, not linear depth now?
   ShadowMap = 5,
+  // TODO SSSContribution
 }
 
 /// https://github.com/Scthe/WebFX/blob/master/src/Config.ts
@@ -50,6 +52,8 @@ pub struct Config {
   pub light2: LightCfg,
   // shadows
   pub shadows: ShadowsConfig,
+  // sss
+  pub sss_forward_scatter: SSSForwardScatterPassCfg,
   // ssao
   pub ssao: SSAOConfig,
   // postfx
@@ -89,9 +93,11 @@ impl Config {
       light0: LightCfg::light0(),
       light1: LightCfg::light1(),
       light2: LightCfg::light2(),
-      // postfx
+      // material + lights
       ssao: SSAOConfig::default(),
       shadows: ShadowsConfig::default(),
+      sss_forward_scatter: SSSForwardScatterPassCfg::default(),
+      // postfx
       postfx: PostFxCfg::default(),
     }
   }
@@ -137,18 +143,3 @@ impl Config {
     }
   }
 }
-
-/*
-  public readonly lightSSS = {
-    // forward scatter
-    depthmapSize: 1024,
-    posPhi: -93, // horizontal [dgr]
-    posTheta: 55, // verical [dgr]
-    posRadius: SHADOWS_ORTHO_SIZE,
-    // SSS blur pass
-    blurWidth: 25.0,
-    blurStrength: 0.35,
-    blurFollowSurface: false, // slight changes for incident angles ~90dgr
-    // will reuse target & projection settings from shadows - safer this way..
-  };
-*/

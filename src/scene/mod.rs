@@ -1,7 +1,6 @@
 use std::path::Path;
 
 use ash::vk;
-use glam::vec4;
 use glam::Mat4;
 use glam::Vec2;
 use glam::Vec3;
@@ -14,11 +13,13 @@ use crate::render_graph::RenderableVertex;
 use crate::vk_ctx::VkCtx;
 use crate::vk_utils::*;
 
+pub use self::bounding_box::*;
 pub use self::camera::*;
 pub use self::material::*;
 pub use self::world::*;
 pub use self::world_entity::*;
 
+mod bounding_box;
 mod camera;
 mod material;
 mod world;
@@ -61,7 +62,7 @@ fn load_sintel(vk_ctx: &VkCtx, model_matrix: Mat4) -> WorldEntity {
     VkTexture::RAW_DATA_TEXTURE_FORMAT,
   );
   let material = Material::new(tex_diffuse, Some(specular_tex), Some(hair_shadow_tex));
-  let mesh = load_obj_mesh(
+  let (mesh, aabb) = load_obj_mesh(
     vk_ctx,
     Path::new("./assets/sintel_lite_v2_1/sintel.obj"),
     &model_matrix,
@@ -75,6 +76,7 @@ fn load_sintel(vk_ctx: &VkCtx, model_matrix: Mat4) -> WorldEntity {
     vertex_buffer: mesh.vertex_buffer,
     index_buffer: mesh.index_buffer,
     vertex_count: mesh.vertex_count,
+    aabb,
     model_matrix,
     model_ubo,
   }
@@ -93,12 +95,12 @@ fn load_sintel_eyes(vk_ctx: &VkCtx, model_matrix: Mat4) -> WorldEntity {
 
   let mut material = Material::new(tex_diffuse, None, None);
   material.specular_mul = 3.0; // shiny!
-  let mesh = load_obj_mesh(
+  let (mesh, aabb) = load_obj_mesh(
     vk_ctx,
     Path::new("./assets/sintel_lite_v2_1/sintel_eyeballs.obj"),
     &model_matrix,
   );
-  let name = "sintel".to_string();
+  let name = "sintel_eyes".to_string();
   let model_ubo = allocate_model_ubo_vec(vk_ctx, &name);
 
   WorldEntity {
@@ -107,6 +109,7 @@ fn load_sintel_eyes(vk_ctx: &VkCtx, model_matrix: Mat4) -> WorldEntity {
     vertex_buffer: mesh.vertex_buffer,
     index_buffer: mesh.index_buffer,
     vertex_count: mesh.vertex_count,
+    aabb,
     model_matrix,
     model_ubo,
   }
@@ -118,7 +121,11 @@ struct Mesh {
   pub vertex_count: u32,
 }
 
-fn load_obj_mesh(vk_ctx: &VkCtx, path: &std::path::Path, model_matrix: &Mat4) -> Mesh {
+fn load_obj_mesh(
+  vk_ctx: &VkCtx,
+  path: &std::path::Path,
+  model_matrix: &Mat4,
+) -> (Mesh, BoundingBox) {
   let (models, _) = tobj::load_obj(path, &tobj::GPU_LOAD_OPTIONS)
     .expect(&format!("Failed to load OBJ file '{}'", path.display()));
 
@@ -157,7 +164,8 @@ fn load_obj_mesh(vk_ctx: &VkCtx, path: &std::path::Path, model_matrix: &Mat4) ->
       uv: Vec2::new(m_uv[i2], m_uv[i2 + 1]),
     })
   });
-  debug_print_bounding_box(&vertices, *model_matrix);
+  let aabb = BoundingBox::from_vertices(&vertices, *model_matrix);
+  trace!("{}", aabb);
 
   // allocate
   let vertices_bytes = bytemuck::cast_slice(&vertices);
@@ -180,33 +188,10 @@ fn load_obj_mesh(vk_ctx: &VkCtx, path: &std::path::Path, model_matrix: &Mat4) ->
     vk_ctx.device.queue_family_index,
   );
 
-  Mesh {
+  let mesh = Mesh {
     vertex_buffer,
     index_buffer,
     vertex_count: indices.len() as u32,
-  }
-}
-
-fn debug_print_bounding_box(vertices: &Vec<RenderableVertex>, model_matrix: Mat4) {
-  if vertices.len() <= 0 {
-    panic!("Mesh does not contain vertices");
-  }
-
-  let mut bb_min = vertices[0].position.clone();
-  let mut bb_max = vertices[0].position.clone();
-  vertices.iter().for_each(|vert| {
-    bb_min = bb_min.min(vert.position);
-    bb_max = bb_max.max(vert.position);
-  });
-  let bb_min_ws = model_matrix * vec4(bb_min.x, bb_min.y, bb_min.z, 1.0);
-  let bb_max_ws = model_matrix * vec4(bb_max.x, bb_max.y, bb_max.z, 1.0);
-
-  let center = (bb_min_ws + bb_max_ws) / 2.0;
-
-  trace!(
-    "Object center={}, bounding box = (min={}, max={})",
-    center,
-    bb_min_ws,
-    bb_max_ws
-  );
+  };
+  (mesh, aabb)
 }

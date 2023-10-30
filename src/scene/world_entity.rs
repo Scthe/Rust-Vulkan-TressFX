@@ -10,11 +10,13 @@ use crate::{
   vk_utils::{VkBuffer, VkMemoryResource},
 };
 
-use super::Material;
+use super::{BoundingBox, Material};
 
 pub struct WorldEntity {
   pub name: String,
   pub model_matrix: Mat4,
+  /// more for debug and scale comparison than culling
+  pub aabb: BoundingBox,
 
   // mesh
   pub vertex_buffer: VkBuffer,
