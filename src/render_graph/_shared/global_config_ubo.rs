@@ -3,6 +3,7 @@ use glam::{vec4, Mat4, Vec3, Vec4};
 
 use crate::{
   config::{ColorGradingProp, Config, LightAmbient, LightCfg, SSAOConfig},
+  render_graph::shadow_map_pass::ShadowMapPass,
   scene::Camera,
   utils::spherical_to_cartesian_dgr,
   vk_ctx::VkCtx,
@@ -17,10 +18,11 @@ pub struct GlobalConfigUBO {
   pub u_view_mat: Mat4,
   pub u_projection: Mat4,
   pub u_inv_projection_mat: Mat4, // inverse projection matrix
-  // Shadow
-  // vec4 u_directionalShadowCasterPosition; // [position.xyz, bias (negative if pcss)]
-  // int u_directionalShadowSampleRadius;
-  pub u_ao_and_shadow_contrib: Vec4,
+  // AO + Shadow
+  pub u_shadow_matrix_vp: Mat4,
+  pub u_shadow_misc_settings: Vec4,
+  pub u_shadow_caster_position: Vec4, // [position.xyz, bias (negative if pcss)]
+  pub u_ao_and_shadow_contrib: Vec4, // (u_aoStrength, u_aoExp, u_maxShadowContribution, u_directionalShadowSampleRadius)
   // sss
   // float u_sssFarPlane;
   // mat4 u_sssMatrix_VP;
@@ -66,12 +68,21 @@ pub struct GlobalConfigUBO {
 unsafe impl bytemuck::Zeroable for GlobalConfigUBO {}
 unsafe impl bytemuck::Pod for GlobalConfigUBO {}
 
+/// Result negative if flag is true. Result is positive if flag is false.
+/// Use only with values that can be >0!
+fn encode_flag_in_value_sign(flag: bool, value: f32) -> f32 {
+  let sign = if flag { -1.0 } else { 1.0 };
+  value * sign
+}
+
 impl GlobalConfigUBO {
   pub fn new(vk_app: &VkCtx, config: &Config, camera: &Camera) -> GlobalConfigUBO {
     let vp = vk_app.window_size();
     let cam_cfg = &config.camera;
     let postfx = &config.postfx;
     let color_grading = &postfx.color_grading;
+    let shadows = &config.shadows;
+    let shadow_pos = shadows.position();
     let ssao_vp = config.get_ssao_viewport_size();
 
     GlobalConfigUBO {
@@ -85,7 +96,20 @@ impl GlobalConfigUBO {
       u_view_mat: *camera.view_matrix(),
       u_projection: *camera.perspective_matrix(),
       u_inv_projection_mat: camera.perspective_matrix().inverse(),
-      u_ao_and_shadow_contrib: Vec4::new(0.0, 0.0, config.shadows.strength, 1.0),
+      // shadows:
+      u_shadow_matrix_vp: ShadowMapPass::get_light_shadow_mvp(
+        config,
+        Mat4::IDENTITY,
+        shadows.position(),
+      ),
+      u_shadow_misc_settings: vec4(shadows.blur_radius as _, 0.0, 0.0, 0.0),
+      u_shadow_caster_position: vec4(shadow_pos.x, shadow_pos.y, shadow_pos.z, shadows.bias),
+      u_ao_and_shadow_contrib: Vec4::new(
+        99.0,
+        99.0,
+        encode_flag_in_value_sign(config.show_debug_positions, shadows.strength),
+        shadows.shadow_technique as f32,
+      ),
       // lights
       u_light_ambient: light_ambient(&config.light_ambient),
       u_light0_position: light_pos(&config.light0),

@@ -10,7 +10,7 @@ use winit::event::Event;
 use crate::{
   config::{
     ColorGradingPerRangeSettings, ColorGradingProp, Config, DisplayMode, PostFxCfg, SSAOConfig,
-    TonemappingMode,
+    ShadowTechnique, ShadowsConfig, TonemappingMode,
   },
   vk_ctx::VkCtx,
 };
@@ -20,7 +20,7 @@ const WIDGET_HALF: f32 = 150.0;
 lazy_static! {
   static ref HEADER_FLAGS: TreeNodeFlags =
     TreeNodeFlags::FRAMED | TreeNodeFlags::FRAME_PADDING | TreeNodeFlags::SPAN_FULL_WIDTH;
-  static ref COLOR_FLAGS: ColorEditFlags = ColorEditFlags::NO_INPUTS;
+  static ref COLOR_FLAGS: ColorEditFlags = ColorEditFlags::NO_INPUTS | ColorEditFlags::INPUT_HSV;
 }
 
 /// Controls examples:
@@ -101,6 +101,7 @@ impl AppUI {
           Self::draw_general_ui(ui, config);
           ui.spacing();
 
+          Self::draw_shadows(ui, &mut config.shadows);
           Self::draw_ssao(ui, &mut config.ssao);
           let postfx = &mut config.postfx;
           Self::draw_post_fx(ui, postfx);
@@ -138,7 +139,7 @@ impl AppUI {
         DisplayMode::Normals,
         DisplayMode::Luma,
         DisplayMode::SSAO,
-        DisplayMode::LinearDepth,
+        DisplayMode::LinearDepth, // TODO ???
         DisplayMode::ShadowMap,
       ],
       |idx| match *idx {
@@ -164,6 +165,58 @@ impl AppUI {
         -config.camera.z_far,
         &mut config.linear_depth_preview_range.y,
       );
+    }
+
+    ui.checkbox("Show positions", &mut config.show_debug_positions);
+    add_tooltip_to_previous_widget(ui, "Show positions of lights and shadow source");
+
+    push_token.end();
+  }
+
+  fn draw_shadows(ui: &Ui, shadows: &mut ShadowsConfig) {
+    let push_token = ui.push_id("shadows");
+
+    if ui.collapsing_header("Shadows", *HEADER_FLAGS) {
+      // dir.add(this.cfg.shadows, 'showDebugView').name('Show dbg');
+      ui.combo(
+        "Technique",
+        &mut shadows.shadow_technique,
+        &[
+          ShadowTechnique::BinaryDebug,
+          ShadowTechnique::PFC,
+          ShadowTechnique::PCSS,
+        ],
+        |idx| match *idx {
+          ShadowTechnique::BinaryDebug => Cow::Borrowed("Binary debug"),
+          ShadowTechnique::PFC => Cow::Borrowed("PFC"),
+          _ => Cow::Borrowed("PCSS"),
+        },
+      );
+      add_tooltip_to_previous_widget(
+        ui,
+        "Use Percentage-Closer Soft Shadows or Percentage-closer Filtering or simplest possible binary debug check",
+      );
+      if shadows.shadow_technique == (ShadowTechnique::PFC as _) {
+        ui.slider("Blur radius", 0, 4, &mut shadows.blur_radius);
+      }
+      ui.slider("Strength", 0.0, 1.0, &mut shadows.strength);
+      ui.slider("Bias", 0.001, 0.01, &mut shadows.bias);
+      // dir.add(this.cfg.shadows, 'blurRadiusTfx', [0, 1, 2, 3, 4]).name('HAIR Blur radius');
+      // dir.add(this.cfg.shadows, 'biasHairTfx', 0.001, 0.01).name('HAIR Bias');
+      // dir.add(this.cfg.shadows, 'hairTfxRadiusMultipler', 0.5, 3.0).name('HAIR Radius mul');
+      ui.slider(
+        "Position phi",
+        -179.0,
+        179.0,
+        &mut shadows.shadow_source.pos_phi,
+      );
+      ui.slider(
+        "Position th",
+        15.0,
+        165.0,
+        &mut shadows.shadow_source.pos_theta,
+      );
+      // dir.add(this.cfg.shadows.directionalLight, 'posRadius', 1, 10).step(0.1).name('Position r');
     }
 
     push_token.end();
@@ -317,4 +370,10 @@ impl AppUI {
 
 fn next_widget_small(ui: &Ui) {
   let _ = ui.set_next_item_width(WIDGET_HALF);
+}
+
+fn add_tooltip_to_previous_widget(ui: &Ui, tooltip: &str) {
+  if ui.is_item_hovered() {
+    ui.tooltip_text(tooltip);
+  }
 }

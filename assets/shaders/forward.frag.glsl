@@ -14,18 +14,17 @@ precision highp usampler2D;
 layout(binding = 2) uniform sampler2D u_albedoTexture;
 layout(binding = 3) uniform usampler2D u_specularTexture;
 layout(binding = 4) uniform usampler2D u_hairShadowTexture;
+layout(binding = 5) uniform sampler2D u_directionalShadowDepthTex;
 // layout(binding = 6) uniform sampler2D u_sssDepthTex;
 // ao
 // layout(binding = 7) uniform sampler2D u_aoTex;
-// Shadow
-// layout(binding = 8) uniform sampler2D u_directionalShadowDepthTex;
 
 
 // input-output variables
 layout(location = 0) in vec3 v_Position;
 layout(location = 1) in vec3 v_Normal;
 layout(location = 2) in vec2 v_UV;
-// layout(location = 3) in vec4 v_PositionLightShadowSpace;
+layout(location = 3) in vec4 v_PositionLightShadowSpace;
 
 layout(location = 0) out vec4 outColor1;
 layout(location = 1) out uvec4 outColor2;
@@ -42,9 +41,7 @@ float SSSSS_sampleDepthLinear (sampler2D depthTex, vec2 texcoord) {
 //@import ./_material;
 //@import ./_pbr;
 //@i mport ./_skin; // not imported even in WebFx?
-//@i mport ./_shadows;
-const float IN_SHADOW = 1.0f;
-const float NOT_IN_SHADOW = 0.0f;
+//@import ./_shadows;
 // #define SSSS_GLSL_3 1
 //@i mport ./_separableSSSSS;
 
@@ -90,12 +87,10 @@ Material createMaterial() {
   // convert specular/smoothness -> roughness
   material.roughness = 1.0 - readSpecular();
 
-  /* TODO restore
   vec3 toCaster = normalize(u_directionalShadowCasterPosition.xyz - v_Position);
   material.shadow = 1.0 - calculateDirectionalShadow(
     v_PositionLightShadowSpace, material.normal, toCaster
-  );*/
-  material.shadow = NOT_IN_SHADOW;
+  );
   material.hairShadow = readHairShadow();
 
   return material;
@@ -166,8 +161,19 @@ void main() {
   // outColor2 = vec4(packNormal(material.normal), 1.0);
   outColor2 = uvec4(packNormal(material.normal), 255);
   
+  /* DEBUG:
   // vec3 n = vec3(0.0, 0.5, 1.0);
   // vec3 n = material.normal;
+  vec3 toCaster = normalize(u_directionalShadowCasterPosition.xyz - v_Position);
+  vec4 positionShadowSpace = u_directionalShadowMatrix_MVP * vec4(v_Position, 1);
+  float shadowSim = shadowTestSimple(positionShadowSpace, material.normal, toCaster);
+  color = mix(
+    material.albedo,
+    vec3(shadowSim),
+    0.3
+  );  
+  // outColor1 = vec4(color, 1.0);
+  // outColor1 = vec4(vec3(material.shadow), 1.0);
 
   // outColor2 = vec4(n, 1.0);
   // outColor2 = uvec4(0, 128, 255, 255);
@@ -176,4 +182,5 @@ void main() {
   // outColor2 = vec4(abs(normalize(v_Normal)), 1.0);
   // outColor2 = vec4(v_Normal, 1.0);
   // outColor2 = vec4(v_Normal, 1.0);
+  */
 }

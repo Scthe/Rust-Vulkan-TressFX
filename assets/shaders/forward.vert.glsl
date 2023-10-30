@@ -16,16 +16,14 @@ layout(location = 2) in vec2 in_UV;
 layout(location = 0) out vec3 v_Position; // global-space
 layout(location = 1) out vec3 v_Normal;
 layout(location = 2) out vec2 v_UV;
-// layout(location = 3) out vec4 v_PositionLightShadowSpace;
+layout(location = 3) out vec4 v_PositionLightShadowSpace;
 
 
 void main() {
   vec4 pos = vec4(in_Position.xyz, 1.0);
   gl_Position = u_MVP * pos;
   v_Position = (u_M * pos).xyz;
-  // v_PositionLightShadowSpace = u_directionalShadowMatrix_MVP * pos; // TODO
+  v_PositionLightShadowSpace = u_directionalShadowMatrix_MVP * pos;
   v_Normal = in_Normal; // TODO technically we should have rotation matrix here, but not needed for app as simple as this
-  // v_Normal = vec3(-0.5,1.0,-0.5);
-  // v_Normal = vec3(0.0, 1.0, 0.0);
   v_UV = in_UV;
 }

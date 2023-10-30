@@ -1,10 +1,12 @@
 use std::path::Path;
 
 use ash::vk;
+use glam::vec4;
 use glam::Mat4;
 use glam::Vec2;
 use glam::Vec3;
 use log::info;
+use log::trace;
 use tobj;
 
 use crate::config::Config;
@@ -59,7 +61,11 @@ fn load_sintel(vk_ctx: &VkCtx, model_matrix: Mat4) -> WorldEntity {
     VkTexture::RAW_DATA_TEXTURE_FORMAT,
   );
   let material = Material::new(tex_diffuse, Some(specular_tex), Some(hair_shadow_tex));
-  let mesh = load_obj_mesh(vk_ctx, Path::new("./assets/sintel_lite_v2_1/sintel.obj"));
+  let mesh = load_obj_mesh(
+    vk_ctx,
+    Path::new("./assets/sintel_lite_v2_1/sintel.obj"),
+    &model_matrix,
+  );
   let name = "sintel".to_string();
   let model_ubo = allocate_model_ubo_vec(vk_ctx, &name);
 
@@ -90,6 +96,7 @@ fn load_sintel_eyes(vk_ctx: &VkCtx, model_matrix: Mat4) -> WorldEntity {
   let mesh = load_obj_mesh(
     vk_ctx,
     Path::new("./assets/sintel_lite_v2_1/sintel_eyeballs.obj"),
+    &model_matrix,
   );
   let name = "sintel".to_string();
   let model_ubo = allocate_model_ubo_vec(vk_ctx, &name);
@@ -111,7 +118,7 @@ struct Mesh {
   pub vertex_count: u32,
 }
 
-fn load_obj_mesh(vk_ctx: &VkCtx, path: &std::path::Path) -> Mesh {
+fn load_obj_mesh(vk_ctx: &VkCtx, path: &std::path::Path, model_matrix: &Mat4) -> Mesh {
   let (models, _) = tobj::load_obj(path, &tobj::GPU_LOAD_OPTIONS)
     .expect(&format!("Failed to load OBJ file '{}'", path.display()));
 
@@ -150,6 +157,7 @@ fn load_obj_mesh(vk_ctx: &VkCtx, path: &std::path::Path) -> Mesh {
       uv: Vec2::new(m_uv[i2], m_uv[i2 + 1]),
     })
   });
+  debug_print_bounding_box(&vertices, *model_matrix);
 
   // allocate
   let vertices_bytes = bytemuck::cast_slice(&vertices);
@@ -177,4 +185,28 @@ fn load_obj_mesh(vk_ctx: &VkCtx, path: &std::path::Path) -> Mesh {
     index_buffer,
     vertex_count: indices.len() as u32,
   }
+}
+
+fn debug_print_bounding_box(vertices: &Vec<RenderableVertex>, model_matrix: Mat4) {
+  if vertices.len() <= 0 {
+    panic!("Mesh does not contain vertices");
+  }
+
+  let mut bb_min = vertices[0].position.clone();
+  let mut bb_max = vertices[0].position.clone();
+  vertices.iter().for_each(|vert| {
+    bb_min = bb_min.min(vert.position);
+    bb_max = bb_max.max(vert.position);
+  });
+  let bb_min_ws = model_matrix * vec4(bb_min.x, bb_min.y, bb_min.z, 1.0);
+  let bb_max_ws = model_matrix * vec4(bb_max.x, bb_max.y, bb_max.z, 1.0);
+
+  let center = (bb_min_ws + bb_max_ws) / 2.0;
+
+  trace!(
+    "Object center={}, bounding box = (min={}, max={})",
+    center,
+    bb_min_ws,
+    bb_max_ws
+  );
 }

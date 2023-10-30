@@ -70,8 +70,8 @@ void main() {
 
   float occlusion = 0.0;
   float DBG_MAGIC = 0;
-  int kernel_size = u_kernelSize;
-  for(int i = 0; i < kernel_size; i++) {
+  uint kernel_size = u_kernelSize;
+  for(uint i = 0; i < kernel_size; i++) {
     float radius = u_radius; // TODO make depth-independent. Closer==smaller radius, Further==bigger radius?
 
     // get position of the sampled point, especially how far it is from camera

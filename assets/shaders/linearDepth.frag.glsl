@@ -18,12 +18,7 @@ layout(location = 0) out vec4 outDepth;
 
 
 void main() {
-  float depth = texture(u_depthBufferTex, v_position).r;
-  // TODO? or inverse_projection? Then remove from `_utils.glsl`.
-  // float linearDepth = linearizeDepth(depth, u_nearAndFar);
-  vec4 clipSpace = vec4(to_neg1_1(v_position), depth, 1);
-  vec4 viewPos = u_invProjectionMat * clipSpace;
-  viewPos.xyz /= viewPos.w;
+  vec4 viewPos = reprojectFromDepthBuffer(u_depthBufferTex, v_position, u_invProjectionMat);
   /// Values are negative due to Vulkan coordinate system
   outDepth = vec4(vec3(viewPos.z), 1.0);
 }

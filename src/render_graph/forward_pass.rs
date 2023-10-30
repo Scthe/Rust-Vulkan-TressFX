@@ -14,6 +14,7 @@ const BINDING_INDEX_MODEL_UBO: u32 = 1;
 const BINDING_INDEX_DIFFUSE_TEXTURE: u32 = 2;
 const BINDING_INDEX_SPECULAR_TEXTURE: u32 = 3;
 const BINDING_INDEX_HAIR_SHADOW_TEXTURE: u32 = 4;
+const BINDING_INDEX_SHADOW_MAP: u32 = 5;
 
 const DEPTH_TEXTURE_FORMAT: vk::Format = vk::Format::D24_UNORM_S8_UINT;
 const DIFFUSE_TEXTURE_FORMAT: vk::Format = vk::Format::R32G32B32A32_SFLOAT;
@@ -159,6 +160,7 @@ impl ForwardPass {
         BINDING_INDEX_HAIR_SHADOW_TEXTURE,
         vk::ShaderStageFlags::FRAGMENT,
       ),
+      create_texture_binding(BINDING_INDEX_SHADOW_MAP, vk::ShaderStageFlags::FRAGMENT),
     ]
   }
 
@@ -266,6 +268,7 @@ impl ForwardPass {
     &self,
     exec_ctx: &PassExecContext,
     framebuffer: &mut ForwardPassFramebuffer,
+    shadow_map_texture: &mut VkTexture,
   ) -> () {
     let vk_app = exec_ctx.vk_app;
     let scene = exec_ctx.scene;
@@ -281,7 +284,7 @@ impl ForwardPass {
 
     // TODO no need to rerecord every frame TBH. Everything can be controlled by uniforms etc.
     unsafe {
-      self.cmd_resource_barriers(device, &command_buffer, framebuffer);
+      self.cmd_resource_barriers(device, &command_buffer, framebuffer, shadow_map_texture);
 
       // start render pass
       cmd_begin_render_pass_for_framebuffer(
@@ -300,7 +303,7 @@ impl ForwardPass {
 
       // draw calls
       for entity in &scene.entities {
-        self.bind_entity_ubos(exec_ctx, entity);
+        self.bind_entity_ubos(exec_ctx, shadow_map_texture, entity);
         entity.cmd_bind_mesh_buffers(device, command_buffer);
         entity.cmd_draw_mesh(device, command_buffer);
       }
@@ -315,7 +318,24 @@ impl ForwardPass {
     device: &ash::Device,
     command_buffer: &vk::CommandBuffer,
     framebuffer: &mut ForwardPassFramebuffer,
+    shadow_map_texture: &mut VkTexture,
   ) {
+    let shadow_map_barrier = shadow_map_texture.barrier_prepare_attachment_for_shader_read();
+
+    device.cmd_pipeline_barrier(
+      *command_buffer,
+      // wait for previous use in:
+      vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT
+        | vk::PipelineStageFlags::LATE_FRAGMENT_TESTS
+        | vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS,
+      // before we: execute fragment shader
+      vk::PipelineStageFlags::FRAGMENT_SHADER,
+      vk::DependencyFlags::empty(),
+      &[],
+      &[],
+      &[shadow_map_barrier],
+    );
+
     let diffuse_barrier = framebuffer
       .diffuse_tex
       .barrier_prepare_attachment_for_write();
@@ -341,7 +361,12 @@ impl ForwardPass {
     );
   }
 
-  unsafe fn bind_entity_ubos(&self, exec_ctx: &PassExecContext, entity: &WorldEntity) {
+  unsafe fn bind_entity_ubos(
+    &self,
+    exec_ctx: &PassExecContext,
+    shadow_map_texture: &mut VkTexture,
+    entity: &WorldEntity,
+  ) {
     let vk_app = exec_ctx.vk_app;
     let config_buffer = exec_ctx.config_buffer;
     let frame_id = exec_ctx.swapchain_image_idx;
@@ -378,6 +403,12 @@ impl ForwardPass {
           .hair_shadow_tex
           .as_ref()
           .unwrap_or(&self.dummy_data_texture),
+        image_view: None,
+        sampler: vk_app.default_texture_sampler_nearest,
+      },
+      BindableResource::Texture {
+        binding: BINDING_INDEX_SHADOW_MAP,
+        texture: &shadow_map_texture,
         image_view: None,
         sampler: vk_app.default_texture_sampler_nearest,
       },

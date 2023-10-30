@@ -70,16 +70,6 @@ bool outOfScreen (vec2 coord) {
          coord.y > 1.0;
 }
 
-/** https://learnopengl.com/Advanced-OpenGL/Depth-testing */
-/*
-float linearizeDepth(float depth, vec2 nearAndFar) {
-  float near = nearAndFar.x;
-  float far = nearAndFar.y;
-  float z = depth * 2.0 - 1.0; // back to NDC
-  return (2.0 * near * far) / (far + near - z * (far - near));
-}
-*/
-
 
 // [0..1] -> [-1..1]
 float to_neg1_1 (float v) { return 2.0 * v - 1.0; }
@@ -134,4 +124,37 @@ uvec3 packNormal(vec3 normal) {
 vec3 unpackNormal(usampler2D tex, vec2 coords) {
   vec3 normal = readModelTexture_uint(tex, coords).xyz;
   return normalize(to_neg1_1(normal));
+}
+
+float textureDepth(sampler2D tex, vec2 uv) {
+  uv = fixOpenGLTextureCoords_AxisY(uv);
+  return texture(tex, uv).r;
+}
+
+vec4 toClipSpace(vec2 uv, float depth) {
+  return vec4(to_neg1_1(uv), depth, 1.0);
+}
+
+
+////////////
+// Matrices
+
+mat4 calcViewProjectionMatrix(mat4 v, mat4 p){ return p * v; }
+mat4 calcModelViewProjectionMatrix(mat4 m, mat4 v, mat4 p){ return p * v * m; }
+
+
+////////////
+// Depth reprojection
+
+vec4 reprojectFromDepthBuffer(float depthBufferZ, vec2 uv, mat4 reprojMat) {
+  vec4 clipSpace = toClipSpace(uv, depthBufferZ);
+  // vec4 clipSpace = vec4(to_neg1_1(vec3(texCoord, depthBufferZ)), 1);
+  
+  vec4 pos = reprojMat * clipSpace;
+  return pos.xyzw / pos.w;
+}
+
+vec4 reprojectFromDepthBuffer(sampler2D depthTex, vec2 uv, mat4 reprojMat) {
+  float depthBufferZ = textureDepth(depthTex, uv);
+  return reprojectFromDepthBuffer(depthBufferZ, uv, reprojMat);
 }

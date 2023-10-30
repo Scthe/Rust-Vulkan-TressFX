@@ -17,14 +17,14 @@ layout(location = 0) out vec4 outColor;
 //@import ./_tonemappers;
 //@import ./_colorGrading;
 
-const int TONEMAP_LINEAR = 0;
-const int TONEMAP_REINHARD = 1;
-const int TONEMAP_U2 = 2;
-const int TONEMAP_PHOTOGRAPHIC = 3;
-const int TONEMAP_ACES = 4;
+const uint TONEMAP_LINEAR = 0;
+const uint TONEMAP_REINHARD = 1;
+const uint TONEMAP_U2 = 2;
+const uint TONEMAP_PHOTOGRAPHIC = 3;
+const uint TONEMAP_ACES = 4;
 
 
-vec3 doTonemapping(int tonemapMode, vec3 hdrColor) {
+vec3 doTonemapping(uint tonemapMode, vec3 hdrColor) {
   switch (tonemapMode) {
     case TONEMAP_U2: return Uncharted2Tonemap(hdrColor);
     case TONEMAP_LINEAR: return tonemapLinear(hdrColor);

@@ -128,7 +128,7 @@ impl RenderGraph {
     let frame_resources = &mut self.resources_per_frame[swapchain_image_index];
     let config_vk_buffer = &frame_resources.config_uniform_buffer;
     update_config_uniform_buffer(vk_app, config, scene, config_vk_buffer);
-    update_model_uniform_buffers(scene, swapchain_image_index);
+    update_model_uniform_buffers(config, scene, swapchain_image_index);
 
     // sync between frames
     unsafe {
@@ -176,9 +176,11 @@ impl RenderGraph {
 
     // forward rendering
     RenderGraph::debug_start_pass(&pass_ctx, "forward_pass");
-    self
-      .forward_pass
-      .execute(&pass_ctx, &mut frame_resources.forward_pass);
+    self.forward_pass.execute(
+      &pass_ctx,
+      &mut frame_resources.forward_pass,
+      &mut frame_resources.shadow_map_pass.depth_tex,
+    );
 
     // linear depth
     RenderGraph::debug_start_pass(&pass_ctx, "linear_depth_pass");
@@ -216,7 +218,9 @@ impl RenderGraph {
       &mut frame_resources.tonemapping_pass.tonemapped_tex,
       &mut frame_resources.forward_pass.normals_tex,
       &mut frame_resources.ssao_pass.ssao_tex,
-      &mut frame_resources.linear_depth_pass.linear_depth_tex,
+      &mut frame_resources.forward_pass.depth_stencil_tex,
+      frame_resources.forward_pass.depth_image_view,
+      &mut frame_resources.shadow_map_pass.depth_tex,
     );
 
     unsafe {
@@ -338,10 +342,10 @@ fn update_config_uniform_buffer(
   vk_buffer.write_to_mapped(data_bytes);
 }
 
-fn update_model_uniform_buffers(scene: &World, frame_id: usize) {
+fn update_model_uniform_buffers(config: &Config, scene: &World, frame_id: usize) {
   let camera = &scene.camera;
   scene.entities.iter().for_each(|entity| {
-    let data = ForwardModelUBO::new(entity, camera);
+    let data = ForwardModelUBO::new(config, entity, camera);
     let data_bytes = bytemuck::bytes_of(&data);
     let buffer = entity.get_ubo_buffer(frame_id);
     buffer.write_to_mapped(data_bytes);
