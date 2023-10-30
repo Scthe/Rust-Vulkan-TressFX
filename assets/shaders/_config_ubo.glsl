@@ -59,8 +59,8 @@ uniform GlobalConfigUniformBuffer {
 #define u_nearAndFar (u_viewportAndNearFar.zw)
 // AO + shadows
 #define u_directionalShadowSampleRadius (readConfigUint(u_shadowMiscSettings.x))
-#define u_shadowBias (readConfigValueFromValueWithFlag(u_directionalShadowCasterPosition.w))
-#define u_usePCSS_Shadows (readConfigFlagFromSign(u_directionalShadowCasterPosition.w))
+#define u_shadowBias (u_directionalShadowCasterPosition.w)
+#define u_shadowsTechnique (readConfigUint(u_aoAndShadowContrib.w))
 #define u_aoStrength (u_aoAndShadowContrib.r)
 #define u_aoExp (u_aoAndShadowContrib.g)
 #define u_maxShadowContribution (readConfigValueFromValueWithFlag(u_aoAndShadowContrib.b))

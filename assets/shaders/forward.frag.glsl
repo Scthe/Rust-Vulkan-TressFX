@@ -88,11 +88,9 @@ Material createMaterial() {
   material.roughness = 1.0 - readSpecular();
 
   vec3 toCaster = normalize(u_directionalShadowCasterPosition.xyz - v_Position);
-  material.shadow = 1.0 - shadowTestSimple(v_PositionLightShadowSpace, material.normal, toCaster);
-  /*
   material.shadow = 1.0 - calculateDirectionalShadow(
     v_PositionLightShadowSpace, material.normal, toCaster
-  );*/
+  );
   material.hairShadow = readHairShadow();
 
   return material;

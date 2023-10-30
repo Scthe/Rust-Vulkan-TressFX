@@ -103,17 +103,12 @@ impl GlobalConfigUBO {
         shadows.position(),
       ),
       u_shadow_misc_settings: vec4(shadows.blur_radius as _, 0.0, 0.0, 0.0),
-      u_shadow_caster_position: vec4(
-        shadow_pos.x,
-        shadow_pos.y,
-        shadow_pos.z,
-        encode_flag_in_value_sign(shadows.use_pcss, shadows.bias),
-      ),
+      u_shadow_caster_position: vec4(shadow_pos.x, shadow_pos.y, shadow_pos.z, shadows.bias),
       u_ao_and_shadow_contrib: Vec4::new(
         99.0,
         99.0,
-        encode_flag_in_value_sign(config.show_debug_positions, config.shadows.strength),
-        1.0,
+        encode_flag_in_value_sign(config.show_debug_positions, shadows.strength),
+        shadows.shadow_technique as f32,
       ),
       // lights
       u_light_ambient: light_ambient(&config.light_ambient),

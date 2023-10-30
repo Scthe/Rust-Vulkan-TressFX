@@ -10,7 +10,7 @@ use winit::event::Event;
 use crate::{
   config::{
     ColorGradingPerRangeSettings, ColorGradingProp, Config, DisplayMode, PostFxCfg, SSAOConfig,
-    ShadowsConfig, TonemappingMode,
+    ShadowTechnique, ShadowsConfig, TonemappingMode,
   },
   vk_ctx::VkCtx,
 };
@@ -139,14 +139,14 @@ impl AppUI {
         DisplayMode::Normals,
         DisplayMode::Luma,
         DisplayMode::SSAO,
-        // DisplayMode::LinearDepth,
+        DisplayMode::LinearDepth, // TODO ???
         DisplayMode::ShadowMap,
       ],
       |idx| match *idx {
         DisplayMode::Normals => Cow::Borrowed("Normals"),
         DisplayMode::Luma => Cow::Borrowed("Luma"),
         DisplayMode::SSAO => Cow::Borrowed("SSAO"),
-        // DisplayMode::LinearDepth => Cow::Borrowed("Linear depth"),
+        DisplayMode::LinearDepth => Cow::Borrowed("Linear depth"),
         DisplayMode::ShadowMap => Cow::Borrowed("Shadows"),
         _ => Cow::Borrowed("Final"),
       },
@@ -178,12 +178,27 @@ impl AppUI {
 
     if ui.collapsing_header("Shadows", *HEADER_FLAGS) {
       // dir.add(this.cfg.shadows, 'showDebugView').name('Show dbg');
-      ui.checkbox("Use PCSS", &mut shadows.use_pcss);
+      ui.combo(
+        "Technique",
+        &mut shadows.shadow_technique,
+        &[
+          ShadowTechnique::BinaryDebug,
+          ShadowTechnique::PFC,
+          ShadowTechnique::PCSS,
+        ],
+        |idx| match *idx {
+          ShadowTechnique::BinaryDebug => Cow::Borrowed("Binary debug"),
+          ShadowTechnique::PFC => Cow::Borrowed("PFC"),
+          _ => Cow::Borrowed("PCSS"),
+        },
+      );
       add_tooltip_to_previous_widget(
         ui,
-        "Use Percentage-Closer Soft Shadows or Percentage-closer Filtering",
+        "Use Percentage-Closer Soft Shadows or Percentage-closer Filtering or simplest possible binary debug check",
       );
-      ui.slider("Blur radius", 0, 4, &mut shadows.blur_radius);
+      if shadows.shadow_technique == (ShadowTechnique::PFC as _) {
+        ui.slider("Blur radius", 0, 4, &mut shadows.blur_radius);
+      }
       ui.slider("Strength", 0.0, 1.0, &mut shadows.strength);
       ui.slider("Bias", 0.001, 0.01, &mut shadows.bias);
       // dir.add(this.cfg.shadows, 'blurRadiusTfx', [0, 1, 2, 3, 4]).name('HAIR Blur radius');

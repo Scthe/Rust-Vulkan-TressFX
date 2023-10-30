@@ -158,20 +158,11 @@ void main() {
       // ortho projection, so 'w' does not matter
       vec4 fragPositionLightShadowSpace = u_directionalShadowMatrix_VP * fragPositionWorldSpace;
       vec3 toCaster = normalize(u_directionalShadowCasterPosition.xyz - fragPositionWorldSpace.xyz);
-      // float shadow = calculateDirectionalShadow(
-        // fragPositionLightShadowSpace, normal, toCaster
-      // );
-      float shadow = shadowTestSimple(fragPositionLightShadowSpace, normal, toCaster);
+      float shadow = calculateDirectionalShadow(fragPositionLightShadowSpace, normal, toCaster);
 
-      
       vec2 uv = fixOpenGLTextureCoords_AxisY(v_position);
       vec3 col = texture(u_tonemappedTex, uv).rgb;
       result = mix(col, vec3(shadow), 0.8);
-      // result = vec3(abs(fragPositionWorldSpace.y / 5.0));
-
-      // dbg - use raw forward pass
-      // vec2 uv = fixOpenGLTextureCoords_AxisY(v_position);
-      // result = texture(u_tonemappedTex, uv).rgb;
       break;
     }
 

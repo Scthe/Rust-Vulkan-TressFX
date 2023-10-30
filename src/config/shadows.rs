@@ -21,10 +21,16 @@ pub struct ShadowLightCfg {
   pub projection: ShadowLightProjection,
 }
 
+pub enum ShadowTechnique {
+  BinaryDebug = 0,
+  PFC = 1,
+  PCSS = 2,
+}
+
 pub struct ShadowsConfig {
   // TODO pub show_debug_view: bool,
   pub shadowmap_size: u32,
-  pub use_pcss: bool,
+  pub shadow_technique: usize,
   /// in pixels
   pub blur_radius: u32,
   pub bias: f32,
@@ -40,8 +46,6 @@ impl ShadowsConfig {
   pub const SHADOWS_ORTHO_SIZE: u32 = 10;
 
   pub fn position(&self) -> Vec3 {
-    // vec3(-10.0, 10.0, 10.0)
-    // vec3(-10.0, 4.0, 0.0)
     spherical_to_cartesian_dgr(
       self.shadow_source.pos_phi,
       self.shadow_source.pos_theta,
@@ -56,7 +60,7 @@ impl Default for ShadowsConfig {
     Self {
       // show_debug_view: false,
       shadowmap_size: 1024 * 2,
-      use_pcss: false,
+      shadow_technique: ShadowTechnique::PCSS as _,
       blur_radius: 4,
       bias: 0.005,
       blur_radius_tfx: 1,

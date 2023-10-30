@@ -27,23 +27,60 @@ float calculateDirectionalShadow(vec4 lightPosInterp, vec3 normal, vec3 toShadow
 }
 */
 
+const uint SHADOW_TECHNIQUE_BINARY_DEBUG = 0;
+const uint SHADOW_TECHNIQUE_PFC = 1;
+const uint SHADOW_TECHNIQUE_PCSS = 2;
+
 const float IN_SHADOW = 1.0f;
 const float NOT_IN_SHADOW = 0.0f;
 
-/*
 // settings
 const float PCSS_PENUMBRA_WIDTH = 10.0;
 const int PCSS_PENUMBRA_BASE = 1; // we want at least some blur
 
-float sampleShadowMap (uint sampleRadius, vec3 lightPosProj, float bias) {
+/** Simplest possible shadow implementation - just a binary in shadow or not */
+float shadowTestSimple(vec4 lightPosInterp, vec3 normal, vec3 toShadowCaster) {
+  // position of fragment as rendered from light POV
+  vec3 lightPosProj = lightPosInterp.xyz / lightPosInterp.w; // Useless for ORTHO, only PERSP.
+  vec2 uv = to_0_1(lightPosProj.xy); // from opengl [-1, 1] to depth-texture-like [0..1]
+  float fragmentDepth = lightPosProj.z;
+  uv.y = 1.0 - uv.y;
+
+  // Special case if we went beyond the far plane of the frustum.
+  // Mark no shadow, cause it's better than dark region
+  // far away (or whatever relative light-camera postion is)
+  if (fragmentDepth > 1.0) {
+    return NOT_IN_SHADOW;
+    // return vec3(1, 0, 0); // debug: red
+  }
+  // would cause 'invalid' sampling, mark as no shadow too.
+  if (outOfScreen(uv.xy)) {
+    return NOT_IN_SHADOW;
+    // return vec3(0, 1, 0); // debug: green
+  }
+
+  // GDC_Poster_NormalOffset.png
+  float bias = max(u_shadowBias * (1.0 - dot(normal, toShadowCaster)), 0.005);
+
+  float shadowMapDepth = texture(u_directionalShadowDepthTex, uv).r;
+  float shadow = fragmentDepth - bias > shadowMapDepth  ? IN_SHADOW : NOT_IN_SHADOW;
+  // return vec3(0, 0, shadow); // debug: blue
+  return 1.0 - shadow;
+}
+
+
+////////////////
+
+float sampleShadowMap (int sampleRadius, vec3 lightPosProj, float bias) {
   // depth of current fragment (we multiplied by light-shadow matrix
   // in vert. shader, did w-divide here)
   float fragmentDepth = lightPosProj.z;
 
   float shadow = 0.0;
   vec2 texelSize = 1.0 / vec2(textureSize(u_directionalShadowDepthTex, 0));
-  for (uint x = -sampleRadius; x <= sampleRadius; ++x) {
-    for (uint y = -sampleRadius; y <= sampleRadius; ++y) {
+
+  for (int x = -sampleRadius; x <= sampleRadius; ++x) {
+    for (int y = -sampleRadius; y <= sampleRadius; ++y) {
       // depth from shadow map
       float shadowMapDepth = texture(
         u_directionalShadowDepthTex,
@@ -71,7 +108,6 @@ float sampleShadowMap (uint sampleRadius, vec3 lightPosProj, float bias) {
 float calculateDirectionalShadow(vec4 lightPosInterp, vec3 normal, vec3 toShadowCaster) {
   // position of fragment as rendered from light POV
   vec3 lightPosProj = lightPosInterp.xyz / lightPosInterp.w; // Useless for ORTHO, only PERSP.
-  // lightPosProj = to_0_1(lightPosProj); // from opengl [-1, 1] to depth-texture-like [0..1]
   lightPosProj = vec3(to_0_1(lightPosProj.xy), lightPosProj.z); // from opengl [-1, 1] to depth-texture-like [0..1]
   lightPosProj.y = 1.0 - lightPosProj.y;
 
@@ -89,50 +125,23 @@ float calculateDirectionalShadow(vec4 lightPosInterp, vec3 normal, vec3 toShadow
   // GDC_Poster_NormalOffset.png
   float bias = max(u_shadowBias * (1.0 - dot(normal, toShadowCaster)), 0.005);
 
-  if (u_usePCSS_Shadows) {
-    // PCSS
-    float fragmentDepth = lightPosProj.z;
-    float shadowMapDepth = texture(u_directionalShadowDepthTex, lightPosProj.xy).r; // sample center
-    float depthDiff = max(fragmentDepth - shadowMapDepth, 0.0);
-    int sampleRadius = PCSS_PENUMBRA_BASE + int(depthDiff / shadowMapDepth * PCSS_PENUMBRA_WIDTH);
-    return sampleShadowMap(sampleRadius, lightPosProj, bias);
-  } else {
-    // PCF
-    return sampleShadowMap(u_directionalShadowSampleRadius, lightPosProj, bias);
+  switch(u_shadowsTechnique) {
+    case SHADOW_TECHNIQUE_BINARY_DEBUG: {
+      // discard variables above and use simplest possible way
+      return shadowTestSimple(lightPosInterp, normal, toShadowCaster);
+    }
+    case SHADOW_TECHNIQUE_PFC: {
+      return 1.0 - sampleShadowMap(int(u_directionalShadowSampleRadius), lightPosProj, bias);
+    }
+    default:
+    case SHADOW_TECHNIQUE_PCSS: {
+      float fragmentDepth = lightPosProj.z; // current fragment - depth buffer from light position
+      float shadowMapDepth = texture(u_directionalShadowDepthTex, lightPosProj.xy).r; // sample center
+      // Subtraction is reversed for RH coordinate system.
+      // Fine for ortho projection.
+      float depthDiff = max(shadowMapDepth - fragmentDepth, 0.0);
+      int sampleRadius = PCSS_PENUMBRA_BASE + int(depthDiff / shadowMapDepth * PCSS_PENUMBRA_WIDTH);
+      return 1.0 - sampleShadowMap(sampleRadius, lightPosProj, bias);
+    }
   }
 }
-*/
-
-///////
-
-float shadowTestSimple(vec4 lightPosInterp, vec3 normal, vec3 toShadowCaster) {
-  // position of fragment as rendered from light POV
-  vec3 lightPosProj = lightPosInterp.xyz / lightPosInterp.w; // Useless for ORTHO, only PERSP.
-  vec2 uv = to_0_1(lightPosProj.xy); // from opengl [-1, 1] to depth-texture-like [0..1]
-  float fragmentDepth = lightPosProj.z;
-  // fragmentDepth = to_0_1(fragmentDepth);
-  uv.y = 1.0 - uv.y;
-
-  // Special case if we went beyond the far plane of the frustum.
-  // Mark no shadow, cause it's better than dark region
-  // far away (or whatever relative light-camera postion is)
-  if (fragmentDepth > 1.0) {
-    return NOT_IN_SHADOW;
-    // return vec3(1, 0, 0);
-  }
-  // would cause 'invalid' sampling, mark as no shadow too.
-  if (outOfScreen(uv.xy)) {
-    return NOT_IN_SHADOW;
-    // return vec3(0, 1, 0);
-  }
-
-  // GDC_Poster_NormalOffset.png
-  float bias = max(u_shadowBias * (1.0 - dot(normal, toShadowCaster)), 0.005);
-
-  float shadowMapDepth = texture(u_directionalShadowDepthTex, uv).r;
-  float shadow = fragmentDepth - bias > shadowMapDepth  ? IN_SHADOW : NOT_IN_SHADOW;
-  // return vec3(0.0, shadow, 0.0);
-  // return vec3(0, 0, shadow);
-  return 1.0 - shadow;
-}
-

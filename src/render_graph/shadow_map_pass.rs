@@ -19,8 +19,6 @@ const SHADER_PATHS: (&str, &str) = (
   "./assets/shaders-compiled/shadow_map_gen.frag.spv",
 );
 
-// TODO verify
-// TODO add ui
 pub struct ShadowMapPass {
   render_pass: vk::RenderPass,
   pipeline: vk::Pipeline,
