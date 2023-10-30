@@ -27,6 +27,8 @@ pub enum DisplayMode {
 pub struct Config {
   /// crash program after first frame to read init errors
   pub only_first_frame: bool,
+  /// show spheres where lights/shadows are
+  pub show_debug_positions: bool,
   /// debug display mode
   pub display_mode: usize,
   pub linear_depth_preview_range: Vec2,
@@ -69,6 +71,7 @@ impl Config {
 
     Config {
       only_first_frame: false,
+      show_debug_positions: false,
       display_mode: DisplayMode::Final as _,
       linear_depth_preview_range: vec2(-2.0, -15.0),
       // window

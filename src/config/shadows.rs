@@ -57,7 +57,7 @@ impl Default for ShadowsConfig {
       // show_debug_view: false,
       shadowmap_size: 1024 * 2,
       use_pcss: false,
-      blur_radius: 0, // TODO 4,
+      blur_radius: 4,
       bias: 0.005,
       blur_radius_tfx: 1,
       bias_hair_tfx: 0.050,

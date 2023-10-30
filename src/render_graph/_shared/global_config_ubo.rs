@@ -68,6 +68,13 @@ pub struct GlobalConfigUBO {
 unsafe impl bytemuck::Zeroable for GlobalConfigUBO {}
 unsafe impl bytemuck::Pod for GlobalConfigUBO {}
 
+/// Result negative if flag is true. Result is positive if flag is false.
+/// Use only with values that can be >0!
+fn encode_flag_in_value_sign(flag: bool, value: f32) -> f32 {
+  let sign = if flag { -1.0 } else { 1.0 };
+  value * sign
+}
+
 impl GlobalConfigUBO {
   pub fn new(vk_app: &VkCtx, config: &Config, camera: &Camera) -> GlobalConfigUBO {
     let vp = vk_app.window_size();
@@ -76,7 +83,6 @@ impl GlobalConfigUBO {
     let color_grading = &postfx.color_grading;
     let shadows = &config.shadows;
     let shadow_pos = shadows.position();
-    let use_shadow_pcss = if shadows.use_pcss { -1.0 } else { 1.0 };
     let ssao_vp = config.get_ssao_viewport_size();
 
     GlobalConfigUBO {
@@ -101,9 +107,14 @@ impl GlobalConfigUBO {
         shadow_pos.x,
         shadow_pos.y,
         shadow_pos.z,
-        shadows.bias * use_shadow_pcss,
+        encode_flag_in_value_sign(shadows.use_pcss, shadows.bias),
       ),
-      u_ao_and_shadow_contrib: Vec4::new(99.0, 99.0, config.shadows.strength, 1.0),
+      u_ao_and_shadow_contrib: Vec4::new(
+        99.0,
+        99.0,
+        encode_flag_in_value_sign(config.show_debug_positions, config.shadows.strength),
+        1.0,
+      ),
       // lights
       u_light_ambient: light_ambient(&config.light_ambient),
       u_light0_position: light_pos(&config.light0),

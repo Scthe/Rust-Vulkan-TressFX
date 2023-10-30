@@ -74,7 +74,9 @@ vec4 getWorldSpacePosition() {
   return reprojectFromDepthBuffer(u_depthTex, v_position, invVP_matrix);
 }
 
-/** Returns distance along the ray (negative if behind). Returns -1.0 if miss. */
+/** Returns distance along the ray (negative if behind). Returns -1.0 if miss.
+  * `vec3 rayHitWorldPos = rayDir * rayHit + rayOrigin;`
+  */
 float sphIntersect(vec3 rayOrigin, vec3 rayDir, vec4 sph){
     vec3 oc = rayOrigin - sph.xyz;
     float b = dot(oc, rayDir);
@@ -85,17 +87,32 @@ float sphIntersect(vec3 rayOrigin, vec3 rayDir, vec4 sph){
     return -b - h;
 }
 
+const float DEBUG_SPHERE_RADIUS = 1.5;
+
+#define DRAW_DEBUG_SPHERE(position, color) {\
+  float rayHit = sphIntersect(rayOrigin, rayDir, vec4(position, DEBUG_SPHERE_RADIUS)); \
+  if (rayHit > 0 && rayHit < closestRayHit) { closestRayHit = rayHit; sphereColor = color; } \
+}
+
 vec4 drawDebugSpheres(){
-  vec4 sphere = vec4(u_directionalShadowCasterPosition.xyz, 0.3); // (pos.xyz, r)
+  const vec4 SKIP_DRAW = vec4(0,0,0, 0);
+  if (!u_showDebugPositions) { return SKIP_DRAW; }
+
   vec4 fragPositionWorldSpace = getWorldSpacePosition();
   vec3 rayDir = normalize(fragPositionWorldSpace.xyz - u_cameraPosition.xyz);
   vec3 rayOrigin = u_cameraPosition.xyz;
-  float rayHit = sphIntersect(rayOrigin, rayDir, sphere);
-  // vec3 rayHitWorldPos = rayDir * rayHit + rayOrigin;
-  if (rayHit > 0) {
-    return vec4(1,0,0, 1);
+  float closestRayHit = 99999;
+  vec3 sphereColor = vec3(0.0);
+
+  DRAW_DEBUG_SPHERE(u_directionalShadowCasterPosition.xyz, vec3(0.2));
+  DRAW_DEBUG_SPHERE(u_light0_Position, u_light0_Color.rgb);
+  DRAW_DEBUG_SPHERE(u_light1_Position, u_light1_Color.rgb);
+  DRAW_DEBUG_SPHERE(u_light2_Position, u_light2_Color.rgb);
+
+  if (closestRayHit > 0 && closestRayHit < 99999) {
+    return vec4(sphereColor, 1);
   }
-  return vec4(0,0,0, 0);
+  return SKIP_DRAW;
 }
 
 

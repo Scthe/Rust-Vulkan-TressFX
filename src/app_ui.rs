@@ -167,6 +167,9 @@ impl AppUI {
       );
     }
 
+    ui.checkbox("Show positions", &mut config.show_debug_positions);
+    add_tooltip_to_previous_widget(ui, "Show positions of lights and shadow source");
+
     push_token.end();
   }
 
@@ -176,9 +179,10 @@ impl AppUI {
     if ui.collapsing_header("Shadows", *HEADER_FLAGS) {
       // dir.add(this.cfg.shadows, 'showDebugView').name('Show dbg');
       ui.checkbox("Use PCSS", &mut shadows.use_pcss);
-      if ui.is_item_hovered() {
-        ui.tooltip_text("Use Percentage-Closer Soft Shadows or Percentage-closer Filtering");
-      }
+      add_tooltip_to_previous_widget(
+        ui,
+        "Use Percentage-Closer Soft Shadows or Percentage-closer Filtering",
+      );
       ui.slider("Blur radius", 0, 4, &mut shadows.blur_radius);
       ui.slider("Strength", 0.0, 1.0, &mut shadows.strength);
       ui.slider("Bias", 0.001, 0.01, &mut shadows.bias);
@@ -351,4 +355,10 @@ impl AppUI {
 
 fn next_widget_small(ui: &Ui) {
   let _ = ui.set_next_item_width(WIDGET_HALF);
+}
+
+fn add_tooltip_to_previous_widget(ui: &Ui, tooltip: &str) {
+  if ui.is_item_hovered() {
+    ui.tooltip_text(tooltip);
+  }
 }
