@@ -30,7 +30,6 @@ pub struct ForwardModelUBO {
   pub u_sss_bias: f32,
   pub u_sss_gain: f32,
   pub u_sss_strength: f32,
-  // pub u_sss_position: Vec3,
 }
 
 unsafe impl bytemuck::Zeroable for ForwardModelUBO {}
@@ -59,9 +58,8 @@ impl ForwardModelUBO {
       u_model_matrix: entity.model_matrix,
       u_model_view_projection_matrix: camera.model_view_projection_matrix(entity.model_matrix),
       u_shadow_matrix_mvp: ShadowMapPass::get_light_shadow_mvp(
-        config,
+        &config.shadows.shadow_source,
         entity.model_matrix,
-        config.shadows.position(),
       ),
       u_specular: material.specular,
       u_specular_mul: material.specular_mul,

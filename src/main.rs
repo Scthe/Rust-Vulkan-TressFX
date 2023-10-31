@@ -174,7 +174,7 @@ fn main() {
         render_graph.execute_render_graph(
           &vk_app,
           &mut config,
-          &scene,
+          &mut scene,
           current_frame_in_flight_idx,
           &mut app_ui,
           &window,

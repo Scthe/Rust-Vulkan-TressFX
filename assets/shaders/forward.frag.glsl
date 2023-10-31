@@ -15,8 +15,7 @@ layout(binding = 2) uniform sampler2D u_albedoTexture;
 layout(binding = 3) uniform usampler2D u_specularTexture;
 layout(binding = 4) uniform usampler2D u_hairShadowTexture;
 layout(binding = 5) uniform sampler2D u_directionalShadowDepthTex;
-// layout(binding = 6) uniform sampler2D u_sssDepthTex;
-// ao
+layout(binding = 6) uniform sampler2D u_sssDepthTex;
 // layout(binding = 7) uniform sampler2D u_aoTex;
 
 
@@ -40,10 +39,10 @@ float SSSSS_sampleDepthLinear (sampler2D depthTex, vec2 texcoord) {
 //@import ./_utils;
 //@import ./_material;
 //@import ./_pbr;
-//@i mport ./_skin; // not imported even in WebFx?
 //@import ./_shadows;
-// #define SSSS_GLSL_3 1
-//@i mport ./_separableSSSSS;
+#define SSSS_GLSL_3 1
+//@import ./_separableSSSSS;
+//@i mport ./_skin; // not imported even in WebFx?
 
 
 const int FLAG_IS_METALIC = 1;
@@ -118,11 +117,11 @@ vec3 doShading(Material material, Light lights[3]) {
 
   /*
   // TODO ambient occlusion
-  // not PBR, I know, but we need this to highlight some details like collarbones etc.
+  // not PBR, but we need this to highlight some details like collarbones etc.
   float aoRadianceFactor = getCustom_AO(material.ao, u_aoStrength, u_aoExp);
   radianceSum *= aoRadianceFactor;
+  */
 
-  // TODO add SSSSS forward scattering - transluency
   vec3 sssL = normalize(u_sssPosition - material.positionWS);
   vec3 contribSSS = SSSSTransmittance(
     u_sssTransluency, // float translucency,
@@ -130,18 +129,17 @@ vec3 doShading(Material material, Light lights[3]) {
     material.positionWS, // float3 worldPosition,
     material.normal, // float3 worldNormal,
     sssL, // float3 light,
-    u_sssDepthTex, // SSSSTexture2D shadowMap,
+    u_sssDepthTex, // SSSSTexture2D shadowMap, linear cause ortho projection
     u_sssMatrix_VP, // float4x4 lightViewProjection,
     u_sssFarPlane, // float lightFarPlane
     u_sssBias, u_sssGain
   );
   contribSSS = contribSSS * radianceSum * u_sssStrength;
-  */
 
-  float shadow = max(material.shadow, material.hairShadow); // 1-shadow, 0-light
+  float shadow = max(material.shadow, material.hairShadow);
   float shadowContrib = clamp(shadow, 0.0, u_maxShadowContribution);
   radianceSum = radianceSum * (1.0 - shadowContrib);
-  return ambient + radianceSum /*+ contribSSS;*/; // TODO
+  return ambient + radianceSum + contribSSS;
 }
 
 

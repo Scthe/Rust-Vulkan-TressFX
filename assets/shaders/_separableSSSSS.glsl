@@ -322,7 +322,8 @@ float3 SSSSTransmittance(
   // Now we calculate the thickness from the light point of view:
   float4 shadowPosition = SSSSMul(shrinkedPos, lightViewProjection); // NOPE, shadowMatrix also has model matrix!
   shadowPosition.xyz = shadowPosition.xyz / shadowPosition.w;
-  shadowPosition.xyz = to_0_1(shadowPosition.xyz);
+  shadowPosition.xy = to_0_1(shadowPosition.xy);
+  shadowPosition.y = 1.0 - shadowPosition.y;
   float d1 = SSSSSample(shadowMap, shadowPosition.xy).r; // 'd1' has a range of 0..1
   float d2 = shadowPosition.z; // 'd2' has a range of 0..'lightFarPlane'
   // thickness - distance between:

@@ -3,7 +3,7 @@ use glam::{vec4, Mat4, Vec3, Vec4};
 
 use crate::{
   config::{ColorGradingProp, Config, LightAmbient, LightCfg, SSAOConfig},
-  render_graph::shadow_map_pass::ShadowMapPass,
+  render_graph::{shadow_map_pass::ShadowMapPass, sss_depth_pass::SSSDepthPass},
   scene::Camera,
   utils::spherical_to_cartesian_dgr,
   vk_ctx::VkCtx,
@@ -24,8 +24,8 @@ pub struct GlobalConfigUBO {
   pub u_shadow_caster_position: Vec4, // [position.xyz, bias (negative if pcss)]
   pub u_ao_and_shadow_contrib: Vec4, // (u_aoStrength, u_aoExp, u_maxShadowContribution, u_directionalShadowSampleRadius)
   // sss
-  // float u_sssFarPlane;
-  // mat4 u_sssMatrix_VP;
+  pub u_sss_settings: Vec4, // [u_sssPosition, u_sssFarPlane]
+  pub u_sss_matrix_vp: Mat4,
   // Lights
   pub u_light_ambient: Vec4,
   pub u_light0_position: Vec3,
@@ -82,7 +82,9 @@ impl GlobalConfigUBO {
     let postfx = &config.postfx;
     let color_grading = &postfx.color_grading;
     let shadows = &config.shadows;
-    let shadow_pos = shadows.position();
+    let shadow_pos = shadows.shadow_source.position();
+    let sss_frw = &config.sss_forward_scatter;
+    let sss_frw_pos = sss_frw.source.position();
     let ssao_vp = config.get_ssao_viewport_size();
 
     GlobalConfigUBO {
@@ -98,9 +100,8 @@ impl GlobalConfigUBO {
       u_inv_projection_mat: camera.perspective_matrix().inverse(),
       // shadows:
       u_shadow_matrix_vp: ShadowMapPass::get_light_shadow_mvp(
-        config,
+        &shadows.shadow_source,
         Mat4::IDENTITY,
-        shadows.position(),
       ),
       u_shadow_misc_settings: vec4(shadows.blur_radius as _, 0.0, 0.0, 0.0),
       u_shadow_caster_position: vec4(shadow_pos.x, shadow_pos.y, shadow_pos.z, shadows.bias),
@@ -110,6 +111,14 @@ impl GlobalConfigUBO {
         encode_flag_in_value_sign(config.show_debug_positions, shadows.strength),
         shadows.shadow_technique as f32,
       ),
+      // sss
+      u_sss_settings: vec4(
+        sss_frw_pos.x,
+        sss_frw_pos.y,
+        sss_frw_pos.z,
+        sss_frw.source.projection.far,
+      ),
+      u_sss_matrix_vp: SSSDepthPass::get_sss_forward_mvp(&sss_frw.source, Mat4::IDENTITY),
       // lights
       u_light_ambient: light_ambient(&config.light_ambient),
       u_light0_position: light_pos(&config.light0),

@@ -5,7 +5,7 @@ use ash::vk;
 use glam::{Mat4, Vec3};
 use log::info;
 
-use crate::config::Config;
+use crate::config::ShadowSourceCfg;
 use crate::scene::{Camera, WorldEntity};
 use crate::vk_ctx::VkCtx;
 use crate::vk_utils::*;
@@ -166,10 +166,10 @@ impl ShadowMapPass {
     &self,
     exec_ctx: &PassExecContext,
     framebuffer: &mut ShadowMapPassFramebuffer,
-    light_position: Vec3,
+    shadow_source: &ShadowSourceCfg,
   ) -> () {
     let vk_app = exec_ctx.vk_app;
-    let scene = exec_ctx.scene;
+    let scene = &*exec_ctx.scene;
     let command_buffer = exec_ctx.command_buffer;
     let device = vk_app.vk_device();
 
@@ -204,7 +204,7 @@ impl ShadowMapPass {
 
       // draw calls
       for entity in &scene.entities {
-        self.bind_entity_ubos(exec_ctx, entity, light_position);
+        self.bind_entity_ubos(exec_ctx, shadow_source, entity);
         entity.cmd_bind_mesh_buffers(device, command_buffer);
         entity.cmd_draw_mesh(device, command_buffer);
       }
@@ -239,8 +239,8 @@ impl ShadowMapPass {
   unsafe fn bind_entity_ubos(
     &self,
     exec_ctx: &PassExecContext,
+    source: &ShadowSourceCfg,
     entity: &WorldEntity,
-    light_position: Vec3,
   ) {
     let vk_app = exec_ctx.vk_app;
     let command_buffer = exec_ctx.command_buffer;
@@ -248,7 +248,7 @@ impl ShadowMapPass {
 
     // push constants
     let push_constants = ShadowMapPassPushConstants {
-      mvp: Self::get_light_shadow_mvp(exec_ctx.config, entity.model_matrix, light_position),
+      mvp: Self::get_light_shadow_mvp(source, entity.model_matrix),
     };
     let push_constants_bytes = bytemuck::bytes_of(&push_constants);
     device.cmd_push_constants(
@@ -260,9 +260,9 @@ impl ShadowMapPass {
     );
   }
 
-  pub fn get_light_shadow_mvp(cfg: &Config, model_matrix: Mat4, light_pos: Vec3) -> Mat4 {
-    let v_mat = get_depth_view_matrix(cfg, light_pos);
-    let p_mat = get_depth_projection_matrix(cfg);
+  pub fn get_light_shadow_mvp(source: &ShadowSourceCfg, model_matrix: Mat4) -> Mat4 {
+    let v_mat = get_depth_view_matrix(source);
+    let p_mat = get_depth_projection_matrix(source);
     Camera::calc_model_view_projection_matrix(&model_matrix, &v_mat, &p_mat)
   }
 }
@@ -295,13 +295,12 @@ unsafe impl bytemuck::Pod for ShadowMapPassPushConstants {}
 ///////////////////////////////
 // matrices calc
 
-fn get_depth_view_matrix(cfg: &Config, light_pos: Vec3) -> Mat4 {
-  let dl = &cfg.shadows.shadow_source;
-  return Mat4::look_at_rh(light_pos, dl.look_at_target, Vec3::Y); // target - both shadows and SSS
+fn get_depth_view_matrix(source: &ShadowSourceCfg) -> Mat4 {
+  return Mat4::look_at_rh(source.position(), source.look_at_target, Vec3::Y);
 }
 
-fn get_depth_projection_matrix(cfg: &Config) -> Mat4 {
+fn get_depth_projection_matrix(source: &ShadowSourceCfg) -> Mat4 {
   // this is for directional light, all rays are parallel
-  let dpm = &cfg.shadows.shadow_source.projection; // both shadows and SSS
+  let dpm = &source.projection;
   Mat4::orthographic_rh(dpm.left, dpm.right, dpm.bottom, dpm.top, dpm.near, dpm.far)
 }

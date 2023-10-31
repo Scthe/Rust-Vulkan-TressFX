@@ -108,6 +108,7 @@ vec4 drawDebugSpheres(){
   DRAW_DEBUG_SPHERE(u_light0_Position, u_light0_Color.rgb);
   DRAW_DEBUG_SPHERE(u_light1_Position, u_light1_Color.rgb);
   DRAW_DEBUG_SPHERE(u_light2_Position, u_light2_Color.rgb);
+  DRAW_DEBUG_SPHERE(u_sssPosition, vec3(0.87, 0.53, 0.36)); // #de875d
 
   if (closestRayHit > 0 && closestRayHit < 99999) {
     return vec4(sphereColor, 1);

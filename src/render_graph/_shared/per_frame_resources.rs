@@ -17,6 +17,7 @@ pub struct PerFrameResources {
 
   // framebuffers
   pub shadow_map_pass: ShadowMapPassFramebuffer,
+  pub sss_depth_pass: ShadowMapPassFramebuffer,
   pub forward_pass: ForwardPassFramebuffer,
   pub linear_depth_pass: LinearDepthPassFramebuffer,
   pub ssao_pass: SSAOPassFramebuffer,
@@ -35,6 +36,7 @@ impl PerFrameResources {
 
     // passes
     self.shadow_map_pass.destroy(vk_app);
+    self.sss_depth_pass.destroy(vk_app);
     self.forward_pass.destroy(vk_app);
     self.linear_depth_pass.destroy(vk_app);
     self.ssao_pass.destroy(vk_app);

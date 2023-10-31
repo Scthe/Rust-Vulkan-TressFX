@@ -17,6 +17,7 @@ mod linear_depth_pass;
 mod present_pass;
 mod shadow_map_pass;
 mod ssao_pass;
+mod sss_depth_pass;
 mod tonemapping_pass;
 
 pub use self::_shared::*;
@@ -24,6 +25,7 @@ use self::forward_pass::ForwardPass;
 use self::linear_depth_pass::LinearDepthPass;
 use self::shadow_map_pass::ShadowMapPass;
 use self::ssao_pass::SSAOPass;
+use self::sss_depth_pass::SSSDepthPass;
 use self::tonemapping_pass::TonemappingPass;
 use self::{_shared::GlobalConfigUBO, present_pass::PresentPass};
 
@@ -35,6 +37,7 @@ pub struct RenderGraph {
 
   // passes
   shadow_map_pass: ShadowMapPass,
+  sss_depth_pass: SSSDepthPass,
   forward_pass: ForwardPass,
   linear_depth_pass: LinearDepthPass,
   ssao_pass: SSAOPass,
@@ -49,6 +52,7 @@ impl RenderGraph {
 
     // create passes
     let shadow_map_pass = ShadowMapPass::new(vk_app);
+    let sss_depth_pass = SSSDepthPass::new();
     let forward_pass = ForwardPass::new(vk_app);
     let linear_depth_pass = LinearDepthPass::new(vk_app);
     let ssao_pass = SSAOPass::new(vk_app);
@@ -58,6 +62,7 @@ impl RenderGraph {
     let mut render_graph = RenderGraph {
       resources_per_frame: Vec::with_capacity(in_flight_frames),
       shadow_map_pass,
+      sss_depth_pass,
       forward_pass,
       linear_depth_pass,
       ssao_pass,
@@ -78,6 +83,7 @@ impl RenderGraph {
     self.ssao_pass.destroy(vk_app);
     self.linear_depth_pass.destroy(device);
     self.forward_pass.destroy(vk_app);
+    self.sss_depth_pass.destroy();
     self.shadow_map_pass.destroy(device);
 
     // per frame resources
@@ -90,7 +96,7 @@ impl RenderGraph {
     &mut self,
     vk_app: &VkCtx,
     config: &mut Config,
-    scene: &World,
+    scene: &mut World,
     frame_idx: usize,
     app_ui: &mut AppUI,
     window: &winit::window::Window,
@@ -171,7 +177,16 @@ impl RenderGraph {
     self.shadow_map_pass.execute(
       &pass_ctx,
       &mut frame_resources.shadow_map_pass,
-      pass_ctx.config.shadows.position(),
+      &pass_ctx.config.shadows.shadow_source,
+    );
+
+    // sss forward scatter depth map generate pass
+    RenderGraph::debug_start_pass(&pass_ctx, "sss_depth_pass");
+    self.sss_depth_pass.execute(
+      &pass_ctx,
+      &mut frame_resources.sss_depth_pass,
+      &self.shadow_map_pass,
+      &pass_ctx.config.sss_forward_scatter.source,
     );
 
     // forward rendering
@@ -180,6 +195,7 @@ impl RenderGraph {
       &pass_ctx,
       &mut frame_resources.forward_pass,
       &mut frame_resources.shadow_map_pass.depth_tex,
+      &mut frame_resources.sss_depth_pass.depth_tex,
     );
 
     // linear depth
@@ -272,6 +288,12 @@ impl RenderGraph {
           self
             .shadow_map_pass
             .create_framebuffer(vk_app, frame_id, config.shadows.shadowmap_size);
+        let sss_depth_pass = self.sss_depth_pass.create_framebuffer(
+          vk_app,
+          frame_id,
+          &self.shadow_map_pass,
+          config.sss_forward_scatter.depthmap_size,
+        );
         let forward_pass = self
           .forward_pass
           .create_framebuffer(vk_app, frame_id, window_size);
@@ -293,6 +315,7 @@ impl RenderGraph {
         self.resources_per_frame.push(PerFrameResources {
           config_uniform_buffer,
           shadow_map_pass,
+          sss_depth_pass,
           forward_pass,
           linear_depth_pass,
           ssao_pass,

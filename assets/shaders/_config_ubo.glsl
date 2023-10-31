@@ -13,8 +13,8 @@ uniform GlobalConfigUniformBuffer {
   vec4 u_directionalShadowCasterPosition; // [position.xyz, bias (negative if pcss)]
   vec4 u_aoAndShadowContrib; // (u_aoStrength, u_aoExp, u_maxShadowContribution, u_directionalShadowSampleRadius)
   // sss
-  // float u_sssFarPlane;
-  // mat4 u_sssMatrix_VP;
+  vec4 u_sssSettings; // [u_sssPosition, u_sssFarPlane]
+  mat4 u_sssMatrix_VP;
   // Lights
   vec4 u_lightAmbient;
   vec3 u_light0_Position;
@@ -65,6 +65,9 @@ uniform GlobalConfigUniformBuffer {
 #define u_aoExp (u_aoAndShadowContrib.g)
 #define u_maxShadowContribution (readConfigValueFromValueWithFlag(u_aoAndShadowContrib.b))
 #define u_showDebugPositions (readConfigFlagFromSign(u_aoAndShadowContrib.b))
+// SSS
+#define u_sssPosition (u_sssSettings.xyz)
+#define u_sssFarPlane (u_sssSettings.w)
 // fxaa
 #define u_subpixel (u_fxaaSettings.x)
 #define u_edgeThreshold (u_fxaaSettings.y)

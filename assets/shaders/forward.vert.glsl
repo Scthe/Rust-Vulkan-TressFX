@@ -5,7 +5,6 @@ precision highp int;
 
 //@import ./_config_ubo;
 //@import ./_forward_model_ubo;
-//@i mport ./_forward_model_per_frame_ubo;
 
 
 // https://www.khronos.org/opengl/wiki/Layout_Qualifier_(GLSL)
