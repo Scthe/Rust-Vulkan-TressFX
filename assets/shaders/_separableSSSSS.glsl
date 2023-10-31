@@ -288,7 +288,7 @@ float maxOffsetMm;
 //-----------------------------------------------------------------------------
 // Separable SSS Transmittance Function
 
-float3 SSSSTransmittance(
+float4 SSSSTransmittance(
    // This parameter allows to control the transmittance effect. Its range
    // should be 0..1. Higher values translate to a stronger effect.
   float translucency,
@@ -330,6 +330,7 @@ float3 SSSSTransmittance(
   //   * pixel world position
   //   * projected point from light point of view
   float d = scale * abs(d1 - d2);
+  float debugThicknessValue = d;
   d *= lightFarPlane;
 
   // Armed with the thickness, we can now calculate the color by means of the
@@ -350,7 +351,8 @@ float3 SSSSTransmittance(
   // the back of the object:
   // NOTE: sssGain = 0.3
   // we negate normal, cause we are interested in FORWARD scattering
-  return profile * SSSSSaturate(sssGain + dot(light, -worldNormal));
+  vec3 result = profile * SSSSSaturate(sssGain + dot(light, -worldNormal));
+  return vec4(result, debugThicknessValue);
 }
 
 

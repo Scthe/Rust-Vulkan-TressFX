@@ -22,7 +22,8 @@ pub enum DisplayMode {
   SSAO = 3,
   LinearDepth = 4, // TODO it's depth, not linear depth now?
   ShadowMap = 5,
-  // TODO SSSContribution
+  SSSContribution = 6,
+  SSSThickness = 7,
 }
 
 /// https://github.com/Scthe/WebFX/blob/master/src/Config.ts

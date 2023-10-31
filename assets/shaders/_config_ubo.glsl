@@ -1,8 +1,18 @@
 // NOTE: rust packing has problems with raw floats (packing?) - use vec4
 
+const uint DISPLAY_MODE_FINAL = 0;
+const uint DISPLAY_MODE_NORMALS = 1;
+const uint DISPLAY_MODE_LUMA = 2;
+const uint DISPLAY_MODE_SSAO = 3;
+const uint DISPLAY_MODE_LINEAR_DEPTH = 4;
+const uint DISPLAY_MODE_SHADOW_MAP = 5;
+const uint DISPLAY_MODE_SSS_SCATTERING = 6;
+const uint DISPLAY_MODE_SSS_THICKNESS = 7;
+
+
 layout(binding = 0) 
 uniform GlobalConfigUniformBuffer {
-  vec3 u_cameraPosition;
+  vec4 u_cameraPositionAndDisplayMode;
   vec4 u_viewportAndNearFar;
   mat4 u_viewMat;
   mat4 u_projection;
@@ -55,6 +65,8 @@ uniform GlobalConfigUniformBuffer {
   vec4 u_colorOffsetHighlights;
 };
 
+#define u_cameraPosition (u_cameraPositionAndDisplayMode.xyz)
+#define u_displayMode (readConfigUint(u_cameraPositionAndDisplayMode.w))
 #define u_viewport (u_viewportAndNearFar.xy)
 #define u_nearAndFar (u_viewportAndNearFar.zw)
 // AO + shadows

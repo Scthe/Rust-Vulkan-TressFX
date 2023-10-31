@@ -95,6 +95,20 @@ Material createMaterial() {
   return material;
 }
 
+vec4 calculateSSSForwardScattering(Material material) {
+  vec3 sssL = normalize(u_sssPosition - material.positionWS);
+  return SSSSTransmittance(
+    u_sssTransluency, // float translucency,
+    u_sssWidth, // float sssWidth,
+    material.positionWS, // float3 worldPosition,
+    material.normal, // float3 worldNormal,
+    sssL, // float3 light,
+    u_sssDepthTex, // SSSSTexture2D shadowMap, linear cause ortho projection
+    u_sssMatrix_VP, // float4x4 lightViewProjection,
+    u_sssFarPlane, // float lightFarPlane
+    u_sssBias, u_sssGain
+  );
+}
 
 vec3 doShading(Material material, Light lights[3]) {
   vec3 ambient = u_lightAmbient.rgb * u_lightAmbient.a * material.ao;
@@ -122,26 +136,42 @@ vec3 doShading(Material material, Light lights[3]) {
   radianceSum *= aoRadianceFactor;
   */
 
-  vec3 sssL = normalize(u_sssPosition - material.positionWS);
-  vec3 contribSSS = SSSSTransmittance(
-    u_sssTransluency, // float translucency,
-    u_sssWidth, // float sssWidth,
-    material.positionWS, // float3 worldPosition,
-    material.normal, // float3 worldNormal,
-    sssL, // float3 light,
-    u_sssDepthTex, // SSSSTexture2D shadowMap, linear cause ortho projection
-    u_sssMatrix_VP, // float4x4 lightViewProjection,
-    u_sssFarPlane, // float lightFarPlane
-    u_sssBias, u_sssGain
-  );
-  contribSSS = contribSSS * radianceSum * u_sssStrength;
+  vec4 contribSSS = calculateSSSForwardScattering(material);
+  vec3 sssForwardScattering = contribSSS.rgb * radianceSum * u_sssStrength;
 
   float shadow = max(material.shadow, material.hairShadow);
   float shadowContrib = clamp(shadow, 0.0, u_maxShadowContribution);
   radianceSum = radianceSum * (1.0 - shadowContrib);
-  return ambient + radianceSum + contribSSS;
+  return ambient + radianceSum + sssForwardScattering;
 }
 
+vec4 debugModeOverride(Material material, vec3 shadingResult){
+  vec4 result = vec4(0);
+
+  switch(u_displayMode) {
+    case DISPLAY_MODE_SSAO: {
+      result = vec4(vec3(material.ao), 1);
+      break;
+    }
+    case DISPLAY_MODE_SHADOW_MAP: {
+      vec3 c = mix(shadingResult, vec3(1 - material.shadow), 0.8);
+      result = vec4(c, 1);
+      break;
+    }
+    case DISPLAY_MODE_SSS_SCATTERING: {
+      vec4 sss = calculateSSSForwardScattering(material);
+      result = vec4(sss.rgb, 1);
+      break;
+    }
+    case DISPLAY_MODE_SSS_THICKNESS: {
+      vec4 sss = calculateSSSForwardScattering(material);
+      result = vec4(vec3(sss.a), 1);
+      break;
+    }
+  }
+
+  return result;
+}
 
 void main() {
   Light lights[3];
@@ -155,6 +185,8 @@ void main() {
   // material.skin = skinShader(material, skinParams);
   color = doShading(material, lights);
 
+  vec4 colorDebug = debugModeOverride(material, color);
+  color = mix(color, colorDebug.rgb, colorDebug.a);
   outColor1 = vec4(color, 1.0);
   // outColor2 = vec4(packNormal(material.normal), 1.0);
   outColor2 = uvec4(packNormal(material.normal), 255);

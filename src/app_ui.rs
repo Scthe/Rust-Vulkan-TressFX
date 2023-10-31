@@ -149,6 +149,8 @@ impl AppUI {
         DisplayMode::SSAO,
         DisplayMode::LinearDepth, // TODO ???
         DisplayMode::ShadowMap,
+        DisplayMode::SSSContribution,
+        DisplayMode::SSSThickness,
       ],
       |idx| match *idx {
         DisplayMode::Normals => Cow::Borrowed("Normals"),
@@ -156,6 +158,8 @@ impl AppUI {
         DisplayMode::SSAO => Cow::Borrowed("SSAO"),
         DisplayMode::LinearDepth => Cow::Borrowed("Linear depth"),
         DisplayMode::ShadowMap => Cow::Borrowed("Shadows"),
+        DisplayMode::SSSContribution => Cow::Borrowed("SSS contribution"),
+        DisplayMode::SSSThickness => Cow::Borrowed("SSS thickness"),
         _ => Cow::Borrowed("Final"),
       },
     );
@@ -200,7 +204,7 @@ impl AppUI {
       if material.specular_tex.is_none() {
         slider_small(ui, "Specular", 0.0, 1.0, &mut material.specular);
       }
-      slider_small(ui, "Specular mul", 0.0, 1.0, &mut material.specular_mul);
+      slider_small(ui, "Specular mul", 0.0, 5.0, &mut material.specular_mul);
       add_tooltip_to_previous_widget(ui, "Extra specular for eyes");
 
       slider_small(
@@ -213,7 +217,7 @@ impl AppUI {
       slider_small(ui, "SSS width", 0.0, 100.0, &mut material.sss_width);
       slider_small(ui, "SSS bias", 0.0, 0.1, &mut material.sss_bias);
       slider_small(ui, "SSS gain", 0.0, 1.0, &mut material.sss_gain);
-      slider_small(ui, "SSS strength", 0.0, 10.0, &mut material.sss_strength);
+      slider_small(ui, "SSS strength", 0.0, 1.5, &mut material.sss_strength);
     }
 
     push_token.end();

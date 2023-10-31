@@ -1,5 +1,3 @@
-use std::mem::size_of;
-
 use ash;
 use ash::vk;
 use log::info;
@@ -16,6 +14,7 @@ const BINDING_INDEX_NORMALS: u32 = 2;
 const BINDING_INDEX_SSAO: u32 = 3;
 const BINDING_INDEX_LINEAR_DEPTH: u32 = 4;
 const BINDING_INDEX_SHADOW_MAP: u32 = 5;
+const BINDING_INDEX_FORWARD_PASS_RESULT: u32 = 6;
 
 const COLOR_ATTACHMENT_COUNT: usize = 1;
 const SHADER_PATHS: (&str, &str) = (
@@ -38,10 +37,8 @@ impl PresentPass {
 
     let render_pass = PresentPass::create_render_pass(device, image_format);
     let uniforms_desc = PresentPass::get_uniforms_layout();
-    let push_constant_ranges = PresentPass::get_push_constant_layout();
     let uniforms_layout = create_push_descriptor_layout(device, uniforms_desc);
-    let pipeline_layout =
-      create_pipeline_layout(device, &[uniforms_layout], &[push_constant_ranges]);
+    let pipeline_layout = create_pipeline_layout(device, &[uniforms_layout], &[]);
     let pipeline =
       PresentPass::create_pipeline(device, pipeline_cache, &render_pass, &pipeline_layout);
 
@@ -108,15 +105,11 @@ impl PresentPass {
       create_texture_binding(BINDING_INDEX_SSAO, vk::ShaderStageFlags::FRAGMENT),
       create_texture_binding(BINDING_INDEX_LINEAR_DEPTH, vk::ShaderStageFlags::FRAGMENT),
       create_texture_binding(BINDING_INDEX_SHADOW_MAP, vk::ShaderStageFlags::FRAGMENT),
+      create_texture_binding(
+        BINDING_INDEX_FORWARD_PASS_RESULT,
+        vk::ShaderStageFlags::FRAGMENT,
+      ),
     ]
-  }
-
-  fn get_push_constant_layout() -> vk::PushConstantRange {
-    vk::PushConstantRange::builder()
-      .offset(0)
-      .size(size_of::<PresentPassPushConstants>() as _)
-      .stage_flags(vk::ShaderStageFlags::FRAGMENT)
-      .build()
   }
 
   fn create_pipeline(
@@ -156,6 +149,7 @@ impl PresentPass {
     exec_ctx: &mut PassExecContext,
     framebuffer: &vk::Framebuffer,
     app_ui: &mut AppUI,
+    forward_pass_result: &mut VkTexture,
     tonemapped_result: &mut VkTexture,
     normals_texture: &mut VkTexture,
     ssao_texture: &mut VkTexture,
@@ -171,6 +165,7 @@ impl PresentPass {
       self.cmd_resource_barriers(
         device,
         &command_buffer,
+        forward_pass_result,
         tonemapped_result,
         normals_texture,
         ssao_texture,
@@ -196,6 +191,7 @@ impl PresentPass {
       // bind uniforms (do not move this)
       self.bind_uniforms(
         exec_ctx,
+        forward_pass_result,
         tonemapped_result,
         normals_texture,
         ssao_texture,
@@ -223,6 +219,7 @@ impl PresentPass {
   unsafe fn bind_uniforms(
     &self,
     exec_ctx: &PassExecContext,
+    forward_pass_result: &mut VkTexture,
     tonemapped_result: &mut VkTexture,
     normals_texture: &mut VkTexture,
     ssao_texture: &mut VkTexture,
@@ -231,8 +228,6 @@ impl PresentPass {
     shadow_map_texture: &mut VkTexture,
   ) {
     let vk_app = exec_ctx.vk_app;
-    let command_buffer = exec_ctx.command_buffer;
-    let device = vk_app.vk_device();
     let resouce_binder = exec_ctx.create_resouce_binder(self.pipeline_layout);
 
     let uniform_resouces = [
@@ -270,33 +265,28 @@ impl PresentPass {
         image_view: None,
         sampler: vk_app.default_texture_sampler_nearest,
       },
+      BindableResource::Texture {
+        binding: BINDING_INDEX_FORWARD_PASS_RESULT,
+        texture: &forward_pass_result,
+        image_view: None,
+        sampler: vk_app.default_texture_sampler_nearest,
+      },
     ];
     bind_resources_to_descriptors(&resouce_binder, 0, &uniform_resouces);
-
-    // push constants
-    let push_constants = PresentPassPushConstants {
-      display_mode: exec_ctx.config.display_mode as _,
-    };
-    let push_constants_bytes = bytemuck::bytes_of(&push_constants);
-    device.cmd_push_constants(
-      command_buffer,
-      self.pipeline_layout,
-      vk::ShaderStageFlags::FRAGMENT,
-      0,
-      push_constants_bytes,
-    );
   }
 
   unsafe fn cmd_resource_barriers(
     &self,
     device: &ash::Device,
     command_buffer: &vk::CommandBuffer,
+    forward_pass_result: &mut VkTexture,
     tonemapped_result: &mut VkTexture,
     normals_texture: &mut VkTexture,
     ssao_texture: &mut VkTexture,
     linear_depth_texture: &mut VkTexture,
     shadow_map_texture: &mut VkTexture,
   ) {
+    let forward_barrier = forward_pass_result.barrier_prepare_attachment_for_shader_read();
     let tonemapped_barrier = tonemapped_result.barrier_prepare_attachment_for_shader_read();
     let normals_barrier = normals_texture.barrier_prepare_attachment_for_shader_read();
     let ssao_barrier = ssao_texture.barrier_prepare_attachment_for_shader_read();
@@ -316,6 +306,7 @@ impl PresentPass {
       &[],
       &[
         tonemapped_barrier,
+        forward_barrier,
         normals_barrier,
         ssao_barrier,
         linear_depth_barrier,
@@ -324,12 +315,3 @@ impl PresentPass {
     );
   }
 }
-
-#[derive(Copy, Clone, Debug)] // , bytemuck::Zeroable, bytemuck::Pod
-#[repr(C)]
-struct PresentPassPushConstants {
-  display_mode: i32,
-}
-
-unsafe impl bytemuck::Zeroable for PresentPassPushConstants {}
-unsafe impl bytemuck::Pod for PresentPassPushConstants {}

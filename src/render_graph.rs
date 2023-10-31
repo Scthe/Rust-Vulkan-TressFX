@@ -198,6 +198,8 @@ impl RenderGraph {
       &mut frame_resources.sss_depth_pass.depth_tex,
     );
 
+    // TODO skip SSSBlur pass if display mode is != Final
+
     // linear depth
     RenderGraph::debug_start_pass(&pass_ctx, "linear_depth_pass");
     self.linear_depth_pass.execute(
@@ -231,6 +233,7 @@ impl RenderGraph {
       &mut pass_ctx,
       &mut frame_resources.present_pass,
       app_ui,
+      &mut frame_resources.forward_pass.diffuse_tex,
       &mut frame_resources.tonemapping_pass.tonemapped_tex,
       &mut frame_resources.forward_pass.normals_tex,
       &mut frame_resources.ssao_pass.ssao_tex,

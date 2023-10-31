@@ -4,10 +4,6 @@ precision highp float;
 precision highp int;
 precision highp usampler2D;
 
-layout(push_constant) uniform Constants {
-	int u_displayMode;
-};
-
 
 layout(binding = 1)
 uniform sampler2D u_tonemappedTex; // TODO usampler2D
@@ -19,20 +15,14 @@ layout(binding = 4)
 uniform sampler2D u_depthTex;
 layout(binding = 5)
 uniform sampler2D u_directionalShadowDepthTex;
+layout(binding = 6)
+uniform sampler2D u_rawForwardPassResult;
 
 
 //@import _config_ubo;
 //@import _utils;
 //@import _fxaa;
-//@import _shadows;
 
-
-const uint DISPLAY_MODE_FINAL = 0;
-const uint DISPLAY_MODE_NORMALS = 1;
-const uint DISPLAY_MODE_LUMA = 2;
-const uint DISPLAY_MODE_SSAO = 3;
-const uint DISPLAY_MODE_LINEAR_DEPTH = 4;
-const uint DISPLAY_MODE_SHADOW_MAP = 5;
 
 layout(location = 0) in vec2 v_position;
 layout(location = 0) out vec4 color1;
@@ -66,6 +56,11 @@ vec3 getNormal() {
 float sampleLinearDepth(){ // TODO remove?
   vec2 uv = v_position;
   return texture(u_depthTex, uv).r;
+}
+
+vec4 sampleRawDiffuseTexture() {
+  vec2 uv = fixOpenGLTextureCoords_AxisY(v_position);
+  return texture(u_rawForwardPassResult, uv).rgba;
 }
 
 vec4 getWorldSpacePosition() {
@@ -137,6 +132,7 @@ void main() {
     }
 
     case DISPLAY_MODE_SSAO: {
+      // TODO result = sampleRawDiffuseTexture().rgb;
       vec2 uv = fixOpenGLTextureCoords_AxisY(v_position);
       uv = v_position;
       float ssao = texture(u_ssaoTex, uv).r;
@@ -154,16 +150,17 @@ void main() {
     }
 
     case DISPLAY_MODE_SHADOW_MAP: {
-      vec3 normal = getNormal();
-      vec4 fragPositionWorldSpace = getWorldSpacePosition();
-      // ortho projection, so 'w' does not matter
-      vec4 fragPositionLightShadowSpace = u_directionalShadowMatrix_VP * fragPositionWorldSpace;
-      vec3 toCaster = normalize(u_directionalShadowCasterPosition.xyz - fragPositionWorldSpace.xyz);
-      float shadow = calculateDirectionalShadow(fragPositionLightShadowSpace, normal, toCaster);
+      result = sampleRawDiffuseTexture().rgb;
+      break;
+    }
 
-      vec2 uv = fixOpenGLTextureCoords_AxisY(v_position);
-      vec3 col = texture(u_tonemappedTex, uv).rgb;
-      result = mix(col, vec3(shadow), 0.8);
+    case DISPLAY_MODE_SSS_SCATTERING: {
+      result = sampleRawDiffuseTexture().rgb;
+      break;
+    }
+
+    case DISPLAY_MODE_SSS_THICKNESS: {
+      result = sampleRawDiffuseTexture().rgb;
       break;
     }
 
@@ -171,11 +168,11 @@ void main() {
     case DISPLAY_MODE_FINAL: {
       vec2 uv = fixOpenGLTextureCoords_AxisY(v_position);
       result = doFxaa(uv);
-      vec4 colDpgSpheres = drawDebugSpheres();
-      result = mix(result, colDpgSpheres.rgb, colDpgSpheres.a);
       break;
     }
   }
   
+  vec4 colDpgSpheres = drawDebugSpheres();
+  result = mix(result, colDpgSpheres.rgb, colDpgSpheres.a);
   color1 = vec4(result, 1.0f);
 }

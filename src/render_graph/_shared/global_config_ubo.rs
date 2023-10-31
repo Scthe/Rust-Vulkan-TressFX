@@ -13,7 +13,7 @@ use crate::{
 #[derive(Copy, Clone, Debug)] // , bytemuck::Zeroable, bytemuck::Pod
 #[repr(C)]
 pub struct GlobalConfigUBO {
-  pub u_camera_position: Vec3,
+  pub u_camera_position_and_display_mode: Vec4,
   pub u_viewport_and_near_far: Vec4,
   pub u_view_mat: Mat4,
   pub u_projection: Mat4,
@@ -79,6 +79,7 @@ impl GlobalConfigUBO {
   pub fn new(vk_app: &VkCtx, config: &Config, camera: &Camera) -> GlobalConfigUBO {
     let vp = vk_app.window_size();
     let cam_cfg = &config.camera;
+    let cam_pos = camera.position();
     let postfx = &config.postfx;
     let color_grading = &postfx.color_grading;
     let shadows = &config.shadows;
@@ -88,7 +89,12 @@ impl GlobalConfigUBO {
     let ssao_vp = config.get_ssao_viewport_size();
 
     GlobalConfigUBO {
-      u_camera_position: camera.position(),
+      u_camera_position_and_display_mode: vec4(
+        cam_pos.x,
+        cam_pos.y,
+        cam_pos.z,
+        config.display_mode as _,
+      ),
       u_viewport_and_near_far: vec4(
         vp.width as f32,
         vp.height as f32,
