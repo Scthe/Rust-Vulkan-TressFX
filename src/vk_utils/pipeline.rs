@@ -45,7 +45,13 @@ pub fn create_pipeline(
   }
 }
 
-// Alternatively, create PipelineBuilderWithDefaults that wraps `vk::GraphicsPipelineCreateInfoBuilder` and provides 2-3 fns that actually are used
+/// `vk::GraphicsPipelineCreateInfoBuilder` takes references, and we cannot return
+/// references to stack allocated values. Thus, we will use closure.
+///
+/// Alternatively, we could create `PipelineBuilderWithDefaults` class that wraps
+/// `vk::GraphicsPipelineCreateInfoBuilder` and provides access to internal raw builder.
+/// The references will be to struct's fields, so still alive. Though closures are less
+/// verbose and let's be honest: classes and closures are the same thing.
 pub fn create_pipeline_with_defaults(
   device: &ash::Device,
   render_pass: &vk::RenderPass,
@@ -196,6 +202,32 @@ pub fn ps_depth_always_stencil_always() -> vk::PipelineDepthStencilStateCreateIn
       ..Default::default()
     })
     .build()
+}
+
+pub fn ps_stencil_write(reference: u32) -> vk::StencilOpState {
+  vk::StencilOpState {
+    // do not skip fields! Rust defaults masks to 0, so things do not work as expected
+    pass_op: vk::StencilOp::REPLACE,
+    depth_fail_op: vk::StencilOp::REPLACE,
+    fail_op: vk::StencilOp::REPLACE,
+    reference,
+    write_mask: 0xffffffff,
+    compare_mask: 0xffffffff,
+    compare_op: vk::CompareOp::ALWAYS,
+  }
+}
+
+pub fn ps_stencil_compare_equal(reference: u32) -> vk::StencilOpState {
+  vk::StencilOpState {
+    // do not skip fields! Rust defaults masks to 0, so things do not work as expected
+    reference,
+    compare_op: vk::CompareOp::EQUAL,
+    pass_op: vk::StencilOp::KEEP,
+    depth_fail_op: vk::StencilOp::KEEP,
+    fail_op: vk::StencilOp::KEEP,
+    write_mask: 0xffffffff,
+    compare_mask: 0xffffffff,
+  }
 }
 
 pub fn ps_multisample_disabled() -> vk::PipelineMultisampleStateCreateInfo {

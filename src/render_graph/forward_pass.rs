@@ -2,6 +2,7 @@ use ash;
 use ash::vk;
 use log::info;
 
+use crate::config::Config;
 use crate::render_graph::_shared::RenderableVertex;
 use crate::scene::WorldEntity;
 use crate::vk_ctx::VkCtx;
@@ -17,8 +18,6 @@ const BINDING_INDEX_HAIR_SHADOW_TEXTURE: u32 = 4;
 const BINDING_INDEX_SHADOW_MAP: u32 = 5;
 const BINDING_INDEX_SSS_DEPTH_MAP: u32 = 6;
 
-const DEPTH_TEXTURE_FORMAT: vk::Format = vk::Format::D24_UNORM_S8_UINT;
-const DIFFUSE_TEXTURE_FORMAT: vk::Format = vk::Format::R32G32B32A32_SFLOAT;
 const NORMALS_TEXTURE_FORMAT: vk::Format = vk::Format::R8G8B8A8_UINT;
 const COLOR_ATTACHMENT_COUNT: usize = 2;
 const SHADER_PATHS: (&str, &str) = (
@@ -41,6 +40,9 @@ pub struct ForwardPass {
 }
 
 impl ForwardPass {
+  pub const DIFFUSE_TEXTURE_FORMAT: vk::Format = vk::Format::R32G32B32A32_SFLOAT;
+  pub const DEPTH_TEXTURE_FORMAT: vk::Format = vk::Format::D24_UNORM_S8_UINT;
+
   pub fn new(vk_app: &VkCtx) -> Self {
     info!("Creating ForwardPass");
     let device = vk_app.vk_device();
@@ -79,16 +81,16 @@ impl ForwardPass {
     // 1. define render pass to compile shader against
     let depth_attachment = create_depth_stencil_attachment(
       0,
-      DEPTH_TEXTURE_FORMAT,
-      vk::AttachmentLoadOp::CLEAR,      // depth_load_op
-      vk::AttachmentStoreOp::STORE,     // depth_store_op
-      vk::AttachmentLoadOp::DONT_CARE,  // stencil_load_op
-      vk::AttachmentStoreOp::DONT_CARE, // stencil_store_op
+      Self::DEPTH_TEXTURE_FORMAT,
+      vk::AttachmentLoadOp::CLEAR,  // depth_load_op
+      vk::AttachmentStoreOp::STORE, // depth_store_op
+      vk::AttachmentLoadOp::CLEAR,  // stencil_load_op
+      vk::AttachmentStoreOp::STORE, // stencil_store_op
       vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
     );
     let color_attachment = create_color_attachment(
       1,
-      DIFFUSE_TEXTURE_FORMAT,
+      Self::DIFFUSE_TEXTURE_FORMAT,
       vk::AttachmentLoadOp::CLEAR,
       vk::AttachmentStoreOp::STORE,
       false,
@@ -108,6 +110,10 @@ impl ForwardPass {
       .build();
 
     // needed as we first clear the depth/color attachments in `vk::AttachmentLoadOp`
+    // TODO duplicated code
+    //    `fn create_subpass_dependencies(wait_for: Color|DS|Color_DS, dst_write: Color|DS|Color_DS) -> vk::SubpassDependency`
+    //    or `fn create_render_pass_from_attachments(colors: [(vk::AttachmentDescription, vk::AttachmentReference)], depth: Option<(vk::AttachmentDescription, vk::AttachmentReference)>)`
+    //    The 2nd version inlines all the subpass related code
     let dependencies = vk::SubpassDependency::builder()
       .src_subpass(vk::SUBPASS_EXTERNAL)
       .dst_subpass(0)
@@ -130,13 +136,11 @@ impl ForwardPass {
       .attachments(&[depth_attachment.0, color_attachment.0, normals_attachment.0])
       .subpasses(&[subpass])
       .build();
-    let render_pass = unsafe {
+    unsafe {
       device
         .create_render_pass(&create_info, None)
         .expect("Failed creating render pass")
-    };
-
-    render_pass
+    }
   }
 
   fn get_uniforms_layout() -> Vec<vk::DescriptorSetLayoutBinding> {
@@ -186,11 +190,44 @@ impl ForwardPass {
       COLOR_ATTACHMENT_COUNT,
       |builder| {
         // TODO cull backfaces
-        let pipeline_create_info = builder
-          .depth_stencil_state(&ps_depth_less_stencil_always())
+        let stencil_write_skin = ps_stencil_write(Config::STENCIL_BIT_SKIN);
+        let depth_stencil = vk::PipelineDepthStencilStateCreateInfo::builder()
+          .depth_test_enable(true)
+          .depth_write_enable(true)
+          .depth_compare_op(vk::CompareOp::LESS)
+          .depth_bounds_test_enable(false)
+          .stencil_test_enable(true)
+          .front(stencil_write_skin)
+          .back(stencil_write_skin)
           .build();
+
+        let pipeline_create_info = builder.depth_stencil_state(&depth_stencil).build();
         create_pipeline(device, pipeline_cache, pipeline_create_info)
       },
+    )
+  }
+
+  /// Separate fn as some other passess will use same parameters (e.g. sss blur for ping-pong).
+  pub fn create_diffuse_attachment_tex(
+    vk_app: &VkCtx,
+    size: &vk::Extent2D,
+    name: String,
+  ) -> VkTexture {
+    let device = vk_app.vk_device();
+    let allocator = &vk_app.allocator;
+
+    VkTexture::empty(
+      device,
+      allocator,
+      vk_app,
+      name,
+      *size,
+      Self::DIFFUSE_TEXTURE_FORMAT,
+      vk::ImageTiling::OPTIMAL,
+      vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED,
+      vk::ImageAspectFlags::COLOR,
+      vk::MemoryPropertyFlags::DEVICE_LOCAL,
+      vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
     )
   }
 
@@ -209,26 +246,19 @@ impl ForwardPass {
       vk_app,
       format!("ForwardPass.depth#{}", frame_id),
       *size,
-      DEPTH_TEXTURE_FORMAT,
+      Self::DEPTH_TEXTURE_FORMAT,
       vk::ImageTiling::OPTIMAL,
       vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT | vk::ImageUsageFlags::SAMPLED,
       vk::ImageAspectFlags::DEPTH | vk::ImageAspectFlags::STENCIL,
       vk::MemoryPropertyFlags::DEVICE_LOCAL,
       vk::ImageLayout::DEPTH_STENCIL_READ_ONLY_OPTIMAL,
     );
-    let diffuse_tex = VkTexture::empty(
-      device,
-      allocator,
+    let diffuse_tex = Self::create_diffuse_attachment_tex(
       vk_app,
+      size,
       format!("ForwardPass.diffuse#{}", frame_id),
-      *size,
-      DIFFUSE_TEXTURE_FORMAT,
-      vk::ImageTiling::OPTIMAL,
-      vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED,
-      vk::ImageAspectFlags::COLOR,
-      vk::MemoryPropertyFlags::DEVICE_LOCAL,
-      vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
     );
+
     let normals_tex = VkTexture::empty(
       device,
       allocator,

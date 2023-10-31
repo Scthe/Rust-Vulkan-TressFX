@@ -375,6 +375,13 @@ impl VkTexture {
     }
   }
 
+  pub fn size(&self) -> vk::Extent2D {
+    vk::Extent2D {
+      width: self.width,
+      height: self.height,
+    }
+  }
+
   pub unsafe fn delete(&mut self, device: &ash::Device, allocator: &vma::Allocator) -> () {
     device.destroy_image_view(self.image_view, None);
     allocator.destroy_image(self.image, &mut self.allocation)

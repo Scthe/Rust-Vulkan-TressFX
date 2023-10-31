@@ -1,7 +1,5 @@
 use super::ShadowSourceCfg;
 
-// TODO show in debug position
-// TODO UI: iterate entities, create folder based on entity `Object: {name}`. Add BBox print at start
 // TODO add docs for all passess
 pub struct SSSForwardScatterPassCfg {
   pub depthmap_size: u32,
@@ -21,12 +19,11 @@ impl Default for SSSForwardScatterPassCfg {
   }
 }
 
-/* TODO implement
 pub struct SSSBlurPassCfg {
-  blur_width: f32,
-  blur_strength: f32,
+  pub blur_width: f32,
+  pub blur_strength: f32,
   /// slight changes for incident angles ~90dgr
-  blur_follow_surface: bool,
+  pub blur_follow_surface: bool,
 }
 
 impl Default for SSSBlurPassCfg {
@@ -38,4 +35,3 @@ impl Default for SSSBlurPassCfg {
     }
   }
 }
-*/

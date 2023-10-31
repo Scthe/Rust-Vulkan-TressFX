@@ -17,6 +17,7 @@ mod linear_depth_pass;
 mod present_pass;
 mod shadow_map_pass;
 mod ssao_pass;
+mod sss_blur_pass;
 mod sss_depth_pass;
 mod tonemapping_pass;
 
@@ -25,6 +26,7 @@ use self::forward_pass::ForwardPass;
 use self::linear_depth_pass::LinearDepthPass;
 use self::shadow_map_pass::ShadowMapPass;
 use self::ssao_pass::SSAOPass;
+use self::sss_blur_pass::SSSBlurPass;
 use self::sss_depth_pass::SSSDepthPass;
 use self::tonemapping_pass::TonemappingPass;
 use self::{_shared::GlobalConfigUBO, present_pass::PresentPass};
@@ -38,6 +40,7 @@ pub struct RenderGraph {
   // passes
   shadow_map_pass: ShadowMapPass,
   sss_depth_pass: SSSDepthPass,
+  sss_blur_pass: SSSBlurPass,
   forward_pass: ForwardPass,
   linear_depth_pass: LinearDepthPass,
   ssao_pass: SSAOPass,
@@ -53,6 +56,7 @@ impl RenderGraph {
     // create passes
     let shadow_map_pass = ShadowMapPass::new(vk_app);
     let sss_depth_pass = SSSDepthPass::new();
+    let sss_blur_pass = SSSBlurPass::new(vk_app);
     let forward_pass = ForwardPass::new(vk_app);
     let linear_depth_pass = LinearDepthPass::new(vk_app);
     let ssao_pass = SSAOPass::new(vk_app);
@@ -63,6 +67,7 @@ impl RenderGraph {
       resources_per_frame: Vec::with_capacity(in_flight_frames),
       shadow_map_pass,
       sss_depth_pass,
+      sss_blur_pass,
       forward_pass,
       linear_depth_pass,
       ssao_pass,
@@ -84,6 +89,7 @@ impl RenderGraph {
     self.linear_depth_pass.destroy(device);
     self.forward_pass.destroy(vk_app);
     self.sss_depth_pass.destroy();
+    self.sss_blur_pass.destroy(device);
     self.shadow_map_pass.destroy(device);
 
     // per frame resources
@@ -198,8 +204,6 @@ impl RenderGraph {
       &mut frame_resources.sss_depth_pass.depth_tex,
     );
 
-    // TODO skip SSSBlur pass if display mode is != Final
-
     // linear depth
     RenderGraph::debug_start_pass(&pass_ctx, "linear_depth_pass");
     self.linear_depth_pass.execute(
@@ -208,6 +212,30 @@ impl RenderGraph {
       &mut frame_resources.forward_pass.depth_stencil_tex,
       frame_resources.forward_pass.depth_image_view,
     );
+
+    // sss blur
+    // skip SSSBlur pass for special debug modes
+    if !pass_ctx.config.preserve_original_forward_pass_result() {
+      RenderGraph::debug_start_pass(&pass_ctx, "sss_blur_0");
+      self.sss_blur_pass.execute(
+        &pass_ctx,
+        &mut frame_resources.sss_blur_fbo0,
+        &mut frame_resources.sss_ping_result_tex, // write
+        &mut frame_resources.forward_pass.depth_stencil_tex, // write (stencil source)
+        &mut frame_resources.forward_pass.diffuse_tex, // read
+        &mut frame_resources.linear_depth_pass.linear_depth_tex, // read
+      );
+
+      RenderGraph::debug_start_pass(&pass_ctx, "sss_blur_1");
+      self.sss_blur_pass.execute(
+        &pass_ctx,
+        &mut frame_resources.sss_blur_fbo1,
+        &mut frame_resources.forward_pass.diffuse_tex, // write
+        &mut frame_resources.forward_pass.depth_stencil_tex, // write (stencil source)
+        &mut frame_resources.sss_ping_result_tex,      // read
+        &mut frame_resources.linear_depth_pass.linear_depth_tex, // read
+      );
+    }
 
     // ssao
     RenderGraph::debug_start_pass(&pass_ctx, "ssao_pass");
@@ -287,6 +315,12 @@ impl RenderGraph {
       .iter()
       .enumerate()
       .for_each(|(frame_id, &iv)| {
+        let sss_ping_result_tex = ForwardPass::create_diffuse_attachment_tex(
+          vk_app,
+          window_size,
+          format!("SSSBlurPass.pingResult#{}", frame_id),
+        );
+
         let shadow_map_pass =
           self
             .shadow_map_pass
@@ -300,6 +334,16 @@ impl RenderGraph {
         let forward_pass = self
           .forward_pass
           .create_framebuffer(vk_app, frame_id, window_size);
+        let sss_blur_fbo0 = self.sss_blur_pass.create_framebuffer(
+          vk_app,
+          &forward_pass.depth_stencil_tex,
+          &sss_ping_result_tex,
+        );
+        let sss_blur_fbo1 = self.sss_blur_pass.create_framebuffer(
+          vk_app,
+          &forward_pass.depth_stencil_tex,
+          &forward_pass.diffuse_tex,
+        );
         let linear_depth_pass =
           self
             .linear_depth_pass
@@ -319,11 +363,14 @@ impl RenderGraph {
           config_uniform_buffer,
           shadow_map_pass,
           sss_depth_pass,
+          sss_blur_fbo0,
+          sss_blur_fbo1,
           forward_pass,
           linear_depth_pass,
           ssao_pass,
           tonemapping_pass,
           present_pass,
+          sss_ping_result_tex,
         });
       });
 

@@ -132,7 +132,6 @@ void main() {
     }
 
     case DISPLAY_MODE_SSAO: {
-      // TODO result = sampleRawDiffuseTexture().rgb;
       vec2 uv = fixOpenGLTextureCoords_AxisY(v_position);
       uv = v_position;
       float ssao = texture(u_ssaoTex, uv).r;

@@ -55,6 +55,7 @@ pub struct Config {
   pub shadows: ShadowsConfig,
   // sss
   pub sss_forward_scatter: SSSForwardScatterPassCfg,
+  pub sss_blur: SSSBlurPassCfg,
   // ssao
   pub ssao: SSAOConfig,
   // postfx
@@ -66,10 +67,8 @@ pub struct Config {
 }
 
 impl Config {
-  // public readonly stencilConsts = {
-  // skin: 1 << 0,
-  // hair: 1 << 1,
-  // };
+  pub const STENCIL_BIT_SKIN: u32 = 1 << 0;
+  // pub const STENCIL_BIT_HAIR: u32 = 1 << 1;
 
   pub fn new() -> Config {
     let clear_col: u8 = 93;
@@ -98,6 +97,7 @@ impl Config {
       ssao: SSAOConfig::default(),
       shadows: ShadowsConfig::default(),
       sss_forward_scatter: SSSForwardScatterPassCfg::default(),
+      sss_blur: SSSBlurPassCfg::default(),
       // postfx
       postfx: PostFxCfg::default(),
     }
@@ -134,6 +134,17 @@ impl Config {
         stencil: self.clear_stencil as u32,
       },
     }
+  }
+
+  /// Some debug display modes write to forward pass result.
+  /// Avoid overriding them.
+  pub fn preserve_original_forward_pass_result(&self) -> bool {
+    let preserve_org_result = [
+      DisplayMode::ShadowMap as usize,
+      DisplayMode::SSSContribution as usize,
+      DisplayMode::SSSThickness as usize,
+    ];
+    preserve_org_result.contains(&self.display_mode)
   }
 
   pub fn fxaa_edge_threshold(&self) -> f32 {

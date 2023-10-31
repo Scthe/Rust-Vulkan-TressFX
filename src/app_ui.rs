@@ -10,7 +10,7 @@ use winit::event::Event;
 use crate::{
   config::{
     ColorGradingPerRangeSettings, ColorGradingProp, Config, DisplayMode, PostFxCfg, SSAOConfig,
-    SSSForwardScatterPassCfg, ShadowTechnique, ShadowsConfig, TonemappingMode,
+    SSSBlurPassCfg, SSSForwardScatterPassCfg, ShadowTechnique, ShadowsConfig, TonemappingMode,
   },
   scene::{World, WorldEntity},
   utils::vec3_to_pretty_str,
@@ -110,6 +110,7 @@ impl AppUI {
             .for_each(|entity| Self::draw_entity(ui, entity));
           Self::draw_shadows(ui, &mut config.shadows);
           Self::draw_sss_forward_pass(ui, &mut config.sss_forward_scatter);
+          Self::draw_sss_blur(ui, &mut config.sss_blur);
           Self::draw_ssao(ui, &mut config.ssao);
           let postfx = &mut config.postfx;
           Self::draw_post_fx(ui, postfx);
@@ -215,6 +216,7 @@ impl AppUI {
         &mut material.sss_transluency,
       );
       slider_small(ui, "SSS width", 0.0, 100.0, &mut material.sss_width);
+      add_tooltip_to_previous_widget(ui, "Should be same as for SSS blur and all entities");
       slider_small(ui, "SSS bias", 0.0, 0.1, &mut material.sss_bias);
       slider_small(ui, "SSS gain", 0.0, 1.0, &mut material.sss_gain);
       slider_small(ui, "SSS strength", 0.0, 1.5, &mut material.sss_strength);
@@ -278,6 +280,19 @@ impl AppUI {
     if ui.collapsing_header("SSS forward pass", *HEADER_FLAGS) {
       ui.slider("Position phi", -179.0, 179.0, &mut sss.source.pos_phi);
       ui.slider("Position th", 15.0, 165.0, &mut sss.source.pos_theta);
+    }
+
+    push_token.end();
+  }
+
+  fn draw_sss_blur(ui: &Ui, sss: &mut SSSBlurPassCfg) {
+    let push_token = ui.push_id("sss_blur");
+
+    if ui.collapsing_header("SSS blur", *HEADER_FLAGS) {
+      ui.slider("Blur width", 1.0, 100.0, &mut sss.blur_width);
+      ui.slider("Blur strength", 0.0, 1.0, &mut sss.blur_strength);
+      ui.checkbox("Blur follow surface", &mut sss.blur_follow_surface);
+      add_tooltip_to_previous_widget(ui, "Slight changes for incident angles ~90dgr");
     }
 
     push_token.end();
