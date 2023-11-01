@@ -17,8 +17,12 @@ const SHADER_PATHS: (&str, &str) = (
   "./assets/shaders-compiled/linearDepth.frag.spv",
 );
 
-// TODO verify
-// TODO is this pass even used? What to display in the preview?
+/// Used as precomputed value (in [-z_near, -z_far] range). Sometimes we need
+/// original depth/stencil buffer attached to framebuffer (so in write mode),
+/// but still want to read depth value in shader. So linear depth functions
+/// just as a copy with nicer-to-use format (no perspective-float distortion).
+///
+/// Usage example: SSSBlur pass
 pub struct LinearDepthPass {
   render_pass: vk::RenderPass,
   pipeline: vk::Pipeline,

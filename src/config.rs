@@ -20,7 +20,7 @@ pub enum DisplayMode {
   Normals = 1,
   Luma = 2,
   SSAO = 3,
-  LinearDepth = 4, // TODO it's depth, not linear depth now?
+  LinearDepth = 4,
   ShadowMap = 5,
   SSSContribution = 6,
   SSSThickness = 7,

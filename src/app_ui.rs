@@ -148,7 +148,7 @@ impl AppUI {
         DisplayMode::Normals,
         DisplayMode::Luma,
         DisplayMode::SSAO,
-        DisplayMode::LinearDepth, // TODO ???
+        DisplayMode::LinearDepth,
         DisplayMode::ShadowMap,
         DisplayMode::SSSContribution,
         DisplayMode::SSSThickness,

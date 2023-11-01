@@ -17,6 +17,8 @@ layout(binding = 5)
 uniform sampler2D u_directionalShadowDepthTex;
 layout(binding = 6)
 uniform sampler2D u_rawForwardPassResult;
+layout(binding = 7)
+uniform sampler2D u_linearDepthTex;
 
 
 //@import _config_ubo;
@@ -53,9 +55,9 @@ vec3 getNormal() {
   return unpackNormal(u_normalsTex, v_position).xyz;
 }
 
-float sampleLinearDepth(){ // TODO remove?
-  vec2 uv = v_position;
-  return texture(u_depthTex, uv).r;
+float sampleLinearDepth(){
+  vec2 uv = fixOpenGLTextureCoords_AxisY(v_position);
+  return texture(u_linearDepthTex, uv).r;
 }
 
 vec4 sampleRawDiffuseTexture() {

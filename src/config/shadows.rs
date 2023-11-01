@@ -54,7 +54,7 @@ pub enum ShadowTechnique {
 }
 
 pub struct ShadowsConfig {
-  // TODO pub show_debug_view: bool,
+  // TODO pub show_debug_view: bool, // overlay shadow and sss depth map
   pub shadowmap_size: u32,
   pub shadow_technique: usize,
   /// in pixels

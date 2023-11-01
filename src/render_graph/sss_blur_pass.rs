@@ -181,7 +181,7 @@ impl SSSBlurPass {
         &self.render_pass,
         &framebuffer.fbo,
         &exec_ctx.size,
-        &[], // TODO clear https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkAttachmentLoadOp.html
+        &[], // TODO [LOW] clear https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkAttachmentLoadOp.html
       );
       device.cmd_bind_pipeline(
         command_buffer,

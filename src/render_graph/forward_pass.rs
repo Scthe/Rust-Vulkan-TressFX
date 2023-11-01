@@ -110,10 +110,6 @@ impl ForwardPass {
       .build();
 
     // needed as we first clear the depth/color attachments in `vk::AttachmentLoadOp`
-    // TODO duplicated code
-    //    `fn create_subpass_dependencies(wait_for: Color|DS|Color_DS, dst_write: Color|DS|Color_DS) -> vk::SubpassDependency`
-    //    or `fn create_render_pass_from_attachments(colors: [(vk::AttachmentDescription, vk::AttachmentReference)], depth: Option<(vk::AttachmentDescription, vk::AttachmentReference)>)`
-    //    The 2nd version inlines all the subpass related code
     let dependencies = vk::SubpassDependency::builder()
       .src_subpass(vk::SUBPASS_EXTERNAL)
       .dst_subpass(0)
