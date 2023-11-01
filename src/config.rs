@@ -154,4 +154,8 @@ impl Config {
       0.0
     }
   }
+
+  pub fn get_camera_fov_y(&self) -> f32 {
+    (self.camera.fov_dgr / self.window_width as f32) * self.window_height as f32
+  }
 }

@@ -1,5 +1,8 @@
+use std::mem::size_of;
+
 use ash;
 use ash::vk;
+use glam::{vec2, vec4, Vec2, Vec4};
 use log::info;
 
 use crate::config::Config;
@@ -27,6 +30,9 @@ pub struct SSSBlurPass {
 }
 
 impl SSSBlurPass {
+  pub const BLUR_DIRECTION_PASS0: Vec2 = vec2(1.0, 0.0);
+  pub const BLUR_DIRECTION_PASS1: Vec2 = vec2(0.0, 1.0);
+
   pub fn new(vk_app: &VkCtx) -> Self {
     info!("Creating SSSBlurPass");
     let device = vk_app.vk_device();
@@ -34,8 +40,10 @@ impl SSSBlurPass {
 
     let render_pass = SSSBlurPass::create_render_pass(device);
     let uniforms_desc = SSSBlurPass::get_uniforms_layout();
+    let push_constant_ranges = SSSBlurPass::get_push_constant_layout();
     let uniforms_layout = create_push_descriptor_layout(device, uniforms_desc);
-    let pipeline_layout = create_pipeline_layout(device, &[uniforms_layout], &[]);
+    let pipeline_layout =
+      create_pipeline_layout(device, &[uniforms_layout], &[push_constant_ranges]);
     let pipeline =
       SSSBlurPass::create_pipeline(device, pipeline_cache, &render_pass, &pipeline_layout);
 
@@ -72,43 +80,9 @@ impl SSSBlurPass {
       false,
     );
 
-    // return unsafe {
-    // create_render_pass_from_attachments(device, Some(depth_attachment), &[color_attachment])
-    // };
-
-    let subpass = vk::SubpassDescription::builder()
-      .color_attachments(&[color_attachment.1])
-      .depth_stencil_attachment(&depth_attachment.1)
-      .pipeline_bind_point(vk::PipelineBindPoint::GRAPHICS)
-      .build();
-
-    let dependencies = vk::SubpassDependency::builder()
-      .src_subpass(vk::SUBPASS_EXTERNAL)
-      .dst_subpass(0)
-      .src_stage_mask(
-        vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT
-          | vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS,
-      )
-      .src_access_mask(vk::AccessFlags::empty())
-      .dst_stage_mask(
-        vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT
-          | vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS,
-      )
-      .dst_access_mask(
-        vk::AccessFlags::COLOR_ATTACHMENT_WRITE | vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE,
-      )
-      .build();
-
-    let create_info = vk::RenderPassCreateInfo::builder()
-      .dependencies(&[dependencies])
-      .attachments(&[depth_attachment.0, color_attachment.0])
-      .subpasses(&[subpass])
-      .build();
-    unsafe {
-      device
-        .create_render_pass(&create_info, None)
-        .expect("Failed creating render pass")
-    }
+    return unsafe {
+      create_render_pass_from_attachments(device, Some(depth_attachment), &[color_attachment])
+    };
   }
 
   fn get_uniforms_layout() -> Vec<vk::DescriptorSetLayoutBinding> {
@@ -117,6 +91,14 @@ impl SSSBlurPass {
       create_texture_binding(BINDING_INDEX_COLOR_SOURCE, vk::ShaderStageFlags::FRAGMENT),
       create_texture_binding(BINDING_INDEX_DEPTH, vk::ShaderStageFlags::FRAGMENT),
     ]
+  }
+
+  fn get_push_constant_layout() -> vk::PushConstantRange {
+    vk::PushConstantRange::builder()
+      .offset(0)
+      .size(size_of::<SSSBlurPassPushConstants>() as _)
+      .stage_flags(vk::ShaderStageFlags::FRAGMENT)
+      .build()
   }
 
   fn create_pipeline(
@@ -172,6 +154,7 @@ impl SSSBlurPass {
     &self,
     exec_ctx: &PassExecContext,
     framebuffer: &mut SSSBlurFramebuffer,
+    blur_direction: Vec2,
     result_tex: &mut VkTexture,        // write
     depth_stencil_tex: &mut VkTexture, // write (stencil source)
     color_source_tex: &mut VkTexture,  // read
@@ -207,7 +190,7 @@ impl SSSBlurPass {
       );
 
       // bind uniforms (do not move this)
-      self.bind_uniforms(exec_ctx, color_source_tex, linear_depth_tex);
+      self.bind_uniforms(exec_ctx, blur_direction, color_source_tex, linear_depth_tex);
 
       // draw calls
       cmd_draw_fullscreen_triangle(device, &command_buffer);
@@ -220,10 +203,13 @@ impl SSSBlurPass {
   unsafe fn bind_uniforms(
     &self,
     exec_ctx: &PassExecContext,
+    blur_direction: Vec2,
     color_source_tex: &mut VkTexture,
     linear_depth_tex: &mut VkTexture,
   ) {
     let vk_app = exec_ctx.vk_app;
+    let command_buffer = exec_ctx.command_buffer;
+    let device = vk_app.vk_device();
     let resouce_binder = exec_ctx.create_resouce_binder(self.pipeline_layout);
 
     let uniform_resouces = [
@@ -245,6 +231,19 @@ impl SSSBlurPass {
       },
     ];
     bind_resources_to_descriptors(&resouce_binder, 0, &uniform_resouces);
+
+    // push constants
+    let push_constants = SSSBlurPassPushConstants {
+      blur_direction: vec4(blur_direction.x, blur_direction.y, 0.0, 0.0),
+    };
+    let push_constants_bytes = bytemuck::bytes_of(&push_constants);
+    device.cmd_push_constants(
+      command_buffer,
+      self.pipeline_layout,
+      vk::ShaderStageFlags::FRAGMENT,
+      0,
+      push_constants_bytes,
+    );
   }
 
   unsafe fn cmd_resource_barriers(
@@ -300,3 +299,12 @@ impl SSSBlurFramebuffer {
     device.destroy_framebuffer(self.fbo, None);
   }
 }
+
+#[derive(Copy, Clone, Debug)] // , bytemuck::Zeroable, bytemuck::Pod
+#[repr(C)]
+struct SSSBlurPassPushConstants {
+  blur_direction: Vec4, // only .xy matter, .zw just for aliasing
+}
+
+unsafe impl bytemuck::Zeroable for SSSBlurPassPushConstants {}
+unsafe impl bytemuck::Pod for SSSBlurPassPushConstants {}

@@ -220,6 +220,7 @@ impl RenderGraph {
       self.sss_blur_pass.execute(
         &pass_ctx,
         &mut frame_resources.sss_blur_fbo0,
+        SSSBlurPass::BLUR_DIRECTION_PASS0,
         &mut frame_resources.sss_ping_result_tex, // write
         &mut frame_resources.forward_pass.depth_stencil_tex, // write (stencil source)
         &mut frame_resources.forward_pass.diffuse_tex, // read
@@ -230,6 +231,7 @@ impl RenderGraph {
       self.sss_blur_pass.execute(
         &pass_ctx,
         &mut frame_resources.sss_blur_fbo1,
+        SSSBlurPass::BLUR_DIRECTION_PASS1,
         &mut frame_resources.forward_pass.diffuse_tex, // write
         &mut frame_resources.forward_pass.depth_stencil_tex, // write (stencil source)
         &mut frame_resources.sss_ping_result_tex,      // read

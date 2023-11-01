@@ -414,8 +414,7 @@ float4 SSSSBlurPS(
   float scale = distanceToProjectionWindow / depthM;
 
 	// Calculate the final step to fetch the surrounding pixels:
-  float2 finalStep = scale * dir;
-  finalStep *= sssStrength; // Modulate it using the alpha channel.
+  float2 finalStep = scale * dir * sssStrength;
   finalStep *= 1.0 / (2.0 * sssWidth); // sssWidth in mm / world space unit, divided by 2 as uv coords are from [0 1]
 
   // Accumulate the center sample:

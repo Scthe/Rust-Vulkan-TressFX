@@ -26,6 +26,7 @@ pub struct GlobalConfigUBO {
   // sss
   pub u_sss_settings: Vec4, // [u_sssPosition, u_sssFarPlane]
   pub u_sss_matrix_vp: Mat4,
+  pub u_sss_blur: Vec4, // [u_sssWidth, u_sssStrength, u_sssFovy+u_sssFollowSurface, -]
   // Lights
   pub u_light_ambient: Vec4,
   pub u_light0_position: Vec3,
@@ -125,6 +126,15 @@ impl GlobalConfigUBO {
         sss_frw.source.projection.far,
       ),
       u_sss_matrix_vp: SSSDepthPass::get_sss_forward_mvp(&sss_frw.source, Mat4::IDENTITY),
+      u_sss_blur: vec4(
+        config.sss_blur.blur_width,
+        config.sss_blur.blur_strength,
+        encode_flag_in_value_sign(
+          config.sss_blur.blur_follow_surface,
+          config.get_camera_fov_y(),
+        ),
+        0.0,
+      ),
       // lights
       u_light_ambient: light_ambient(&config.light_ambient),
       u_light0_position: light_pos(&config.light0),

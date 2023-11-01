@@ -12,8 +12,8 @@ const uint DISPLAY_MODE_SSS_THICKNESS = 7;
 
 layout(binding = 0) 
 uniform GlobalConfigUniformBuffer {
-  vec4 u_cameraPositionAndDisplayMode;
-  vec4 u_viewportAndNearFar;
+  vec4 u_cameraPositionAndDisplayMode; // [cameraPosition.xyz, u_displayMode]
+  vec4 u_viewportAndNearFar; // [viewport.w,viewport.h, near,far]
   mat4 u_viewMat;
   mat4 u_projection;
   mat4 u_invProjectionMat; // inverse projection matrix
@@ -25,6 +25,7 @@ uniform GlobalConfigUniformBuffer {
   // sss
   vec4 u_sssSettings; // [u_sssPosition, u_sssFarPlane]
   mat4 u_sssMatrix_VP;
+  vec4 u_sssBlur; // [u_sssWidth, u_sssStrength, u_sssFovy+u_sssFollowSurface, -]
   // Lights
   vec4 u_lightAmbient;
   vec3 u_light0_Position;
@@ -80,6 +81,10 @@ uniform GlobalConfigUniformBuffer {
 // SSS
 #define u_sssPosition (u_sssSettings.xyz)
 #define u_sssFarPlane (u_sssSettings.w)
+#define u_sssBlurWidth (u_sssBlur.x)
+#define u_sssBlurStrength (u_sssBlur.y) // SSSS_STREGTH_SOURCE
+#define u_sssBlurFovy (readConfigValueFromValueWithFlag(u_sssBlur.z)) // SSSS_FOVY 20.0
+#define u_sssBlurFollowSurface (readConfigFlagFromSign(u_sssBlur.z) ? 1 : 0) // SSSS_FOLLOW_SURFACE: 0 or 1
 // fxaa
 #define u_subpixel (u_fxaaSettings.x)
 #define u_edgeThreshold (u_fxaaSettings.y)

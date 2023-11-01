@@ -31,7 +31,7 @@ impl Default for SSSBlurPassCfg {
     Self {
       blur_width: 25.0,
       blur_strength: 0.35,
-      blur_follow_surface: false,
+      blur_follow_surface: true,
     }
   }
 }
