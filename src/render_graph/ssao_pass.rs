@@ -27,7 +27,7 @@ const SHADER_PATHS: (&str, &str) = (
 TODOs [CRITICAL]
 | make it work (ATM. some samples seem to use reverted Y-axis? and there is SSAO where there should not be)
 | Restore rand vector texture
-- refactor shader, remove hardcoded consts (use `u_noiseScale`)
+| refactor shader, remove hardcoded consts (use `u_noiseScale`)
 - add blur pass
 - use in forward pass
 */

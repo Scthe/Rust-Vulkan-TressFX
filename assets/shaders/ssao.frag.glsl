@@ -27,17 +27,7 @@ layout(location = 0) out float outColor1;
 
 /** Get view space coordinates for the depth map point */
 vec3 positionVS_FromCoords(in vec2 texCoord) {
-  /*
-  // texCoord = fixOpenGLTextureCoords_AxisY(texCoord);
-  float depth = texture(u_sceneDepthTex, texCoord).r;
-  // vec3 texSpace = vec3(texCoord, depth);
-  vec4 clipSpace = vec4(to_neg1_1(texCoord), depth, 1);
-  // vec4 clipSpace = vec4(to_neg1_1(vec3(texCoord, depth)), 1);
-  vec4 viewPos = u_invProjectionMat * clipSpace;
-  return viewPos.xyz / viewPos.w;
-  */
   vec2 uv = texCoord;
-  // uv = fixOpenGLTextureCoords_AxisY(uv); // NO!!!!
   return reprojectFromDepthBuffer(u_sceneDepthTex, uv, u_invProjectionMat).xyz;
 }
 
@@ -57,17 +47,8 @@ void main() {
   normalVS = normalize(normalVS);
 
   // Get a random vector using a noise lookup
-	ivec2 texDim = ivec2(400, 300); // textureSize(u_sceneDepthTex, 0); // send from cpu, SSAO is half-res, so we cannot get it's dimensions here
-	ivec2 noiseDim = textureSize(u_noiseTex, 0);
-	vec2 noiseScale = vec2(float(texDim.x)/float(noiseDim.x), float(texDim.y)/(noiseDim.y));  
-  // vec3 randomVec = texture(u_noiseTex, v_position * u_noiseScale).xyz;
-  vec3 randomVec = texture(u_noiseTex, v_position * noiseScale).xyz;
-  
-  // vec3 randomVec = vec3(0.0, 1.0, 0.0);
-  // randomVec = to_neg1_1(hash(vec3(v_position.xy, v_position.x * v_position.y)));
+  vec3 randomVec = texture(u_noiseTex, v_position * u_noiseScale).xyz;
   randomVec = normalize(randomVec);
-  // outColor1 = randomVec.z;
-  // return;
 
 
   // Gram-Schmidt process
@@ -88,7 +69,6 @@ void main() {
     vec3 sampleDirectionVS = TBN * sampleDirectionNS; // From tangent to view-space vector
     vec3 samplePointVS = fragPosVS + sampleDirectionVS * radius;
     float samplePointDepth = samplePointVS.z;
-    // samplePointDepth = clampToNearFar(samplePointDepth);
 
     // project the point onto depth texture (from our scene) and read distance from camera
     vec4 sampledPointClipS = u_projection * vec4(samplePointVS, 1.0); // from view to clip-space
@@ -96,13 +76,8 @@ void main() {
     sampledPointUV  = to_0_1(sampledPointUV); // NDC -> uv[0,1]
     // sample the XY-coordinates to get the real depth
     float sampleSceneDepth = positionVS_FromCoords(sampledPointUV).z;
-    // sampleSceneDepth = clampToNearFar(sampleSceneDepth);
 
     // if the sampled point is occluded by depth buffer depth
-    // occlusion += sampleSceneDepth > samplePointDepth ? 1.0 : 0.0; // v0 - simplest
-    // v1
-    // occlusion += sampleSceneDepth >= samplePointVS.z + u_bias ? 1.0 : 0.0;
-    // v2
     float rangeCheck = smoothstep(0.0, 1.0, radius / abs(fragPosVS.z - sampleSceneDepth));
     occlusion += (sampleSceneDepth >= samplePointVS.z + u_bias ? 1.0 : 0.0) * rangeCheck;
   }

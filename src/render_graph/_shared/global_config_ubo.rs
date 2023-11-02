@@ -36,8 +36,8 @@ pub struct GlobalConfigUBO {
   pub u_light2_position: Vec3,
   pub u_light2_color: Vec4,
   // SSAO
-  pub u_ssao: Vec4,
-  pub u_ssao2: Vec4,
+  pub u_ssao: Vec4,  // [u_noiseScale.xy, u_radius, u_bias]
+  pub u_ssao2: Vec4, // [u_kernelSize, u_linear_depth_preview_range.yz, -]
   // FXAA
   pub u_fxaa_settings: Vec4,
   // Color correction
