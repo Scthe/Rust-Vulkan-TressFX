@@ -53,18 +53,22 @@ void main() {
   vec3 fragPosVS = positionVS_FromCoords(v_position);
 
   vec3 normalWS = unpackNormal(u_normalTex, v_position);
-  vec3 normalVS = (u_viewMat * vec4(normalWS, 1.0)).xyz;
+  vec3 normalVS = normalize((u_viewMat * vec4(normalWS, 1.0)).xyz);
   normalVS = normalize(normalVS);
 
   // Get a random vector using a noise lookup
-	// ivec2 texDim = ivec2(400, 300); // textureSize(samplerPositionDepth, 0); 
-	// ivec2 noiseDim = textureSize(u_noiseTex, 0);
-	// vec2 noiseScale = vec2(float(texDim.x)/float(noiseDim.x), float(texDim.y)/(noiseDim.y));  
+	ivec2 texDim = ivec2(400, 300); // textureSize(u_sceneDepthTex, 0); // send from cpu, SSAO is half-res, so we cannot get it's dimensions here
+	ivec2 noiseDim = textureSize(u_noiseTex, 0);
+	vec2 noiseScale = vec2(float(texDim.x)/float(noiseDim.x), float(texDim.y)/(noiseDim.y));  
   // vec3 randomVec = texture(u_noiseTex, v_position * u_noiseScale).xyz;
-  // vec3 randomVec = texture(u_noiseTex, v_position * noiseScale).xyz;
-  vec3 randomVec = vec3(0.0, 1.0, 0.0);
-  // vec3 randomVec = to_neg1_1(hash(vec3(v_position.xy, v_position.x * v_position.y)));
+  vec3 randomVec = texture(u_noiseTex, v_position * noiseScale).xyz;
+  
+  // vec3 randomVec = vec3(0.0, 1.0, 0.0);
+  // randomVec = to_neg1_1(hash(vec3(v_position.xy, v_position.x * v_position.y)));
   randomVec = normalize(randomVec);
+  // outColor1 = randomVec.z;
+  // return;
+
 
   // Gram-Schmidt process
   // @see http://en.wikipedia.org/wiki/Gram%E2%80%93Schmidt_process

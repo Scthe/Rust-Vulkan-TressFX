@@ -16,7 +16,7 @@ const BINDING_INDEX_NOISE: u32 = 3;
 const BINDING_INDEX_KERNEL: u32 = 4;
 
 const RESULT_TEXTURE_FORMAT: vk::Format = vk::Format::R32_SFLOAT;
-const NOISE_TEXTURE_FORMAT: vk::Format = vk::Format::R32G32B32_SFLOAT;
+const NOISE_TEXTURE_FORMAT: vk::Format = vk::Format::R32G32B32A32_SFLOAT;
 const COLOR_ATTACHMENT_COUNT: usize = 1;
 const SHADER_PATHS: (&str, &str) = (
   "./assets/shaders-compiled/fullscreenQuad.vert.spv",
@@ -25,8 +25,9 @@ const SHADER_PATHS: (&str, &str) = (
 
 /*
 TODOs [CRITICAL]
-- make it work (ATM. some samples seem to use reverted Y-axis? and there is SSAO where there should not be)
-- Restore rand vector texture
+| make it work (ATM. some samples seem to use reverted Y-axis? and there is SSAO where there should not be)
+| Restore rand vector texture
+- refactor shader, remove hardcoded consts (use `u_noiseScale`)
 - add blur pass
 - use in forward pass
 */
@@ -353,7 +354,7 @@ fn create_random_sampling_texture_data(size: vk::Extent2D) -> Vec<u8> {
 
   VkTexture::create_texture_bytes(size, |_, _, _| {
     let tmp = rng.generate_rng_hemisphere_vector();
-    vec![tmp[0], tmp[1], tmp[2]]
+    vec![tmp[0], tmp[1], tmp[2], 0.0]
   })
 }
 
