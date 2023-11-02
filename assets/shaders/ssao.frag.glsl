@@ -27,6 +27,7 @@ layout(location = 0) out float outColor1;
 
 /** Get view space coordinates for the depth map point */
 vec3 positionVS_FromCoords(in vec2 texCoord) {
+  /*
   // texCoord = fixOpenGLTextureCoords_AxisY(texCoord);
   float depth = texture(u_sceneDepthTex, texCoord).r;
   // vec3 texSpace = vec3(texCoord, depth);
@@ -34,6 +35,10 @@ vec3 positionVS_FromCoords(in vec2 texCoord) {
   // vec4 clipSpace = vec4(to_neg1_1(vec3(texCoord, depth)), 1);
   vec4 viewPos = u_invProjectionMat * clipSpace;
   return viewPos.xyz / viewPos.w;
+  */
+  vec2 uv = texCoord;
+  // uv = fixOpenGLTextureCoords_AxisY(uv); // NO!!!!
+  return reprojectFromDepthBuffer(u_sceneDepthTex, uv, u_invProjectionMat).xyz;
 }
 
 float clampToNearFar(in float depthViewSpace) {
@@ -69,7 +74,6 @@ void main() {
   // TBN = inverse(TBN);
 
   float occlusion = 0.0;
-  float DBG_MAGIC = 0;
   uint kernel_size = u_kernelSize;
   for(uint i = 0; i < kernel_size; i++) {
     float radius = u_radius; // TODO make depth-independent. Closer==smaller radius, Further==bigger radius?
@@ -83,8 +87,7 @@ void main() {
     // samplePointDepth = clampToNearFar(samplePointDepth);
 
     // project the point onto depth texture (from our scene) and read distance from camera
-    vec4 sampledPointClipS = vec4(samplePointVS, 1.0);
-    sampledPointClipS      = u_projection * sampledPointClipS;    // from view to clip-space
+    vec4 sampledPointClipS = u_projection * vec4(samplePointVS, 1.0); // from view to clip-space
     vec2 sampledPointUV = sampledPointClipS.xy / sampledPointClipS.w; // clip space[-1,1] -> NDC
     sampledPointUV  = to_0_1(sampledPointUV); // NDC -> uv[0,1]
     // sample the XY-coordinates to get the real depth
@@ -92,16 +95,14 @@ void main() {
     // sampleSceneDepth = clampToNearFar(sampleSceneDepth);
 
     // if the sampled point is occluded by depth buffer depth
-    occlusion += sampleSceneDepth > samplePointDepth ? 1.0 : 0.0;
-    if (sampleSceneDepth > samplePointDepth) {
-      DBG_MAGIC += 0.0001;
-    }
+    // occlusion += sampleSceneDepth > samplePointDepth ? 1.0 : 0.0; // v0 - simplest
+    // v1
     // occlusion += sampleSceneDepth >= samplePointVS.z + u_bias ? 1.0 : 0.0;
-    // float rangeCheck = smoothstep(0.0, 1.0, radius / abs(fragPosVS.z - sampleSceneDepth));
-    // occlusion += (sampleSceneDepth >= samplePointVS.z + u_bias ? 1.0 : 0.0) * rangeCheck;
+    // v2
+    float rangeCheck = smoothstep(0.0, 1.0, radius / abs(fragPosVS.z - sampleSceneDepth));
+    occlusion += (sampleSceneDepth >= samplePointVS.z + u_bias ? 1.0 : 0.0) * rangeCheck;
   }
 
   occlusion = occlusion / float(u_kernelSize);
-  outColor1 = 1.0 - occlusion + DBG_MAGIC;
-  // outColor1 = abs(normalWS.x);
+  outColor1 = 1.0 - occlusion;
 }

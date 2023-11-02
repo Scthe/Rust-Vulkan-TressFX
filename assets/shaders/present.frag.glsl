@@ -135,9 +135,8 @@ void main() {
 
     case DISPLAY_MODE_SSAO: {
       vec2 uv = fixOpenGLTextureCoords_AxisY(v_position);
-      uv = v_position;
       float ssao = texture(u_ssaoTex, uv).r;
-      result = vec3(ssao, ssao, ssao);
+      result = vec3(ssao);
       break;
     }
     
