@@ -2,11 +2,9 @@ use std::mem::size_of;
 
 use ash;
 use ash::vk;
-use glam::{vec2, vec4, Vec2, Vec4};
+use glam::{vec2, Vec2};
 use log::info;
 
-use crate::config::Config;
-use crate::render_graph::forward_pass::ForwardPass;
 use crate::vk_ctx::VkCtx;
 use crate::vk_utils::*;
 
@@ -14,40 +12,40 @@ use super::PassExecContext;
 
 const BINDING_INDEX_CONFIG_UBO: u32 = 0;
 const BINDING_INDEX_COLOR_SOURCE: u32 = 1;
-const BINDING_INDEX_DEPTH: u32 = 2;
+const BINDING_INDEX_LINEAR_DEPTH: u32 = 2;
 
 const COLOR_ATTACHMENT_COUNT: usize = 1;
 const SHADER_PATHS: (&str, &str) = (
   "./assets/shaders-compiled/fullscreenQuad.vert.spv",
-  "./assets/shaders-compiled/sssBlur.frag.spv",
+  "./assets/shaders-compiled/blur.frag.spv",
 );
 
-pub struct SSSBlurPass {
+pub struct BlurPass {
   render_pass: vk::RenderPass,
   pipeline: vk::Pipeline,
   pipeline_layout: vk::PipelineLayout,
   uniforms_layout: vk::DescriptorSetLayout,
 }
 
-impl SSSBlurPass {
+impl BlurPass {
   pub const BLUR_DIRECTION_PASS0: Vec2 = vec2(1.0, 0.0);
   pub const BLUR_DIRECTION_PASS1: Vec2 = vec2(0.0, 1.0);
 
-  pub fn new(vk_app: &VkCtx) -> Self {
-    info!("Creating SSSBlurPass");
+  pub fn new(vk_app: &VkCtx, format: vk::Format) -> Self {
+    info!("Creating BlurPass");
     let device = vk_app.vk_device();
     let pipeline_cache = &vk_app.pipeline_cache;
 
-    let render_pass = SSSBlurPass::create_render_pass(device);
-    let uniforms_desc = SSSBlurPass::get_uniforms_layout();
-    let push_constant_ranges = SSSBlurPass::get_push_constant_layout();
+    let render_pass = BlurPass::create_render_pass(device, format);
+    let uniforms_desc = BlurPass::get_uniforms_layout();
+    let push_constant_ranges = BlurPass::get_push_constant_layout();
     let uniforms_layout = create_push_descriptor_layout(device, uniforms_desc);
     let pipeline_layout =
       create_pipeline_layout(device, &[uniforms_layout], &[push_constant_ranges]);
     let pipeline =
-      SSSBlurPass::create_pipeline(device, pipeline_cache, &render_pass, &pipeline_layout);
+      BlurPass::create_pipeline(device, pipeline_cache, &render_pass, &pipeline_layout);
 
-    SSSBlurPass {
+    BlurPass {
       render_pass,
       pipeline,
       pipeline_layout,
@@ -62,41 +60,30 @@ impl SSSBlurPass {
     device.destroy_pipeline(self.pipeline, None);
   }
 
-  fn create_render_pass(device: &ash::Device) -> vk::RenderPass {
-    let depth_attachment = create_depth_stencil_attachment(
-      0,
-      ForwardPass::DEPTH_TEXTURE_FORMAT,
-      vk::AttachmentLoadOp::LOAD,   // depth_load_op
-      vk::AttachmentStoreOp::STORE, // depth_store_op
-      vk::AttachmentLoadOp::LOAD,   // stencil_load_op
-      vk::AttachmentStoreOp::STORE, // stencil_store_op
-      vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-    );
+  fn create_render_pass(device: &ash::Device, format: vk::Format) -> vk::RenderPass {
     let color_attachment = create_color_attachment(
-      1,
-      ForwardPass::DIFFUSE_TEXTURE_FORMAT,
-      vk::AttachmentLoadOp::LOAD,
+      0,
+      format,
+      vk::AttachmentLoadOp::DONT_CARE,
       vk::AttachmentStoreOp::STORE,
       false,
     );
 
-    return unsafe {
-      create_render_pass_from_attachments(device, Some(depth_attachment), &[color_attachment])
-    };
+    unsafe { create_render_pass_from_attachments(device, None, &[color_attachment]) }
   }
 
   fn get_uniforms_layout() -> Vec<vk::DescriptorSetLayoutBinding> {
     vec![
       create_ubo_binding(BINDING_INDEX_CONFIG_UBO, vk::ShaderStageFlags::FRAGMENT),
       create_texture_binding(BINDING_INDEX_COLOR_SOURCE, vk::ShaderStageFlags::FRAGMENT),
-      create_texture_binding(BINDING_INDEX_DEPTH, vk::ShaderStageFlags::FRAGMENT),
+      create_texture_binding(BINDING_INDEX_LINEAR_DEPTH, vk::ShaderStageFlags::FRAGMENT),
     ]
   }
 
   fn get_push_constant_layout() -> vk::PushConstantRange {
     vk::PushConstantRange::builder()
       .offset(0)
-      .size(size_of::<SSSBlurPassPushConstants>() as _)
+      .size(size_of::<BlurPassPushConstants>() as _)
       .stage_flags(vk::ShaderStageFlags::FRAGMENT)
       .build()
   }
@@ -117,48 +104,36 @@ impl SSSBlurPass {
       vertex_desc,
       COLOR_ATTACHMENT_COUNT,
       |builder| {
-        let stencil_only_skin = ps_stencil_compare_equal(Config::STENCIL_BIT_SKIN);
-        let depth_stencil = vk::PipelineDepthStencilStateCreateInfo::builder()
-          .depth_test_enable(false)
-          .depth_write_enable(false)
-          .depth_compare_op(vk::CompareOp::ALWAYS)
-          .depth_bounds_test_enable(false)
-          .stencil_test_enable(true)
-          .front(stencil_only_skin)
-          .back(stencil_only_skin)
-          .build();
-
-        let pipeline_create_info = builder.depth_stencil_state(&depth_stencil).build();
+        let pipeline_create_info = builder.build();
         create_pipeline(device, pipeline_cache, pipeline_create_info)
       },
     )
   }
 
-  pub fn create_framebuffer(
-    &self,
-    vk_app: &VkCtx,
-    stencil_source_tex: &VkTexture,
-    result_tex: &VkTexture,
-  ) -> SSSBlurFramebuffer {
+  pub fn create_framebuffer(&self, vk_app: &VkCtx, result_tex: &VkTexture) -> BlurFramebuffer {
     let device = vk_app.vk_device();
     let fbo = create_framebuffer(
       device,
       self.render_pass,
-      &[stencil_source_tex.image_view(), result_tex.image_view()],
+      &[result_tex.image_view()],
       &result_tex.size(),
     );
-    SSSBlurFramebuffer { fbo }
+    BlurFramebuffer { fbo }
   }
 
-  pub fn execute(
+  /// ### Params:
+  /// * `result_tex` -  write
+  /// * `color_source_tex` -  read
+  /// * `linear_depth_tex` -  read
+  fn execute_blur_single_direction(
     &self,
     exec_ctx: &PassExecContext,
-    framebuffer: &mut SSSBlurFramebuffer,
-    blur_direction: Vec2,
-    result_tex: &mut VkTexture,        // write
-    depth_stencil_tex: &mut VkTexture, // write (stencil source)
-    color_source_tex: &mut VkTexture,  // read
-    linear_depth_tex: &mut VkTexture,  // read
+    framebuffer: &mut BlurFramebuffer,
+    size: vk::Extent2D,
+    result_tex: &mut VkTexture,       // write
+    color_source_tex: &mut VkTexture, // read
+    linear_depth_tex: &mut VkTexture, // read
+    params: &BlurPassPushConstants,
   ) -> () {
     let vk_app = exec_ctx.vk_app;
     let command_buffer = exec_ctx.command_buffer;
@@ -169,7 +144,6 @@ impl SSSBlurPass {
         device,
         &command_buffer,
         result_tex,
-        depth_stencil_tex,
         color_source_tex,
         linear_depth_tex,
       );
@@ -180,8 +154,8 @@ impl SSSBlurPass {
         &command_buffer,
         &self.render_pass,
         &framebuffer.fbo,
-        &exec_ctx.size,
-        &[], // TODO [LOW] clear https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkAttachmentLoadOp.html
+        &size,
+        &[],
       );
       device.cmd_bind_pipeline(
         command_buffer,
@@ -190,7 +164,7 @@ impl SSSBlurPass {
       );
 
       // bind uniforms (do not move this)
-      self.bind_uniforms(exec_ctx, blur_direction, color_source_tex, linear_depth_tex);
+      self.bind_uniforms(exec_ctx, params, color_source_tex, linear_depth_tex);
 
       // draw calls
       cmd_draw_fullscreen_triangle(device, &command_buffer);
@@ -203,7 +177,7 @@ impl SSSBlurPass {
   unsafe fn bind_uniforms(
     &self,
     exec_ctx: &PassExecContext,
-    blur_direction: Vec2,
+    push_constants: &BlurPassPushConstants,
     color_source_tex: &mut VkTexture,
     linear_depth_tex: &mut VkTexture,
   ) {
@@ -224,7 +198,7 @@ impl SSSBlurPass {
         sampler: vk_app.default_texture_sampler_nearest,
       },
       BindableResource::Texture {
-        binding: BINDING_INDEX_DEPTH,
+        binding: BINDING_INDEX_LINEAR_DEPTH,
         texture: linear_depth_tex,
         image_view: None,
         sampler: vk_app.default_texture_sampler_nearest,
@@ -233,10 +207,7 @@ impl SSSBlurPass {
     bind_resources_to_descriptors(&resouce_binder, 0, &uniform_resouces);
 
     // push constants
-    let push_constants = SSSBlurPassPushConstants {
-      blur_direction: vec4(blur_direction.x, blur_direction.y, 0.0, 0.0),
-    };
-    let push_constants_bytes = bytemuck::bytes_of(&push_constants);
+    let push_constants_bytes = bytemuck::bytes_of(push_constants);
     device.cmd_push_constants(
       command_buffer,
       self.pipeline_layout,
@@ -250,10 +221,9 @@ impl SSSBlurPass {
     &self,
     device: &ash::Device,
     command_buffer: &vk::CommandBuffer,
-    result_tex: &mut VkTexture,        // write
-    depth_stencil_tex: &mut VkTexture, // write (stencil source)
-    color_source_tex: &mut VkTexture,  // read
-    linear_depth_tex: &mut VkTexture,  // read
+    result_tex: &mut VkTexture,       // write
+    color_source_tex: &mut VkTexture, // read
+    linear_depth_tex: &mut VkTexture, // read
   ) {
     let source_barrier = color_source_tex.barrier_prepare_attachment_for_shader_read();
     let linear_depth_barrier = linear_depth_tex.barrier_prepare_attachment_for_shader_read();
@@ -269,33 +239,73 @@ impl SSSBlurPass {
       &[linear_depth_barrier, source_barrier],
     );
 
-    let depth_barrier = depth_stencil_tex.barrier_prepare_attachment_for_write();
     let result_barrier = result_tex.barrier_prepare_attachment_for_write(); // we use stencil
     device.cmd_pipeline_barrier(
       *command_buffer,
       // wait for previous use in:
-      vk::PipelineStageFlags::FRAGMENT_SHADER
-        | vk::PipelineStageFlags::LATE_FRAGMENT_TESTS
-        | vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS,
-      // before we: execute stencil test or write output
-      vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS
-        | vk::PipelineStageFlags::LATE_FRAGMENT_TESTS
-        | vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
+      vk::PipelineStageFlags::FRAGMENT_SHADER,
+      // before we: write output
+      vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
       vk::DependencyFlags::empty(),
       &[],
       &[],
-      &[result_barrier, depth_barrier],
+      &[result_barrier],
     );
   }
 
-  // TODO pub fn execute() and make `execute_blur_single_direction()` private. Just like `BlurPass`
+  /// ### Params:
+  /// * `color_source_tex` - 1st read, 2nd write
+  /// * `tmp_ping_pong_tex` - 1st write, 2nd read
+  /// * `linear_depth_tex` - read only
+  pub fn execute(
+    &self,
+    exec_ctx: &PassExecContext,
+    framebuffer0: &mut BlurFramebuffer,
+    framebuffer1: &mut BlurFramebuffer,
+    color_source_tex: &mut VkTexture,
+    tmp_ping_pong_tex: &mut VkTexture,
+    size: vk::Extent2D,
+    linear_depth_tex: &mut VkTexture,
+    u_blur_radius: usize,
+    u_depth_max_dist: f32,
+    u_gauss_sigma: f32,
+  ) -> () {
+    self.execute_blur_single_direction(
+      exec_ctx,
+      framebuffer0,
+      size,
+      tmp_ping_pong_tex,
+      color_source_tex,
+      linear_depth_tex,
+      &BlurPassPushConstants {
+        blur_direction: Self::BLUR_DIRECTION_PASS0,
+        u_blur_radius: u_blur_radius as _,
+        u_depth_max_dist,
+        u_gauss_sigma,
+      },
+    );
+    self.execute_blur_single_direction(
+      exec_ctx,
+      framebuffer1,
+      size,
+      color_source_tex,
+      tmp_ping_pong_tex,
+      linear_depth_tex,
+      &BlurPassPushConstants {
+        blur_direction: Self::BLUR_DIRECTION_PASS1,
+        u_blur_radius: u_blur_radius as _,
+        u_depth_max_dist,
+        u_gauss_sigma,
+      },
+    );
+  }
 }
 
-pub struct SSSBlurFramebuffer {
+pub struct BlurFramebuffer {
   pub fbo: vk::Framebuffer,
 }
 
-impl SSSBlurFramebuffer {
+impl BlurFramebuffer {
   pub unsafe fn destroy(&mut self, vk_app: &VkCtx) {
     let device = vk_app.vk_device();
     device.destroy_framebuffer(self.fbo, None);
@@ -304,9 +314,12 @@ impl SSSBlurFramebuffer {
 
 #[derive(Copy, Clone, Debug)] // , bytemuck::Zeroable, bytemuck::Pod
 #[repr(C)]
-struct SSSBlurPassPushConstants {
-  blur_direction: Vec4, // only .xy matter, .zw just for aliasing
+struct BlurPassPushConstants {
+  pub blur_direction: Vec2,
+  pub u_blur_radius: f32,
+  pub u_depth_max_dist: f32,
+  pub u_gauss_sigma: f32,
 }
 
-unsafe impl bytemuck::Zeroable for SSSBlurPassPushConstants {}
-unsafe impl bytemuck::Pod for SSSBlurPassPushConstants {}
+unsafe impl bytemuck::Zeroable for BlurPassPushConstants {}
+unsafe impl bytemuck::Pod for BlurPassPushConstants {}

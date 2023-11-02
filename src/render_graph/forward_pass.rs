@@ -17,6 +17,7 @@ const BINDING_INDEX_SPECULAR_TEXTURE: u32 = 3;
 const BINDING_INDEX_HAIR_SHADOW_TEXTURE: u32 = 4;
 const BINDING_INDEX_SHADOW_MAP: u32 = 5;
 const BINDING_INDEX_SSS_DEPTH_MAP: u32 = 6;
+const BINDING_INDEX_AO: u32 = 7;
 
 const NORMALS_TEXTURE_FORMAT: vk::Format = vk::Format::R8G8B8A8_UINT;
 const COLOR_ATTACHMENT_COUNT: usize = 2;
@@ -163,6 +164,7 @@ impl ForwardPass {
       ),
       create_texture_binding(BINDING_INDEX_SHADOW_MAP, vk::ShaderStageFlags::FRAGMENT),
       create_texture_binding(BINDING_INDEX_SSS_DEPTH_MAP, vk::ShaderStageFlags::FRAGMENT),
+      create_texture_binding(BINDING_INDEX_AO, vk::ShaderStageFlags::FRAGMENT),
     ]
   }
 
@@ -298,6 +300,7 @@ impl ForwardPass {
     framebuffer: &mut ForwardPassFramebuffer,
     shadow_map_texture: &mut VkTexture,
     sss_depth_texture: &mut VkTexture,
+    so_texture: &mut VkTexture,
   ) -> () {
     let vk_app = exec_ctx.vk_app;
     let scene = &*exec_ctx.scene;
@@ -319,6 +322,7 @@ impl ForwardPass {
         framebuffer,
         shadow_map_texture,
         sss_depth_texture,
+        so_texture,
       );
 
       // start render pass
@@ -338,7 +342,13 @@ impl ForwardPass {
 
       // draw calls
       for entity in &scene.entities {
-        self.bind_entity_ubos(exec_ctx, shadow_map_texture, sss_depth_texture, entity);
+        self.bind_entity_ubos(
+          exec_ctx,
+          shadow_map_texture,
+          sss_depth_texture,
+          so_texture,
+          entity,
+        );
         entity.cmd_bind_mesh_buffers(device, command_buffer);
         entity.cmd_draw_mesh(device, command_buffer);
       }
@@ -355,9 +365,11 @@ impl ForwardPass {
     framebuffer: &mut ForwardPassFramebuffer,
     shadow_map_texture: &mut VkTexture,
     sss_depth_texture: &mut VkTexture,
+    so_texture: &mut VkTexture,
   ) {
     let shadow_map_barrier = shadow_map_texture.barrier_prepare_attachment_for_shader_read();
     let sss_depth_barrier = sss_depth_texture.barrier_prepare_attachment_for_shader_read();
+    let ao_barrier = so_texture.barrier_prepare_attachment_for_shader_read();
 
     device.cmd_pipeline_barrier(
       *command_buffer,
@@ -370,7 +382,7 @@ impl ForwardPass {
       vk::DependencyFlags::empty(),
       &[],
       &[],
-      &[shadow_map_barrier, sss_depth_barrier],
+      &[shadow_map_barrier, sss_depth_barrier, ao_barrier],
     );
 
     let diffuse_barrier = framebuffer
@@ -403,6 +415,7 @@ impl ForwardPass {
     exec_ctx: &PassExecContext,
     shadow_map_texture: &mut VkTexture,
     sss_depth_texture: &mut VkTexture,
+    so_texture: &mut VkTexture,
     entity: &WorldEntity,
   ) {
     let vk_app = exec_ctx.vk_app;
@@ -455,6 +468,12 @@ impl ForwardPass {
         texture: &sss_depth_texture,
         image_view: None,
         sampler: vk_app.default_texture_sampler_nearest,
+      },
+      BindableResource::Texture {
+        binding: BINDING_INDEX_AO,
+        texture: &so_texture,
+        image_view: None,
+        sampler: vk_app.default_texture_sampler_linear,
       },
     ];
 

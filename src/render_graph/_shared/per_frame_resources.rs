@@ -1,6 +1,7 @@
 use ash;
 use ash::vk;
 
+use crate::render_graph::blur_pass::BlurFramebuffer;
 use crate::render_graph::forward_pass::ForwardPassFramebuffer;
 use crate::render_graph::linear_depth_pass::LinearDepthPassFramebuffer;
 use crate::render_graph::shadow_map_pass::ShadowMapPassFramebuffer;
@@ -21,6 +22,8 @@ pub struct PerFrameResources {
   pub sss_depth_pass: ShadowMapPassFramebuffer,
   pub sss_blur_fbo0: SSSBlurFramebuffer,
   pub sss_blur_fbo1: SSSBlurFramebuffer,
+  pub ssao_blur_fbo0: BlurFramebuffer,
+  pub ssao_blur_fbo1: BlurFramebuffer,
   pub forward_pass: ForwardPassFramebuffer,
   pub linear_depth_pass: LinearDepthPassFramebuffer,
   pub ssao_pass: SSAOPassFramebuffer,
@@ -28,8 +31,10 @@ pub struct PerFrameResources {
   pub present_pass: vk::Framebuffer,
 
   // misc
-  // First result attachment in ping-pong
+  /// SSS - first result attachment in ping-pong
   pub sss_ping_result_tex: VkTexture,
+  // SSAO - first result attachment in ping-pong
+  pub ssao_ping_result_tex: VkTexture,
 }
 
 impl PerFrameResources {
@@ -46,6 +51,8 @@ impl PerFrameResources {
     self.sss_depth_pass.destroy(vk_app);
     self.sss_blur_fbo0.destroy(vk_app);
     self.sss_blur_fbo1.destroy(vk_app);
+    self.ssao_blur_fbo0.destroy(vk_app);
+    self.ssao_blur_fbo1.destroy(vk_app);
     self.forward_pass.destroy(vk_app);
     self.linear_depth_pass.destroy(vk_app);
     self.ssao_pass.destroy(vk_app);
@@ -54,5 +61,6 @@ impl PerFrameResources {
 
     // misc
     self.sss_ping_result_tex.delete(device, allocator);
+    self.ssao_ping_result_tex.delete(device, allocator);
   }
 }

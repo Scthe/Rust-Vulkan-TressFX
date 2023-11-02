@@ -24,11 +24,11 @@ impl Default for SSAOConfig {
     Self {
       texture_size_div: 2,
       kernel_size: 24, // 24?
-      radius: 2.3,     // 0.5?
+      radius: 2.1,     // 0.5?
       bias: 0.025,
-      blur_radius: 7,
+      blur_radius: 6,
       blur_gauss_sigma: 3.0,
-      blur_max_depth_distance: 0.06,
+      blur_max_depth_distance: 0.005,
       ao_strength: 0.3,
       ao_exp: 3.0,
     }

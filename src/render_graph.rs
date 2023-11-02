@@ -12,6 +12,7 @@ use crate::vk_ctx::VkCtx;
 use crate::vk_utils::*;
 
 mod _shared;
+mod blur_pass;
 mod forward_pass;
 mod linear_depth_pass;
 mod present_pass;
@@ -22,6 +23,7 @@ mod sss_depth_pass;
 mod tonemapping_pass;
 
 pub use self::_shared::*;
+use self::blur_pass::BlurPass;
 use self::forward_pass::ForwardPass;
 use self::linear_depth_pass::LinearDepthPass;
 use self::shadow_map_pass::ShadowMapPass;
@@ -44,6 +46,7 @@ pub struct RenderGraph {
   forward_pass: ForwardPass,
   linear_depth_pass: LinearDepthPass,
   ssao_pass: SSAOPass,
+  ssao_blur_pass: BlurPass,
   tonemapping_pass: TonemappingPass,
   present_pass: PresentPass,
 }
@@ -60,6 +63,7 @@ impl RenderGraph {
     let forward_pass = ForwardPass::new(vk_app);
     let linear_depth_pass = LinearDepthPass::new(vk_app);
     let ssao_pass = SSAOPass::new(vk_app);
+    let ssao_blur_pass = BlurPass::new(vk_app, SSAOPass::RESULT_TEXTURE_FORMAT);
     let tonemapping_pass = TonemappingPass::new(vk_app);
     let present_pass = PresentPass::new(vk_app, image_format);
 
@@ -71,6 +75,7 @@ impl RenderGraph {
       forward_pass,
       linear_depth_pass,
       ssao_pass,
+      ssao_blur_pass,
       tonemapping_pass,
       present_pass,
     };
@@ -86,6 +91,7 @@ impl RenderGraph {
     self.present_pass.destroy(device);
     self.tonemapping_pass.destroy(device);
     self.ssao_pass.destroy(vk_app);
+    self.ssao_blur_pass.destroy(device);
     self.linear_depth_pass.destroy(device);
     self.forward_pass.destroy(vk_app);
     self.sss_depth_pass.destroy();
@@ -202,6 +208,7 @@ impl RenderGraph {
       &mut frame_resources.forward_pass,
       &mut frame_resources.shadow_map_pass.depth_tex,
       &mut frame_resources.sss_depth_pass.depth_tex,
+      &mut frame_resources.ssao_pass.ssao_tex,
     );
 
     // linear depth
@@ -247,6 +254,21 @@ impl RenderGraph {
       &mut frame_resources.forward_pass.depth_stencil_tex,
       frame_resources.forward_pass.depth_image_view,
       &mut frame_resources.forward_pass.normals_tex,
+    );
+
+    // ssao blur
+    RenderGraph::debug_start_pass(&pass_ctx, "ssao_blur_pass");
+    self.ssao_blur_pass.execute(
+      &pass_ctx,
+      &mut frame_resources.ssao_blur_fbo0,
+      &mut frame_resources.ssao_blur_fbo1,
+      &mut frame_resources.ssao_pass.ssao_tex,
+      &mut frame_resources.ssao_ping_result_tex,
+      pass_ctx.config.get_ssao_viewport_size(),
+      &mut frame_resources.linear_depth_pass.linear_depth_tex,
+      pass_ctx.config.ssao.blur_radius,
+      pass_ctx.config.ssao.blur_max_depth_distance,
+      pass_ctx.config.ssao.blur_gauss_sigma,
     );
 
     // color grading + tonemapping
@@ -318,12 +340,21 @@ impl RenderGraph {
       .iter()
       .enumerate()
       .for_each(|(frame_id, &iv)| {
+        let ssao_result_size = config.get_ssao_viewport_size();
+
+        // textures
         let sss_ping_result_tex = ForwardPass::create_diffuse_attachment_tex(
           vk_app,
           window_size,
           format!("SSSBlurPass.pingResult#{}", frame_id),
         );
+        let ssao_ping_result_tex = SSAOPass::create_result_texture(
+          vk_app,
+          &ssao_result_size,
+          format!("SSSBlurPass.pingResult#{}", frame_id),
+        );
 
+        // fbos
         let shadow_map_pass =
           self
             .shadow_map_pass
@@ -351,7 +382,15 @@ impl RenderGraph {
           self
             .linear_depth_pass
             .create_framebuffer(vk_app, frame_id, window_size);
-        let ssao_pass = self.ssao_pass.create_framebuffer(vk_app, frame_id, config);
+        let ssao_pass = self
+          .ssao_pass
+          .create_framebuffer(vk_app, frame_id, &ssao_result_size);
+        let ssao_blur_fbo0 = self
+          .ssao_blur_pass
+          .create_framebuffer(vk_app, &ssao_ping_result_tex);
+        let ssao_blur_fbo1 = self
+          .ssao_blur_pass
+          .create_framebuffer(vk_app, &ssao_pass.ssao_tex);
         let tonemapping_pass =
           self
             .tonemapping_pass
@@ -360,10 +399,12 @@ impl RenderGraph {
           .present_pass
           .create_framebuffer(vk_app, iv, window_size);
 
+        // config buffer
         let config_uniform_buffer = allocate_config_uniform_buffer(vk_app, frame_id);
 
         self.resources_per_frame.push(PerFrameResources {
           config_uniform_buffer,
+          // fbos
           shadow_map_pass,
           sss_depth_pass,
           sss_blur_fbo0,
@@ -371,9 +412,13 @@ impl RenderGraph {
           forward_pass,
           linear_depth_pass,
           ssao_pass,
+          ssao_blur_fbo0,
+          ssao_blur_fbo1,
           tonemapping_pass,
           present_pass,
+          // textures
           sss_ping_result_tex,
+          ssao_ping_result_tex,
         });
       });
 

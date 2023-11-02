@@ -2,7 +2,7 @@ use ash;
 use ash::vk;
 use log::info;
 
-use crate::config::{Config, SSAOConfig};
+use crate::config::SSAOConfig;
 use crate::utils::RngVectorGenerator;
 use crate::vk_ctx::VkCtx;
 use crate::vk_utils::*;
@@ -15,7 +15,6 @@ const BINDING_INDEX_NORMAL: u32 = 2;
 const BINDING_INDEX_NOISE: u32 = 3;
 const BINDING_INDEX_KERNEL: u32 = 4;
 
-const RESULT_TEXTURE_FORMAT: vk::Format = vk::Format::R32_SFLOAT;
 const NOISE_TEXTURE_FORMAT: vk::Format = vk::Format::R32G32B32A32_SFLOAT;
 const COLOR_ATTACHMENT_COUNT: usize = 1;
 const SHADER_PATHS: (&str, &str) = (
@@ -46,6 +45,8 @@ pub struct SSAOPass {
 }
 
 impl SSAOPass {
+  pub const RESULT_TEXTURE_FORMAT: vk::Format = vk::Format::R32_SFLOAT;
+
   pub fn new(vk_app: &VkCtx) -> Self {
     info!("Creating SSAOPass");
     let device = vk_app.vk_device();
@@ -87,7 +88,7 @@ impl SSAOPass {
   fn create_render_pass(device: &ash::Device) -> vk::RenderPass {
     let color_attachment = create_color_attachment(
       0,
-      RESULT_TEXTURE_FORMAT,
+      Self::RESULT_TEXTURE_FORMAT,
       vk::AttachmentLoadOp::DONT_CARE, // we override every pixel regardless
       vk::AttachmentStoreOp::STORE,
       false,
@@ -153,29 +154,35 @@ impl SSAOPass {
     )
   }
 
-  pub fn create_framebuffer(
-    &self,
-    vk_app: &VkCtx,
-    frame_id: usize,
-    config: &Config,
-  ) -> SSAOPassFramebuffer {
+  pub fn create_result_texture(vk_app: &VkCtx, size: &vk::Extent2D, name: String) -> VkTexture {
     let device = vk_app.vk_device();
     let allocator = &vk_app.allocator;
-    let size = config.get_ssao_viewport_size();
 
-    let ssao_tex = VkTexture::empty(
+    VkTexture::empty(
       device,
       allocator,
       vk_app,
-      format!("SSAOPass.ssao#{}", frame_id),
-      size,
-      RESULT_TEXTURE_FORMAT,
+      name,
+      *size,
+      Self::RESULT_TEXTURE_FORMAT,
       vk::ImageTiling::OPTIMAL,
       vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED,
       vk::ImageAspectFlags::COLOR,
       vk::MemoryPropertyFlags::DEVICE_LOCAL,
       vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
-    );
+    )
+  }
+
+  pub fn create_framebuffer(
+    &self,
+    vk_app: &VkCtx,
+    frame_id: usize,
+    size: &vk::Extent2D,
+  ) -> SSAOPassFramebuffer {
+    let device = vk_app.vk_device();
+
+    let ssao_tex =
+      Self::create_result_texture(vk_app, &size, format!("SSAOPass.ssao#{}", frame_id));
 
     let fbo = create_framebuffer(device, self.render_pass, &[ssao_tex.image_view()], &size);
 

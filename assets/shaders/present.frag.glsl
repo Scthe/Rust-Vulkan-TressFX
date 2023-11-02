@@ -141,6 +141,7 @@ void main() {
     }
     
     case DISPLAY_MODE_LINEAR_DEPTH: {
+      // TODO use `textureLinearDepthIn_0_1_Range`
       float depth = -sampleLinearDepth(); // value is [0.1..100]
       vec2 nearAndFarPreview = -u_linear_depth_preview_range; // value is e.g. [5, 10]
       float d = nearAndFarPreview.y - nearAndFarPreview.x; // value for [5, 10] is 5

@@ -310,15 +310,21 @@ impl AppUI {
         &mut ssao.kernel_size,
       );
       slider_small(ui, "Radius", 0.1, 3.0, &mut ssao.radius);
+      add_tooltip_to_previous_widget(ui, "SSAO max sample radius in world units");
       slider_small(ui, "Bias", 0.0, 0.1, &mut ssao.bias);
       slider_small(ui, "Blur radius", 0, 9, &mut ssao.blur_radius);
+      add_tooltip_to_previous_widget(ui, "Blur radius in pixels");
       slider_small(ui, "Blur gauss sigma", 1.0, 6.0, &mut ssao.blur_gauss_sigma); // delta 0.1
       slider_small(
         ui,
-        "Blur depth diff",
-        0.01,
-        0.4,
+        "Blur max depth diff",
+        0.0,
+        0.05,
         &mut ssao.blur_max_depth_distance,
+      );
+      add_tooltip_to_previous_widget(
+        ui,
+        "Discard samples during blur (based on linear depth 0-1)",
       );
       slider_small(ui, "AO strength", 0.0, 1.0, &mut ssao.ao_strength); // delta 0.01
       slider_small(ui, "AO exp", 0.0, 5.0, &mut ssao.ao_exp); // delta 0.1

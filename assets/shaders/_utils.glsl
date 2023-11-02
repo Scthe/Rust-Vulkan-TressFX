@@ -131,6 +131,20 @@ float textureDepth(sampler2D tex, vec2 uv) {
   return texture(tex, uv).r;
 }
 
+/** Returns values [-zNear, -zFar] */
+float textureLinearDepth(sampler2D tex, vec2 uv) {
+  uv = fixOpenGLTextureCoords_AxisY(uv);
+  return texture(tex, uv).r;
+}
+
+/** Returns values [0, 1]. */
+float textureLinearDepthIn_0_1_Range(sampler2D tex, vec2 uv, float zNear, float zFar) {
+  float depth = -textureLinearDepth(tex, uv); // [-zNear, -zFar]
+  vec2 nearAndFar = abs(vec2(zNear, zFar)); // value is e.g. [5, 10]
+  float d = (depth + nearAndFar.x) / (nearAndFar.y - nearAndFar.x);
+  return saturate(d);
+}
+
 vec4 toClipSpace(vec2 uv, float depth) {
   return vec4(to_neg1_1(uv), depth, 1.0);
 }

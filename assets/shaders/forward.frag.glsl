@@ -16,7 +16,7 @@ layout(binding = 3) uniform usampler2D u_specularTexture;
 layout(binding = 4) uniform usampler2D u_hairShadowTexture;
 layout(binding = 5) uniform sampler2D u_directionalShadowDepthTex;
 layout(binding = 6) uniform sampler2D u_sssDepthTex;
-// layout(binding = 7) uniform sampler2D u_aoTex;
+layout(binding = 7) uniform sampler2D u_aoTex;
 
 
 // input-output variables
@@ -82,7 +82,7 @@ Material createMaterial() {
   material.positionWS = v_Position;
   material.isMetallic = isFlag(u_materialFlags, FLAG_IS_METALIC) ? 1.0 : 0.0;
   material.specularMul = u_specularMul;
-  material.ao = 1.0f; // TODO texture(u_aoTex, gl_FragCoord.xy / u_viewport).r;
+  material.ao = texture(u_aoTex, gl_FragCoord.xy / u_viewport).r;
   // convert specular/smoothness -> roughness
   material.roughness = 1.0 - readSpecular();
 
@@ -129,12 +129,9 @@ vec3 doShading(Material material, Light lights[3]) {
     radianceSum += contrib;
   }
 
-  /*
-  // TODO ambient occlusion
   // not PBR, but we need this to highlight some details like collarbones etc.
   float aoRadianceFactor = getCustom_AO(material.ao, u_aoStrength, u_aoExp);
   radianceSum *= aoRadianceFactor;
-  */
 
   vec4 contribSSS = calculateSSSForwardScattering(material);
   vec3 sssForwardScattering = contribSSS.rgb * radianceSum * u_sssStrength;
@@ -149,10 +146,6 @@ vec4 debugModeOverride(Material material, vec3 shadingResult){
   vec4 result = vec4(0);
 
   switch(u_displayMode) {
-    case DISPLAY_MODE_SSAO: {
-      result = vec4(vec3(material.ao), 1);
-      break;
-    }
     case DISPLAY_MODE_SHADOW_MAP: {
       vec3 c = mix(shadingResult, vec3(1 - material.shadow), 0.8);
       result = vec4(c, 1);
