@@ -18,6 +18,18 @@ const SHADER_PATHS: (&str, &str) = (
   "./assets/shaders-compiled/tfx_forward.frag.spv",
 );
 
+// TODO tressfx pass:
+// - remove hardcoded consts
+// - add ui
+// - finish rendering
+// - add debug modes
+// - rerender linear depth after hair
+// - add hair shadows
+
+/// Forward render TressFX hair asset. Same attachment textures as `ForwardPass`
+/// (used with `AttachmentLoadOp::LOAD` to preserve the values). Sets `HAIR` stencil flag.
+///
+/// Has debug modes for hair, independent from the global debug previews.
 pub struct TfxForwardPass {
   render_pass: vk::RenderPass,
   pipeline: vk::Pipeline,
@@ -201,15 +213,18 @@ impl TfxForwardPass {
     let config_buffer = exec_ctx.config_buffer;
 
     let uniform_resouces = [
-      BindableResource::Uniform {
+      BindableResource::Buffer {
+        usage: BindableBufferUsage::UBO,
         binding: BINDING_INDEX_CONFIG_UBO,
         buffer: config_buffer,
       },
-      BindableResource::SSBO {
+      BindableResource::Buffer {
+        usage: BindableBufferUsage::SSBO,
         binding: BINDING_INDEX_POSITIONS_SSBO,
         buffer: &entity.positions_buffer,
       },
-      BindableResource::SSBO {
+      BindableResource::Buffer {
+        usage: BindableBufferUsage::SSBO,
         binding: BINDING_INDEX_TANGENTS_SSBO,
         buffer: &entity.tangents_buffer,
       },

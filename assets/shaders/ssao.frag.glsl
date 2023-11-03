@@ -71,7 +71,7 @@ void main() {
     float samplePointDepth = samplePointVS.z;
 
     // project the point onto depth texture (from our scene) and read distance from camera
-    vec4 sampledPointClipS = u_projection * vec4(samplePointVS, 1.0); // from view to clip-space
+    vec4 sampledPointClipS = u_projectionMat * vec4(samplePointVS, 1.0); // from view to clip-space
     vec2 sampledPointUV = sampledPointClipS.xy / sampledPointClipS.w; // clip space[-1,1] -> NDC
     sampledPointUV  = to_0_1(sampledPointUV); // NDC -> uv[0,1]
     // sample the XY-coordinates to get the real depth

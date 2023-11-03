@@ -1,6 +1,5 @@
 use super::ShadowSourceCfg;
 
-// TODO add docs for all passess
 pub struct SSSForwardScatterPassCfg {
   pub depthmap_size: u32,
   pub source: ShadowSourceCfg,

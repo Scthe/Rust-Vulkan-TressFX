@@ -36,14 +36,13 @@ impl LinearDepthPass {
     let device = vk_app.vk_device();
     let pipeline_cache = &vk_app.pipeline_cache;
 
-    let render_pass = LinearDepthPass::create_render_pass(device);
-    let uniforms_desc = LinearDepthPass::get_uniforms_layout();
+    let render_pass = Self::create_render_pass(device);
+    let uniforms_desc = Self::get_uniforms_layout();
     let uniforms_layout = create_push_descriptor_layout(device, uniforms_desc);
     let pipeline_layout = create_pipeline_layout(device, &[uniforms_layout], &[]);
-    let pipeline =
-      LinearDepthPass::create_pipeline(device, pipeline_cache, &render_pass, &pipeline_layout);
+    let pipeline = Self::create_pipeline(device, pipeline_cache, &render_pass, &pipeline_layout);
 
-    LinearDepthPass {
+    Self {
       render_pass,
       pipeline,
       pipeline_layout,
@@ -67,32 +66,7 @@ impl LinearDepthPass {
       false,
     );
 
-    let subpass = vk::SubpassDescription::builder()
-      .color_attachments(&[color_attachment.1])
-      .pipeline_bind_point(vk::PipelineBindPoint::GRAPHICS)
-      .build();
-
-    let dependencies = vk::SubpassDependency::builder()
-      .src_subpass(vk::SUBPASS_EXTERNAL)
-      .dst_subpass(0)
-      .src_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT)
-      .src_access_mask(vk::AccessFlags::empty())
-      .dst_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT)
-      .dst_access_mask(vk::AccessFlags::COLOR_ATTACHMENT_WRITE)
-      .build();
-
-    let create_info = vk::RenderPassCreateInfo::builder()
-      .dependencies(&[dependencies])
-      .attachments(&[color_attachment.0])
-      .subpasses(&[subpass])
-      .build();
-    let render_pass = unsafe {
-      device
-        .create_render_pass(&create_info, None)
-        .expect("Failed creating render pass")
-    };
-
-    render_pass
+    unsafe { create_render_pass_from_attachments(device, None, &[color_attachment]) }
   }
 
   fn get_uniforms_layout() -> Vec<vk::DescriptorSetLayoutBinding> {
@@ -248,7 +222,8 @@ impl LinearDepthPass {
     let resouce_binder = exec_ctx.create_resouce_binder(self.pipeline_layout);
 
     let uniform_resouces = [
-      BindableResource::Uniform {
+      BindableResource::Buffer {
+        usage: BindableBufferUsage::UBO,
         binding: BINDING_INDEX_CONFIG_UBO,
         buffer: exec_ctx.config_buffer,
       },

@@ -25,19 +25,20 @@ pub struct ShadowMapPass {
   pipeline_layout: vk::PipelineLayout,
 }
 
+/// Render depth map from the point of view of `ShadowSource`. Quite flexible honestly,
+/// many other effects might want to reuse it (e.g. SSS depth pass).
 impl ShadowMapPass {
   pub fn new(vk_app: &VkCtx) -> Self {
     info!("Creating ShadowMapPass");
     let device = vk_app.vk_device();
     let pipeline_cache = &vk_app.pipeline_cache;
 
-    let render_pass = ShadowMapPass::create_render_pass(device);
-    let push_constant_ranges = ShadowMapPass::get_push_constant_layout();
+    let render_pass = Self::create_render_pass(device);
+    let push_constant_ranges = Self::get_push_constant_layout();
     let pipeline_layout = create_pipeline_layout(device, &[], &[push_constant_ranges]);
-    let pipeline =
-      ShadowMapPass::create_pipeline(device, pipeline_cache, &render_pass, &pipeline_layout);
+    let pipeline = Self::create_pipeline(device, pipeline_cache, &render_pass, &pipeline_layout);
 
-    ShadowMapPass {
+    Self {
       render_pass,
       pipeline,
       pipeline_layout,
@@ -61,33 +62,7 @@ impl ShadowMapPass {
       vk::ImageLayout::DEPTH_ATTACHMENT_OPTIMAL,
     );
 
-    let subpass = vk::SubpassDescription::builder()
-      .color_attachments(&[])
-      .depth_stencil_attachment(&depth_attachment.1)
-      .pipeline_bind_point(vk::PipelineBindPoint::GRAPHICS)
-      .build();
-
-    let dependencies = vk::SubpassDependency::builder()
-      .src_subpass(vk::SUBPASS_EXTERNAL)
-      .dst_subpass(0)
-      .src_stage_mask(vk::PipelineStageFlags::LATE_FRAGMENT_TESTS)
-      .src_access_mask(vk::AccessFlags::empty())
-      .dst_stage_mask(vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS)
-      .dst_access_mask(vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE)
-      .build();
-
-    let create_info = vk::RenderPassCreateInfo::builder()
-      .dependencies(&[dependencies])
-      .attachments(&[depth_attachment.0])
-      .subpasses(&[subpass])
-      .build();
-    let render_pass = unsafe {
-      device
-        .create_render_pass(&create_info, None)
-        .expect("Failed creating render pass")
-    };
-
-    render_pass
+    unsafe { create_render_pass_from_attachments(device, Some(depth_attachment), &[]) }
   }
 
   fn get_push_constant_layout() -> vk::PushConstantRange {

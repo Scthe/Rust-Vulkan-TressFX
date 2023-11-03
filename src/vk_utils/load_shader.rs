@@ -3,6 +3,9 @@ use log::trace;
 use ash;
 use ash::vk;
 
+// Vulkan changes to glsl:
+// https://github.com/KhronosGroup/GLSL/blob/master/extensions/khr/GL_KHR_vulkan_glsl.txt
+
 // https://github.com/zeux/niagara/blob/master/src/shaders.cpp
 
 fn load_shader_module(device: &ash::Device, path: &std::path::Path) -> vk::ShaderModule {

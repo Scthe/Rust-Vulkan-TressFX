@@ -67,7 +67,7 @@ vec4 sampleRawDiffuseTexture() {
 
 vec4 getWorldSpacePosition() {
   vec2 uv = v_position;
-  mat4 invVP_matrix = inverse(calcViewProjectionMatrix(u_viewMat, u_projection));
+  mat4 invVP_matrix = inverse(calcViewProjectionMatrix(u_viewMat, u_projectionMat));
   return reprojectFromDepthBuffer(u_depthTex, v_position, invVP_matrix);
 }
 

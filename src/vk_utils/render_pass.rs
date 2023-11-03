@@ -61,7 +61,6 @@ pub fn create_depth_stencil_attachment(
   (attachment, attachment_reference)
 }
 
-// TODO use everywhere
 pub unsafe fn create_render_pass_from_attachments(
   device: &ash::Device,
   depth: Option<(vk::AttachmentDescription, vk::AttachmentReference)>,

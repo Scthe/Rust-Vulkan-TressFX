@@ -22,6 +22,8 @@ const SHADER_PATHS: (&str, &str) = (
   "./assets/shaders-compiled/sssBlur.frag.spv",
 );
 
+/// Blur SSS, so a blur, but with a special per-channel profile.
+/// `SSSSBlurPS` from Jimenez, Gutierrez, see `_separableSSSSS.glsl` for full docs.
 pub struct SSSBlurPass {
   render_pass: vk::RenderPass,
   pipeline: vk::Pipeline,
@@ -38,16 +40,15 @@ impl SSSBlurPass {
     let device = vk_app.vk_device();
     let pipeline_cache = &vk_app.pipeline_cache;
 
-    let render_pass = SSSBlurPass::create_render_pass(device);
-    let uniforms_desc = SSSBlurPass::get_uniforms_layout();
-    let push_constant_ranges = SSSBlurPass::get_push_constant_layout();
+    let render_pass = Self::create_render_pass(device);
+    let uniforms_desc = Self::get_uniforms_layout();
+    let push_constant_ranges = Self::get_push_constant_layout();
     let uniforms_layout = create_push_descriptor_layout(device, uniforms_desc);
     let pipeline_layout =
       create_pipeline_layout(device, &[uniforms_layout], &[push_constant_ranges]);
-    let pipeline =
-      SSSBlurPass::create_pipeline(device, pipeline_cache, &render_pass, &pipeline_layout);
+    let pipeline = Self::create_pipeline(device, pipeline_cache, &render_pass, &pipeline_layout);
 
-    SSSBlurPass {
+    Self {
       render_pass,
       pipeline,
       pipeline_layout,
@@ -150,7 +151,7 @@ impl SSSBlurPass {
     SSSBlurFramebuffer { fbo }
   }
 
-  pub fn execute(
+  fn execute_blur_single_direction(
     &self,
     exec_ctx: &PassExecContext,
     framebuffer: &mut SSSBlurFramebuffer,
@@ -213,7 +214,8 @@ impl SSSBlurPass {
     let resouce_binder = exec_ctx.create_resouce_binder(self.pipeline_layout);
 
     let uniform_resouces = [
-      BindableResource::Uniform {
+      BindableResource::Buffer {
+        usage: BindableBufferUsage::UBO,
         binding: BINDING_INDEX_CONFIG_UBO,
         buffer: exec_ctx.config_buffer,
       },
@@ -288,7 +290,41 @@ impl SSSBlurPass {
     );
   }
 
-  // TODO pub fn execute() and make `execute_blur_single_direction()` private. Just like `BlurPass`
+  /// ### Params:
+  /// * `color_source_tex` - 1st read, 2nd write
+  /// * `tmp_ping_pong_tex` - 1st write, 2nd read
+  /// * `linear_depth_tex` - read only
+  /// * `depth_stencil_tex` - used as stencil source inside the framebuffer. This forces the write-like usage.
+  pub fn execute(
+    &self,
+    exec_ctx: &PassExecContext,
+    framebuffer0: &mut SSSBlurFramebuffer,
+    framebuffer1: &mut SSSBlurFramebuffer,
+    color_source_tex: &mut VkTexture,
+    tmp_ping_pong_tex: &mut VkTexture,
+    depth_stencil_tex: &mut VkTexture,
+    linear_depth_tex: &mut VkTexture,
+  ) -> () {
+    self.execute_blur_single_direction(
+      &exec_ctx,
+      framebuffer0,
+      Self::BLUR_DIRECTION_PASS0,
+      tmp_ping_pong_tex, // write
+      depth_stencil_tex, // write (stencil source)
+      color_source_tex,  // read
+      linear_depth_tex,  // read
+    );
+
+    self.execute_blur_single_direction(
+      &exec_ctx,
+      framebuffer1,
+      Self::BLUR_DIRECTION_PASS1,
+      color_source_tex,  // write
+      depth_stencil_tex, // write (stencil source)
+      tmp_ping_pong_tex, // read
+      linear_depth_tex,  // read
+    );
+  }
 }
 
 pub struct SSSBlurFramebuffer {

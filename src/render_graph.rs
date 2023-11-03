@@ -229,25 +229,14 @@ impl RenderGraph {
     // sss blur
     // skip SSSBlur pass for special debug modes
     if !pass_ctx.config.preserve_original_forward_pass_result() {
-      RenderGraph::debug_start_pass(&pass_ctx, "sss_blur_0");
+      RenderGraph::debug_start_pass(&pass_ctx, "sss_blur");
       self.sss_blur_pass.execute(
         &pass_ctx,
         &mut frame_resources.sss_blur_fbo0,
-        SSSBlurPass::BLUR_DIRECTION_PASS0,
-        &mut frame_resources.sss_ping_result_tex, // write
-        &mut frame_resources.forward_pass.depth_stencil_tex, // write (stencil source)
-        &mut frame_resources.forward_pass.diffuse_tex, // read
-        &mut frame_resources.linear_depth_pass.linear_depth_tex, // read
-      );
-
-      RenderGraph::debug_start_pass(&pass_ctx, "sss_blur_1");
-      self.sss_blur_pass.execute(
-        &pass_ctx,
         &mut frame_resources.sss_blur_fbo1,
-        SSSBlurPass::BLUR_DIRECTION_PASS1,
-        &mut frame_resources.forward_pass.diffuse_tex, // write
+        &mut frame_resources.forward_pass.diffuse_tex, // 1st read, 2nd write
+        &mut frame_resources.sss_ping_result_tex,      // 1st write, 2nd read
         &mut frame_resources.forward_pass.depth_stencil_tex, // write (stencil source)
-        &mut frame_resources.sss_ping_result_tex,      // read
         &mut frame_resources.linear_depth_pass.linear_depth_tex, // read
       );
     }

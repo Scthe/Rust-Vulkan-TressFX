@@ -27,6 +27,11 @@ const SHADER_PATHS: (&str, &str) = (
 // TODO ATM attachment data is split into create_framebuffer, render_pass, execute (cause clear color). Unify.
 //      Or create RenderPass abstract class that will get some attachment desc and calc most of things
 
+/// Render scene objects (not hair). Outputs `diffuse.rgb`, `normal.rgb` (packed) and `depth/stencil`.
+/// Sets `SKIN` stencil flag.
+///
+/// Output is different for some special debug modes. E.g. shadow debug mode outputs shadow
+/// preview - exact same values that are used in normal rendering path.
 pub struct ForwardPass {
   render_pass: vk::RenderPass,
   pipeline: vk::Pipeline,
@@ -49,16 +54,15 @@ impl ForwardPass {
     let device = vk_app.vk_device();
     let pipeline_cache = &vk_app.pipeline_cache;
 
-    let render_pass = ForwardPass::create_render_pass(device);
-    let uniforms_desc = ForwardPass::get_uniforms_layout();
+    let render_pass = Self::create_render_pass(device);
+    let uniforms_desc = Self::get_uniforms_layout();
     let uniforms_layout = create_push_descriptor_layout(device, uniforms_desc);
     let pipeline_layout = create_pipeline_layout(device, &[uniforms_layout], &[]);
-    let pipeline =
-      ForwardPass::create_pipeline(device, pipeline_cache, &render_pass, &pipeline_layout);
+    let pipeline = Self::create_pipeline(device, pipeline_cache, &render_pass, &pipeline_layout);
 
-    let dummy_data_texture = ForwardPass::create_dummy_texture(vk_app);
+    let dummy_data_texture = Self::create_dummy_texture(vk_app);
 
-    ForwardPass {
+    Self {
       render_pass,
       pipeline,
       pipeline_layout,
@@ -77,9 +81,9 @@ impl ForwardPass {
     self.dummy_data_texture.delete(device, allocator);
   }
 
+  /// Define render pass to compile shader against
   fn create_render_pass(device: &ash::Device) -> vk::RenderPass {
     // TODO check if render pass can auto convert attachment layouts after execution? The `final_layout` param
-    // 1. define render pass to compile shader against
     let depth_attachment = create_depth_stencil_attachment(
       0,
       Self::DEPTH_TEXTURE_FORMAT,
@@ -104,39 +108,12 @@ impl ForwardPass {
       false,
     );
 
-    let subpass = vk::SubpassDescription::builder()
-      .color_attachments(&[color_attachment.1, normals_attachment.1])
-      .depth_stencil_attachment(&depth_attachment.1)
-      .pipeline_bind_point(vk::PipelineBindPoint::GRAPHICS)
-      .build();
-
-    // needed as we first clear the depth/color attachments in `vk::AttachmentLoadOp`
-    let dependencies = vk::SubpassDependency::builder()
-      .src_subpass(vk::SUBPASS_EXTERNAL)
-      .dst_subpass(0)
-      .src_stage_mask(
-        vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT
-          | vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS,
-      )
-      .src_access_mask(vk::AccessFlags::empty())
-      .dst_stage_mask(
-        vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT
-          | vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS,
-      )
-      .dst_access_mask(
-        vk::AccessFlags::COLOR_ATTACHMENT_WRITE | vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE,
-      )
-      .build();
-
-    let create_info = vk::RenderPassCreateInfo::builder()
-      .dependencies(&[dependencies])
-      .attachments(&[depth_attachment.0, color_attachment.0, normals_attachment.0])
-      .subpasses(&[subpass])
-      .build();
     unsafe {
-      device
-        .create_render_pass(&create_info, None)
-        .expect("Failed creating render pass")
+      create_render_pass_from_attachments(
+        device,
+        Some(depth_attachment),
+        &[color_attachment, normals_attachment],
+      )
     }
   }
 
@@ -423,11 +400,13 @@ impl ForwardPass {
     let frame_id = exec_ctx.swapchain_image_idx;
 
     let uniform_resouces = [
-      BindableResource::Uniform {
+      BindableResource::Buffer {
+        usage: BindableBufferUsage::UBO,
         binding: BINDING_INDEX_CONFIG_UBO,
         buffer: config_buffer,
       },
-      BindableResource::Uniform {
+      BindableResource::Buffer {
+        usage: BindableBufferUsage::UBO,
         binding: BINDING_INDEX_MODEL_UBO,
         buffer: entity.get_ubo_buffer(frame_id),
       },

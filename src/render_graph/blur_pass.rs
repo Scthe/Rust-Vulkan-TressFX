@@ -20,6 +20,8 @@ const SHADER_PATHS: (&str, &str) = (
   "./assets/shaders-compiled/blur.frag.spv",
 );
 
+/// Depth-aware blur. Rejects contribution from samples that are too far in world space
+/// from the center pixel. Implemented as 2 passes - 1nd horizontal and 2nd vertical.
 pub struct BlurPass {
   render_pass: vk::RenderPass,
   pipeline: vk::Pipeline,
@@ -36,16 +38,15 @@ impl BlurPass {
     let device = vk_app.vk_device();
     let pipeline_cache = &vk_app.pipeline_cache;
 
-    let render_pass = BlurPass::create_render_pass(device, format);
-    let uniforms_desc = BlurPass::get_uniforms_layout();
-    let push_constant_ranges = BlurPass::get_push_constant_layout();
+    let render_pass = Self::create_render_pass(device, format);
+    let uniforms_desc = Self::get_uniforms_layout();
+    let push_constant_ranges = Self::get_push_constant_layout();
     let uniforms_layout = create_push_descriptor_layout(device, uniforms_desc);
     let pipeline_layout =
       create_pipeline_layout(device, &[uniforms_layout], &[push_constant_ranges]);
-    let pipeline =
-      BlurPass::create_pipeline(device, pipeline_cache, &render_pass, &pipeline_layout);
+    let pipeline = Self::create_pipeline(device, pipeline_cache, &render_pass, &pipeline_layout);
 
-    BlurPass {
+    Self {
       render_pass,
       pipeline,
       pipeline_layout,
@@ -187,7 +188,8 @@ impl BlurPass {
     let resouce_binder = exec_ctx.create_resouce_binder(self.pipeline_layout);
 
     let uniform_resouces = [
-      BindableResource::Uniform {
+      BindableResource::Buffer {
+        usage: BindableBufferUsage::UBO,
         binding: BINDING_INDEX_CONFIG_UBO,
         buffer: exec_ctx.config_buffer,
       },

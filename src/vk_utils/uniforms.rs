@@ -112,14 +112,21 @@ pub struct ResouceBinder<'a> {
   pub pipeline_layout: vk::PipelineLayout,
 }
 
+pub enum BindableBufferUsage {
+  UBO,
+  SSBO,
+}
+
+fn get_buffer_descriptor_type(buf_type: &BindableBufferUsage) -> vk::DescriptorType {
+  match buf_type {
+    BindableBufferUsage::UBO => vk::DescriptorType::UNIFORM_BUFFER,
+    BindableBufferUsage::SSBO => vk::DescriptorType::STORAGE_BUFFER,
+  }
+}
+
 pub enum BindableResource<'a> {
-  Uniform {
-    // TODO change `BindableResource::Uniform` to `Buffer` and allow select UBO/SSBO
-    binding: u32,
-    buffer: &'a VkBuffer,
-  },
-  SSBO {
-    // TODO delete and use `BindableResource::Buffer`
+  Buffer {
+    usage: BindableBufferUsage,
     binding: u32,
     buffer: &'a VkBuffer,
   },
@@ -146,7 +153,11 @@ pub unsafe fn bind_resources_to_descriptors(
     .iter()
     .map(|resource| {
       match resource {
-        BindableResource::Uniform { binding, buffer } => {
+        BindableResource::Buffer {
+          binding,
+          buffer,
+          usage,
+        } => {
           buffer_infos.push(vk::DescriptorBufferInfo {
             buffer: buffer.buffer,
             offset: 0,
@@ -156,21 +167,7 @@ pub unsafe fn bind_resources_to_descriptors(
           vk::WriteDescriptorSet::builder()
             .dst_binding(*binding)
             .dst_array_element(0)
-            .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
-            .buffer_info(data_slice)
-            .build()
-        }
-        BindableResource::SSBO { binding, buffer } => {
-          buffer_infos.push(vk::DescriptorBufferInfo {
-            buffer: buffer.buffer,
-            offset: 0,
-            range: vk::WHOLE_SIZE, // or buffer.size
-          });
-          let data_slice = &buffer_infos[(buffer_infos.len() - 1)..buffer_infos.len()];
-          vk::WriteDescriptorSet::builder()
-            .dst_binding(*binding)
-            .dst_array_element(0)
-            .descriptor_type(vk::DescriptorType::STORAGE_BUFFER)
+            .descriptor_type(get_buffer_descriptor_type(usage))
             .buffer_info(data_slice)
             .build()
         }

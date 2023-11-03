@@ -22,15 +22,8 @@ const SHADER_PATHS: (&str, &str) = (
   "./assets/shaders-compiled/ssao.frag.spv",
 );
 
-/*
-TODOs [CRITICAL]
-| make it work (ATM. some samples seem to use reverted Y-axis? and there is SSAO where there should not be)
-| Restore rand vector texture
-| refactor shader, remove hardcoded consts (use `u_noiseScale`)
-- add blur pass
-- use in forward pass
-*/
-
+/// Screen space ambient occlusion. Not much more to say about it.
+/// Probably half screen size, but see `Config` to verify.
 pub struct SSAOPass {
   render_pass: vk::RenderPass,
   pipeline: vk::Pipeline,
@@ -52,19 +45,18 @@ impl SSAOPass {
     let device = vk_app.vk_device();
     let pipeline_cache = &vk_app.pipeline_cache;
 
-    let render_pass = SSAOPass::create_render_pass(device);
-    let uniforms_desc = SSAOPass::get_uniforms_layout();
+    let render_pass = Self::create_render_pass(device);
+    let uniforms_desc = Self::get_uniforms_layout();
     let uniforms_layout = create_push_descriptor_layout(device, uniforms_desc);
     let pipeline_layout = create_pipeline_layout(device, &[uniforms_layout], &[]);
-    let pipeline =
-      SSAOPass::create_pipeline(device, pipeline_cache, &render_pass, &pipeline_layout);
+    let pipeline = Self::create_pipeline(device, pipeline_cache, &render_pass, &pipeline_layout);
 
     let rng_vectors_texture =
       create_random_sampling_texture(vk_app, SSAOConfig::RNG_VECTOR_TEXTURE_SIZE);
     let rng_sample_directions_kernel =
       create_random_directions_kernel(vk_app, SSAOConfig::MAX_KERNEL_VALUES);
 
-    SSAOPass {
+    Self {
       render_pass,
       pipeline,
       pipeline_layout,
@@ -94,32 +86,7 @@ impl SSAOPass {
       false,
     );
 
-    let subpass = vk::SubpassDescription::builder()
-      .color_attachments(&[color_attachment.1])
-      .pipeline_bind_point(vk::PipelineBindPoint::GRAPHICS)
-      .build();
-
-    let dependencies = vk::SubpassDependency::builder()
-      .src_subpass(vk::SUBPASS_EXTERNAL)
-      .dst_subpass(0)
-      .src_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT)
-      .src_access_mask(vk::AccessFlags::empty())
-      .dst_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT)
-      .dst_access_mask(vk::AccessFlags::COLOR_ATTACHMENT_WRITE)
-      .build();
-
-    let create_info = vk::RenderPassCreateInfo::builder()
-      .dependencies(&[dependencies])
-      .attachments(&[color_attachment.0])
-      .subpasses(&[subpass])
-      .build();
-    let render_pass = unsafe {
-      device
-        .create_render_pass(&create_info, None)
-        .expect("Failed creating render pass")
-    };
-
-    render_pass
+    unsafe { create_render_pass_from_attachments(device, None, &[color_attachment]) }
   }
 
   fn get_uniforms_layout() -> Vec<vk::DescriptorSetLayoutBinding> {
@@ -291,7 +258,8 @@ impl SSAOPass {
     let resouce_binder = exec_ctx.create_resouce_binder(self.pipeline_layout);
 
     let uniform_resouces = [
-      BindableResource::Uniform {
+      BindableResource::Buffer {
+        usage: BindableBufferUsage::UBO,
         binding: BINDING_INDEX_CONFIG_UBO,
         buffer: exec_ctx.config_buffer,
       },
@@ -313,7 +281,8 @@ impl SSAOPass {
         image_view: None,
         sampler: vk_app.default_texture_sampler_nearest,
       },
-      BindableResource::Uniform {
+      BindableResource::Buffer {
+        usage: BindableBufferUsage::UBO,
         binding: BINDING_INDEX_KERNEL,
         buffer: &self.rng_sample_directions_kernel,
       },
