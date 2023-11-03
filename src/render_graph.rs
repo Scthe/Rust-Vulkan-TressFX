@@ -20,6 +20,7 @@ mod shadow_map_pass;
 mod ssao_pass;
 mod sss_blur_pass;
 mod sss_depth_pass;
+mod tfx_forward_pass;
 mod tonemapping_pass;
 
 pub use self::_shared::*;
@@ -30,6 +31,7 @@ use self::shadow_map_pass::ShadowMapPass;
 use self::ssao_pass::SSAOPass;
 use self::sss_blur_pass::SSSBlurPass;
 use self::sss_depth_pass::SSSDepthPass;
+use self::tfx_forward_pass::TfxForwardPass;
 use self::tonemapping_pass::TonemappingPass;
 use self::{_shared::GlobalConfigUBO, present_pass::PresentPass};
 
@@ -44,6 +46,7 @@ pub struct RenderGraph {
   sss_depth_pass: SSSDepthPass,
   sss_blur_pass: SSSBlurPass,
   forward_pass: ForwardPass,
+  tfx_forward_pass: TfxForwardPass,
   linear_depth_pass: LinearDepthPass,
   ssao_pass: SSAOPass,
   ssao_blur_pass: BlurPass,
@@ -64,6 +67,7 @@ impl RenderGraph {
     let linear_depth_pass = LinearDepthPass::new(vk_app);
     let ssao_pass = SSAOPass::new(vk_app);
     let ssao_blur_pass = BlurPass::new(vk_app, SSAOPass::RESULT_TEXTURE_FORMAT);
+    let tfx_forward_pass = TfxForwardPass::new(vk_app);
     let tonemapping_pass = TonemappingPass::new(vk_app);
     let present_pass = PresentPass::new(vk_app, image_format);
 
@@ -73,6 +77,7 @@ impl RenderGraph {
       sss_depth_pass,
       sss_blur_pass,
       forward_pass,
+      tfx_forward_pass,
       linear_depth_pass,
       ssao_pass,
       ssao_blur_pass,
@@ -93,6 +98,7 @@ impl RenderGraph {
     self.ssao_pass.destroy(vk_app);
     self.ssao_blur_pass.destroy(device);
     self.linear_depth_pass.destroy(device);
+    self.tfx_forward_pass.destroy(vk_app);
     self.forward_pass.destroy(vk_app);
     self.sss_depth_pass.destroy();
     self.sss_blur_pass.destroy(device);
@@ -245,6 +251,12 @@ impl RenderGraph {
         &mut frame_resources.linear_depth_pass.linear_depth_tex, // read
       );
     }
+
+    // TODO refresh linear_depth after
+    RenderGraph::debug_start_pass(&pass_ctx, "tfx_forward_pass");
+    self
+      .tfx_forward_pass
+      .execute(&pass_ctx, &mut frame_resources.forward_pass);
 
     // ssao
     RenderGraph::debug_start_pass(&pass_ctx, "ssao_pass");

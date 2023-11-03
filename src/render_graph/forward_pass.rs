@@ -19,8 +19,6 @@ const BINDING_INDEX_SHADOW_MAP: u32 = 5;
 const BINDING_INDEX_SSS_DEPTH_MAP: u32 = 6;
 const BINDING_INDEX_AO: u32 = 7;
 
-const NORMALS_TEXTURE_FORMAT: vk::Format = vk::Format::R8G8B8A8_UINT;
-const COLOR_ATTACHMENT_COUNT: usize = 2;
 const SHADER_PATHS: (&str, &str) = (
   "./assets/shaders-compiled/forward.vert.spv",
   "./assets/shaders-compiled/forward.frag.spv",
@@ -41,8 +39,10 @@ pub struct ForwardPass {
 }
 
 impl ForwardPass {
-  pub const DIFFUSE_TEXTURE_FORMAT: vk::Format = vk::Format::R32G32B32A32_SFLOAT;
   pub const DEPTH_TEXTURE_FORMAT: vk::Format = vk::Format::D24_UNORM_S8_UINT;
+  pub const DIFFUSE_TEXTURE_FORMAT: vk::Format = vk::Format::R32G32B32A32_SFLOAT;
+  pub const NORMALS_TEXTURE_FORMAT: vk::Format = vk::Format::R8G8B8A8_UINT;
+  pub const COLOR_ATTACHMENT_COUNT: usize = 2;
 
   pub fn new(vk_app: &VkCtx) -> Self {
     info!("Creating ForwardPass");
@@ -98,7 +98,7 @@ impl ForwardPass {
     );
     let normals_attachment = create_color_attachment(
       2,
-      NORMALS_TEXTURE_FORMAT,
+      Self::NORMALS_TEXTURE_FORMAT,
       vk::AttachmentLoadOp::CLEAR,
       vk::AttachmentStoreOp::STORE,
       false,
@@ -185,7 +185,7 @@ impl ForwardPass {
       pipeline_layout,
       SHADER_PATHS,
       vertex_desc,
-      COLOR_ATTACHMENT_COUNT,
+      Self::COLOR_ATTACHMENT_COUNT,
       |builder| {
         // TODO cull backfaces
         let stencil_write_skin = ps_stencil_write(Config::STENCIL_BIT_SKIN);
@@ -263,7 +263,7 @@ impl ForwardPass {
       vk_app,
       format!("ForwardPass.normal#{}", frame_id),
       *size,
-      NORMALS_TEXTURE_FORMAT,
+      Self::NORMALS_TEXTURE_FORMAT,
       vk::ImageTiling::OPTIMAL,
       vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED,
       vk::ImageAspectFlags::COLOR,
@@ -300,7 +300,7 @@ impl ForwardPass {
     framebuffer: &mut ForwardPassFramebuffer,
     shadow_map_texture: &mut VkTexture,
     sss_depth_texture: &mut VkTexture,
-    so_texture: &mut VkTexture,
+    ao_texture: &mut VkTexture,
   ) -> () {
     let vk_app = exec_ctx.vk_app;
     let scene = &*exec_ctx.scene;
@@ -322,7 +322,7 @@ impl ForwardPass {
         framebuffer,
         shadow_map_texture,
         sss_depth_texture,
-        so_texture,
+        ao_texture,
       );
 
       // start render pass
@@ -346,7 +346,7 @@ impl ForwardPass {
           exec_ctx,
           shadow_map_texture,
           sss_depth_texture,
-          so_texture,
+          ao_texture,
           entity,
         );
         entity.cmd_bind_mesh_buffers(device, command_buffer);
@@ -365,11 +365,11 @@ impl ForwardPass {
     framebuffer: &mut ForwardPassFramebuffer,
     shadow_map_texture: &mut VkTexture,
     sss_depth_texture: &mut VkTexture,
-    so_texture: &mut VkTexture,
+    ao_texture: &mut VkTexture,
   ) {
     let shadow_map_barrier = shadow_map_texture.barrier_prepare_attachment_for_shader_read();
     let sss_depth_barrier = sss_depth_texture.barrier_prepare_attachment_for_shader_read();
-    let ao_barrier = so_texture.barrier_prepare_attachment_for_shader_read();
+    let ao_barrier = ao_texture.barrier_prepare_attachment_for_shader_read();
 
     device.cmd_pipeline_barrier(
       *command_buffer,
@@ -415,7 +415,7 @@ impl ForwardPass {
     exec_ctx: &PassExecContext,
     shadow_map_texture: &mut VkTexture,
     sss_depth_texture: &mut VkTexture,
-    so_texture: &mut VkTexture,
+    ao_texture: &mut VkTexture,
     entity: &WorldEntity,
   ) {
     let vk_app = exec_ctx.vk_app;
@@ -471,7 +471,7 @@ impl ForwardPass {
       },
       BindableResource::Texture {
         binding: BINDING_INDEX_AO,
-        texture: &so_texture,
+        texture: &ao_texture,
         image_view: None,
         sampler: vk_app.default_texture_sampler_linear,
       },

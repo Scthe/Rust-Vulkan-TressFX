@@ -16,8 +16,9 @@ pub struct GlobalConfigUBO {
   pub u_camera_position_and_display_mode: Vec4,
   pub u_viewport_and_near_far: Vec4,
   pub u_view_mat: Mat4,
-  pub u_projection: Mat4,
+  pub u_projection_mat: Mat4,
   pub u_inv_projection_mat: Mat4, // inverse projection matrix
+  pub u_view_projection_mat: Mat4,
   // AO + Shadow
   pub u_shadow_matrix_vp: Mat4,
   pub u_shadow_misc_settings: Vec4,
@@ -103,8 +104,9 @@ impl GlobalConfigUBO {
         cam_cfg.z_far,
       ),
       u_view_mat: *camera.view_matrix(),
-      u_projection: *camera.perspective_matrix(),
+      u_projection_mat: *camera.perspective_matrix(),
       u_inv_projection_mat: camera.perspective_matrix().inverse(),
+      u_view_projection_mat: camera.view_projection_matrix(),
       // shadows:
       u_shadow_matrix_vp: ShadowMapPass::get_light_shadow_mvp(
         &shadows.shadow_source,

@@ -15,8 +15,9 @@ uniform GlobalConfigUniformBuffer {
   vec4 u_cameraPositionAndDisplayMode; // [cameraPosition.xyz, u_displayMode]
   vec4 u_viewportAndNearFar; // [viewport.w,viewport.h, near,far]
   mat4 u_viewMat;
-  mat4 u_projection;
+  mat4 u_projection; // TODO u_projectionMat;
   mat4 u_invProjectionMat; // inverse projection matrix
+  mat4 u_viewProjectionMat;
   // AO + Shadow
   mat4 u_directionalShadowMatrix_VP;
   vec4 u_shadowMiscSettings; // [u_directionalShadowSampleRadius, -, -, -]

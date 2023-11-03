@@ -71,6 +71,20 @@ pub fn create_texture_binding(
     .build()
 }
 
+/// Create layout for a single shader storage buffer object (SSBO).
+/// That layout will be one of layouts gathered in DescriptorSetLayout.
+pub fn create_ssbo_binding(
+  binding: u32,
+  stage_flags: vk::ShaderStageFlags,
+) -> vk::DescriptorSetLayoutBinding {
+  vk::DescriptorSetLayoutBinding::builder()
+    .binding(binding)
+    .descriptor_type(vk::DescriptorType::STORAGE_BUFFER)
+    .descriptor_count(1)
+    .stage_flags(stage_flags)
+    .build()
+}
+
 pub fn create_push_descriptor_layout(
   device: &ash::Device,
   bindings: Vec<vk::DescriptorSetLayoutBinding>,
@@ -100,6 +114,12 @@ pub struct ResouceBinder<'a> {
 
 pub enum BindableResource<'a> {
   Uniform {
+    // TODO change `BindableResource::Uniform` to `Buffer` and allow select UBO/SSBO
+    binding: u32,
+    buffer: &'a VkBuffer,
+  },
+  SSBO {
+    // TODO delete and use `BindableResource::Buffer`
     binding: u32,
     buffer: &'a VkBuffer,
   },
@@ -137,6 +157,20 @@ pub unsafe fn bind_resources_to_descriptors(
             .dst_binding(*binding)
             .dst_array_element(0)
             .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
+            .buffer_info(data_slice)
+            .build()
+        }
+        BindableResource::SSBO { binding, buffer } => {
+          buffer_infos.push(vk::DescriptorBufferInfo {
+            buffer: buffer.buffer,
+            offset: 0,
+            range: vk::WHOLE_SIZE, // or buffer.size
+          });
+          let data_slice = &buffer_infos[(buffer_infos.len() - 1)..buffer_infos.len()];
+          vk::WriteDescriptorSet::builder()
+            .dst_binding(*binding)
+            .dst_array_element(0)
+            .descriptor_type(vk::DescriptorType::STORAGE_BUFFER)
             .buffer_info(data_slice)
             .build()
         }

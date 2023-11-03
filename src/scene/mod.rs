@@ -16,12 +16,14 @@ use crate::vk_utils::*;
 pub use self::bounding_box::*;
 pub use self::camera::*;
 pub use self::material::*;
+pub use self::tressfx::*;
 pub use self::world::*;
 pub use self::world_entity::*;
 
 mod bounding_box;
 mod camera;
 mod material;
+mod tressfx;
 mod world;
 mod world_entity;
 
@@ -31,9 +33,16 @@ pub fn load_scene(vk_ctx: &VkCtx, config: &Config) -> World {
   let sintel = load_sintel(vk_ctx, model_matrix);
   let sintel_eyes = load_sintel_eyes(vk_ctx, model_matrix);
 
+  // tressfx
+  let sintel_tfx_file = load_tressfx_file(std::path::Path::new(
+    "./assets/sintel_lite_v2_1/GEO-sintel_hair_emit.002-sintel_hair.tfx",
+  ));
+  let sintel_hair = TfxObject::from_file(vk_ctx, "tfx_sintel", model_matrix, &sintel_tfx_file);
+
   World {
-    entities: vec![sintel, sintel_eyes],
     camera: Camera::new(config, vk_ctx.window_size()),
+    entities: vec![sintel, sintel_eyes],
+    tressfx_objects: vec![sintel_hair],
   }
 }
 
