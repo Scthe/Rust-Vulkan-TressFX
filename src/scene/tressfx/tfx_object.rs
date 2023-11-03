@@ -85,7 +85,7 @@ impl TfxObject {
     );
 
     let index_count = self.triangle_count * 3;
-    let instance_count = 1; // TODO tfx.followHairs
+    let instance_count = self.follow_hairs;
     device.cmd_draw_indexed(command_buffer, index_count, instance_count, 0, 0, 0);
   }
 }
