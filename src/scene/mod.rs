@@ -37,7 +37,7 @@ pub fn load_scene(vk_ctx: &VkCtx, config: &Config) -> World {
   let sintel_tfx_file = load_tressfx_file(std::path::Path::new(
     "./assets/sintel_lite_v2_1/GEO-sintel_hair_emit.002-sintel_hair.tfx",
   ));
-  let sintel_hair = TfxObject::from_file(vk_ctx, "tfx_sintel", model_matrix, &sintel_tfx_file);
+  let sintel_hair = TfxObject::from_file(vk_ctx, "sintel_hair", model_matrix, &sintel_tfx_file);
 
   World {
     camera: Camera::new(config, vk_ctx.window_size()),

@@ -12,7 +12,7 @@ use crate::{
     ColorGradingPerRangeSettings, ColorGradingProp, Config, DisplayMode, PostFxCfg, SSAOConfig,
     SSSBlurPassCfg, SSSForwardScatterPassCfg, ShadowTechnique, ShadowsConfig, TonemappingMode,
   },
-  scene::{World, WorldEntity},
+  scene::{TfxObject, World, WorldEntity},
   utils::vec3_to_pretty_str,
   vk_ctx::VkCtx,
 };
@@ -95,6 +95,7 @@ impl AppUI {
       let ui = self.imgui.frame();
 
       // UI START
+      // TODO lights etc. - verify all are configurable
       ui.window("Settings")
         .position([0.0, 0.0], Condition::Always)
         .movable(false)
@@ -108,6 +109,10 @@ impl AppUI {
             .entities
             .iter_mut()
             .for_each(|entity| Self::draw_entity(ui, entity));
+          scene
+            .tressfx_objects
+            .iter_mut()
+            .for_each(|entity| Self::draw_tfx_object(ui, entity));
           Self::draw_shadows(ui, &mut config.shadows);
           Self::draw_sss_forward_pass(ui, &mut config.sss_forward_scatter);
           Self::draw_sss_blur(ui, &mut config.sss_blur);
@@ -116,8 +121,8 @@ impl AppUI {
           Self::draw_post_fx(ui, postfx);
           {
             let cg = &mut postfx.color_grading;
-            let sm = Some((&mut cg.shadows_max, "shadowsMax"));
-            let hl = Some((&mut cg.highlights_min, "highlightsMin"));
+            let sm = Some((&mut cg.shadows_max, "Shadows max"));
+            let hl = Some((&mut cg.highlights_min, "Highlights min"));
             Self::draw_color_grading(ui, "general", &mut cg.global, None);
             Self::draw_color_grading(ui, "shadows", &mut cg.shadows, sm);
             Self::draw_color_grading(ui, "midtones", &mut cg.midtones, None);
@@ -140,6 +145,7 @@ impl AppUI {
   fn draw_general_ui(ui: &Ui, config: &mut Config) {
     let push_token = ui.push_id("GeneralUI");
 
+    next_widget_small(ui);
     ui.combo(
       "Display mode",
       &mut config.display_mode,
@@ -190,7 +196,7 @@ impl AppUI {
     let push_token = ui.push_id(entity.name.clone());
     let material = &mut entity.material;
 
-    let label = format!("Object {}", entity.name);
+    let label = format!("Object: {}", entity.name);
     if ui.collapsing_header(label, *HEADER_FLAGS) {
       ui.text_disabled(format!(
         "Center: {}",
@@ -220,6 +226,78 @@ impl AppUI {
       slider_small(ui, "SSS bias", 0.0, 0.1, &mut material.sss_bias);
       slider_small(ui, "SSS gain", 0.0, 1.0, &mut material.sss_gain);
       slider_small(ui, "SSS strength", 0.0, 1.5, &mut material.sss_strength);
+    }
+
+    push_token.end();
+  }
+
+  fn draw_tfx_object(ui: &Ui, entity: &mut TfxObject) {
+    let push_token = ui.push_id(entity.name.clone());
+    let mat = &mut entity.material;
+
+    let label = format!("TressFX: {}", entity.name);
+    if ui.collapsing_header(label, *HEADER_FLAGS) {
+      ui.text_disabled(format!("Strands: {}", entity.num_hair_strands));
+      ui.text_disabled(format!(
+        "Verts per strand: {}",
+        entity.num_vertices_per_strand
+      ));
+
+      // dir.add(displayModeDummy, 'displayMode', displayModeDummy.values).name('Display mode');
+      slider_small(ui, "Radius", 0.001, 0.015, &mut entity.fiber_radius);
+      slider_small(ui, "Thin tip", 0.0, 1.0, &mut entity.thin_tip); // delta: 0.01,
+      slider_small(
+        ui,
+        "Follow hairs",
+        1,
+        TfxObject::MAX_FOLLOW_HAIRS_PER_GUIDE,
+        &mut entity.follow_hairs,
+      );
+      slider_small(
+        ui,
+        "Spread root",
+        0.0,
+        0.4,
+        &mut entity.follow_hair_spread_root,
+      );
+      slider_small(
+        ui,
+        "Spread tip",
+        0.0,
+        0.4,
+        &mut entity.follow_hair_spread_tip,
+      );
+
+      // material
+      let max_spec = 500.0;
+      let min_shift = -0.1;
+      let max_shift = 0.1;
+      color_rgb(ui, "Diffuse", &mut mat.albedo);
+
+      color_rgb(ui, "Spec 1", &mut mat.specular_color1);
+      slider_small(ui, "Spec exp 1", 0.0, max_spec, &mut mat.specular_power1);
+      slider_small(ui, "Spec str 1", 0.0, 1.0, &mut mat.specular_strength1);
+      slider_small(
+        ui,
+        "Spec shift 1",
+        min_shift,
+        max_shift,
+        &mut mat.primary_shift,
+      ); // delta 0.001;
+
+      color_rgb(ui, "Spec 2", &mut mat.specular_color2);
+      slider_small(ui, "Spec exp 2", 0.0, max_spec, &mut mat.specular_power2);
+      slider_small(ui, "Spec str 2", 0.0, 1.0, &mut mat.specular_strength2);
+      slider_small(
+        ui,
+        "Spec shift 2",
+        min_shift,
+        max_shift,
+        &mut mat.secondary_shift,
+      ); // delta 0.001;
+
+      slider_small(ui, "AO strength", 0.0, 1.0, &mut mat.ao_strength); // delta 0.01
+      slider_small(ui, "AO exp", 0.0, 5.0, &mut mat.ao_exp); // delta 0.1
     }
 
     push_token.end();
@@ -256,13 +334,15 @@ impl AppUI {
       // dir.add(this.cfg.shadows, 'blurRadiusTfx', [0, 1, 2, 3, 4]).name('HAIR Blur radius');
       // dir.add(this.cfg.shadows, 'biasHairTfx', 0.001, 0.01).name('HAIR Bias');
       // dir.add(this.cfg.shadows, 'hairTfxRadiusMultipler', 0.5, 3.0).name('HAIR Radius mul');
-      ui.slider(
+      slider_small(
+        ui,
         "Position phi",
         -179.0,
         179.0,
         &mut shadows.shadow_source.pos_phi,
       );
-      ui.slider(
+      slider_small(
+        ui,
         "Position th",
         15.0,
         165.0,
@@ -278,8 +358,8 @@ impl AppUI {
     let push_token = ui.push_id("sss_forward_pass");
 
     if ui.collapsing_header("SSS forward pass", *HEADER_FLAGS) {
-      ui.slider("Position phi", -179.0, 179.0, &mut sss.source.pos_phi);
-      ui.slider("Position th", 15.0, 165.0, &mut sss.source.pos_theta);
+      slider_small(ui, "Position phi", -179.0, 179.0, &mut sss.source.pos_phi);
+      slider_small(ui, "Position th", 15.0, 165.0, &mut sss.source.pos_theta);
     }
 
     push_token.end();
@@ -289,8 +369,8 @@ impl AppUI {
     let push_token = ui.push_id("sss_blur");
 
     if ui.collapsing_header("SSS blur", *HEADER_FLAGS) {
-      ui.slider("Blur width", 1.0, 100.0, &mut sss.blur_width);
-      ui.slider("Blur strength", 0.0, 1.0, &mut sss.blur_strength);
+      slider_small(ui, "Blur width", 1.0, 100.0, &mut sss.blur_width);
+      slider_small(ui, "Blur strength", 0.0, 1.0, &mut sss.blur_strength);
       ui.checkbox("Blur follow surface", &mut sss.blur_follow_surface);
       add_tooltip_to_previous_widget(ui, "Slight changes for incident angles ~90dgr");
     }
@@ -363,9 +443,7 @@ impl AppUI {
     max: f32,
     prop: &mut ColorGradingProp,
   ) {
-    ui.color_edit3_config(format!("##{}-color", label), &mut prop.color)
-      .flags(*COLOR_FLAGS)
-      .build();
+    color_rgb(ui, format!("##{}-color", label), &mut prop.color);
     ui.same_line();
     slider_small(ui, label, min, max, &mut prop.value);
   }
@@ -376,6 +454,7 @@ impl AppUI {
     if ui.collapsing_header("PostFX", *HEADER_FLAGS) {
       ui.slider("Dither", 0.0, 2.0, &mut postfx.dither_strength);
 
+      next_widget_small(ui);
       ui.combo(
         "Tonemapping",
         &mut postfx.tonemapping_op,
@@ -460,4 +539,13 @@ pub fn slider_small<T: AsRef<str>, K: DataTypeKind>(
 ) -> bool {
   next_widget_small(ui);
   ui.slider(label, min, max, value)
+}
+
+pub fn color_rgb<T: AsRef<str>, K>(ui: &Ui, label: T, value: &mut K) -> bool
+where
+  K: Copy + Into<mint::Vector3<f32>> + From<mint::Vector3<f32>>,
+{
+  ui.color_edit3_config(label, value)
+    .flags(*COLOR_FLAGS)
+    .build()
 }

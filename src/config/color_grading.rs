@@ -1,6 +1,8 @@
 use glam::{vec3, Vec3};
 use mint::Vector3;
 
+use crate::utils::vec3_to_mint;
+
 pub struct ColorGradingProp {
   pub color: Vector3<f32>,
   pub value: f32,
@@ -9,7 +11,7 @@ pub struct ColorGradingProp {
 impl ColorGradingProp {
   pub fn new(color: Vec3, value: f32) -> Self {
     Self {
-      color: Vector3::from_slice(color.as_ref()),
+      color: vec3_to_mint(color),
       value,
     }
   }

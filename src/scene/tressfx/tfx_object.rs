@@ -42,16 +42,12 @@ pub struct TfxObject {
 }
 
 impl TfxObject {
-  // pub const MAX_FOLLOW_HAIRS_PER_GUIDE: u32 = 15; // TODO?
+  pub const MAX_FOLLOW_HAIRS_PER_GUIDE: u32 = 15;
 
   pub fn from_file(vk_ctx: &VkCtx, name: &str, model_matrix: Mat4, data: &TfxFileData) -> Self {
-    println!("PRE create_positions_buffer");
     let positions_buffer = create_positions_buffer(vk_ctx, &name, data);
-    println!("PRE create_tangents_buffer");
     let tangents_buffer = create_tangents_buffer(vk_ctx, &name, data);
-    println!("PRE create_index_buffer");
     let (index_buffer, triangle_count) = create_index_buffer(vk_ctx, &name, data);
-    println!("done");
 
     Self {
       //  displayMode: 0, // TODO debug display mode, see UISystem for modes

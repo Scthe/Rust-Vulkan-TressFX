@@ -39,6 +39,10 @@ pub fn vec3_to_pretty_str(v: Vec3) -> String {
   format!("[{:.1}, {:.1}, {:.1}]", v.x, v.y, v.z)
 }
 
+pub fn vec3_to_mint(v: Vec3) -> mint::Vector3<f32> {
+  mint::Vector3::from_slice(v.as_ref())
+}
+
 /// Generate random vectors
 pub struct RngVectorGenerator {
   rng: ThreadRng,
