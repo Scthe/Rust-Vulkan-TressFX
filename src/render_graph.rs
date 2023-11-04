@@ -242,13 +242,22 @@ impl RenderGraph {
       );
     }
 
-    // TODO refresh linear_depth after
+    // tfx_forward_pass - render hair
     RenderGraph::debug_start_pass(&pass_ctx, "tfx_forward_pass");
     self.tfx_forward_pass.execute(
       &pass_ctx,
       &mut frame_resources.forward_pass,
       &mut frame_resources.shadow_map_pass.depth_tex,
       &mut frame_resources.ssao_pass.ssao_tex,
+    );
+
+    // linear depth again, after hair has written to original depth buffer
+    RenderGraph::debug_start_pass(&pass_ctx, "linear_depth_pass (after hair)");
+    self.linear_depth_pass.execute(
+      &pass_ctx,
+      &mut frame_resources.linear_depth_pass,
+      &mut frame_resources.forward_pass.depth_stencil_tex,
+      frame_resources.forward_pass.depth_image_view,
     );
 
     // ssao

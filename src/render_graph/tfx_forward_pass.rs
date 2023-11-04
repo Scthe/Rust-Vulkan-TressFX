@@ -21,13 +21,7 @@ const SHADER_PATHS: (&str, &str) = (
   "./assets/shaders-compiled/tfx_forward.frag.spv",
 );
 
-// TODO tressfx pass:
-// - remove hardcoded consts
-// - add ui
-// - finish rendering
-// - add debug modes
-// - rerender linear depth after hair
-// - add hair shadows + ?ao?
+// TODO tressfx pass: add hair shadows
 
 /// Forward render TressFX hair asset. Same attachment textures as `ForwardPass`
 /// (used with `AttachmentLoadOp::LOAD` to preserve the values). Sets `HAIR` stencil flag.
