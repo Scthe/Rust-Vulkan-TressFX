@@ -22,7 +22,6 @@ const WIDGET_HALF: f32 = 150.0;
 lazy_static! {
   static ref HEADER_FLAGS: TreeNodeFlags =
     TreeNodeFlags::FRAMED | TreeNodeFlags::FRAME_PADDING | TreeNodeFlags::SPAN_FULL_WIDTH;
-  static ref COLOR_FLAGS: ColorEditFlags = ColorEditFlags::NO_INPUTS | ColorEditFlags::INPUT_HSV;
 }
 
 /// Controls examples:
@@ -251,18 +250,16 @@ impl AppUI {
           TfxDebugDisplayMode::Flat,
           TfxDebugDisplayMode::FollowGroups,
           TfxDebugDisplayMode::RootTipPercentage,
-          TfxDebugDisplayMode::Shadow,
         ],
         |idx| match *idx {
           TfxDebugDisplayMode::Flat => Cow::Borrowed("Flat"),
           TfxDebugDisplayMode::FollowGroups => Cow::Borrowed("Follow gr."),
           TfxDebugDisplayMode::RootTipPercentage => Cow::Borrowed("Root-tip %"),
-          TfxDebugDisplayMode::Shadow => Cow::Borrowed("Shadow"),
           _ => Cow::Borrowed("Final"),
         },
       );
 
-      slider_small(ui, "Radius", 0.001, 0.015, &mut entity.fiber_radius);
+      slider_small(ui, "Radius", 0.001, 0.025, &mut entity.fiber_radius);
       slider_small(ui, "Thin tip", 0.0, 1.0, &mut entity.thin_tip); // delta: 0.01,
       slider_small(
         ui,
@@ -275,14 +272,14 @@ impl AppUI {
         ui,
         "Spread root",
         0.0,
-        0.4,
+        0.6,
         &mut entity.follow_hair_spread_root,
       );
       slider_small(
         ui,
         "Spread tip",
         0.0,
-        0.4,
+        0.6,
         &mut entity.follow_hair_spread_tip,
       );
 
@@ -563,7 +560,10 @@ pub fn color_rgb<T: AsRef<str>, K>(ui: &Ui, label: T, value: &mut K) -> bool
 where
   K: Copy + Into<mint::Vector3<f32>> + From<mint::Vector3<f32>>,
 {
-  ui.color_edit3_config(label, value)
-    .flags(*COLOR_FLAGS)
-    .build()
+  let flags = ColorEditFlags::NO_INPUTS
+    | ColorEditFlags::NO_ALPHA
+    | ColorEditFlags::NO_TOOLTIP
+    | ColorEditFlags::INPUT_RGB
+    | ColorEditFlags::DISPLAY_RGB;
+  ui.color_edit3_config(label, value).flags(flags).build()
 }

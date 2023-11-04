@@ -17,8 +17,8 @@ uniform TfxParamsUniformBuffer {
 // u_specular1, u_specular2
 #define u_specularColor1 (TfxParamsUbo.u_specular1.rgb)
 #define u_specularColor2 (TfxParamsUbo.u_specular2.rgb)
-#define u_specular_power1 (TfxParamsUbo.u_specular1.a)
-#define u_specular_power2 (TfxParamsUbo.u_specular2.a)
+#define u_specularPower1 (TfxParamsUbo.u_specular1.a)
+#define u_specularPower2 (TfxParamsUbo.u_specular2.a)
 // u_geometry
 #define u_thinTip (TfxParamsUbo.u_geometry.x)
 #define u_fiberRadius (TfxParamsUbo.u_geometry.y)

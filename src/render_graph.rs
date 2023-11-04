@@ -153,7 +153,7 @@ impl RenderGraph {
     let config_vk_buffer = &frame_resources.config_uniform_buffer;
     update_config_uniform_buffer(vk_app, config, scene, config_vk_buffer);
     update_model_uniform_buffers(config, scene, swapchain_image_index);
-    update_tfx_uniform_buffers(scene, swapchain_image_index);
+    update_tfx_uniform_buffers(config, scene, swapchain_image_index);
 
     // sync between frames
     unsafe {
@@ -244,9 +244,12 @@ impl RenderGraph {
 
     // TODO refresh linear_depth after
     RenderGraph::debug_start_pass(&pass_ctx, "tfx_forward_pass");
-    self
-      .tfx_forward_pass
-      .execute(&pass_ctx, &mut frame_resources.forward_pass);
+    self.tfx_forward_pass.execute(
+      &pass_ctx,
+      &mut frame_resources.forward_pass,
+      &mut frame_resources.shadow_map_pass.depth_tex,
+      &mut frame_resources.ssao_pass.ssao_tex,
+    );
 
     // ssao
     RenderGraph::debug_start_pass(&pass_ctx, "ssao_pass");
@@ -472,8 +475,8 @@ fn update_model_uniform_buffers(config: &Config, scene: &World, frame_id: usize)
   });
 }
 
-fn update_tfx_uniform_buffers(scene: &World, frame_id: usize) {
+fn update_tfx_uniform_buffers(config: &Config, scene: &World, frame_id: usize) {
   scene.tressfx_objects.iter().for_each(|entity| {
-    entity.update_params_uniform_buffer(frame_id);
+    entity.update_params_uniform_buffer(frame_id, config);
   });
 }

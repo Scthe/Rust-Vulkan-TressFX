@@ -13,6 +13,8 @@ const BINDING_INDEX_CONFIG_UBO: u32 = 0;
 const BINDING_INDEX_POSITIONS_SSBO: u32 = 1;
 const BINDING_INDEX_TANGENTS_SSBO: u32 = 2;
 const BINDING_INDEX_TFX_PARAMS_UBO: u32 = 3;
+const BINDING_INDEX_SHADOW_MAP: u32 = 4;
+const BINDING_INDEX_AO_TEX: u32 = 5;
 
 const SHADER_PATHS: (&str, &str) = (
   "./assets/shaders-compiled/tfx_forward.vert.spv",
@@ -113,6 +115,8 @@ impl TfxForwardPass {
         BINDING_INDEX_TFX_PARAMS_UBO,
         vk::ShaderStageFlags::VERTEX | vk::ShaderStageFlags::FRAGMENT,
       ),
+      create_texture_binding(BINDING_INDEX_SHADOW_MAP, vk::ShaderStageFlags::FRAGMENT),
+      create_texture_binding(BINDING_INDEX_AO_TEX, vk::ShaderStageFlags::FRAGMENT),
     ]
   }
 
@@ -145,6 +149,8 @@ impl TfxForwardPass {
     &self,
     exec_ctx: &PassExecContext,
     framebuffer: &mut ForwardPassFramebuffer,
+    shadow_map_texture: &mut VkTexture,
+    ao_texture: &mut VkTexture,
   ) -> () {
     let vk_app = exec_ctx.vk_app;
     let scene = &*exec_ctx.scene;
@@ -152,7 +158,13 @@ impl TfxForwardPass {
     let device = vk_app.vk_device();
 
     unsafe {
-      self.cmd_resource_barriers(device, &command_buffer, framebuffer);
+      self.cmd_resource_barriers(
+        device,
+        &command_buffer,
+        framebuffer,
+        shadow_map_texture,
+        ao_texture,
+      );
 
       // start render pass
       cmd_begin_render_pass_for_framebuffer(
@@ -171,7 +183,7 @@ impl TfxForwardPass {
 
       // draw calls
       for entity in &scene.tressfx_objects {
-        self.bind_entity_ubos(exec_ctx, entity);
+        self.bind_entity_ubos(exec_ctx, entity, shadow_map_texture, ao_texture);
         entity.cmd_draw_mesh(device, command_buffer);
       }
 
@@ -185,7 +197,26 @@ impl TfxForwardPass {
     device: &ash::Device,
     command_buffer: &vk::CommandBuffer,
     framebuffer: &mut ForwardPassFramebuffer,
+    shadow_map_texture: &mut VkTexture,
+    ao_texture: &mut VkTexture,
   ) {
+    let shadow_map_barrier = shadow_map_texture.barrier_prepare_attachment_for_shader_read();
+    let ao_barrier = ao_texture.barrier_prepare_attachment_for_shader_read();
+
+    device.cmd_pipeline_barrier(
+      *command_buffer,
+      // wait for previous use in:
+      vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT
+        | vk::PipelineStageFlags::LATE_FRAGMENT_TESTS
+        | vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS,
+      // before we: execute fragment shader
+      vk::PipelineStageFlags::FRAGMENT_SHADER,
+      vk::DependencyFlags::empty(),
+      &[],
+      &[],
+      &[shadow_map_barrier, ao_barrier],
+    );
+
     let diffuse_barrier = framebuffer
       .diffuse_tex
       .barrier_prepare_attachment_for_write();
@@ -214,7 +245,14 @@ impl TfxForwardPass {
     );
   }
 
-  unsafe fn bind_entity_ubos(&self, exec_ctx: &PassExecContext, entity: &TfxObject) {
+  unsafe fn bind_entity_ubos(
+    &self,
+    exec_ctx: &PassExecContext,
+    entity: &TfxObject,
+    shadow_map_texture: &mut VkTexture,
+    ao_texture: &mut VkTexture,
+  ) {
+    let vk_app = exec_ctx.vk_app;
     let config_buffer = exec_ctx.config_buffer;
     let frame_id = exec_ctx.swapchain_image_idx;
 
@@ -238,6 +276,18 @@ impl TfxForwardPass {
         usage: BindableBufferUsage::UBO,
         binding: BINDING_INDEX_TFX_PARAMS_UBO,
         buffer: &entity.get_tfx_params_ubo_buffer(frame_id),
+      },
+      BindableResource::Texture {
+        binding: BINDING_INDEX_SHADOW_MAP,
+        texture: &shadow_map_texture,
+        image_view: None,
+        sampler: vk_app.default_texture_sampler_nearest,
+      },
+      BindableResource::Texture {
+        binding: BINDING_INDEX_AO_TEX,
+        texture: &ao_texture,
+        image_view: None,
+        sampler: vk_app.default_texture_sampler_linear,
       },
     ];
 

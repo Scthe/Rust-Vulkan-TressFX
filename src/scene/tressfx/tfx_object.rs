@@ -4,6 +4,7 @@ use ash::vk;
 use glam::{Mat4, Vec3};
 
 use crate::{
+  config::Config,
   render_graph::TfxParamsUBO,
   vk_ctx::VkCtx,
   vk_utils::{VkBuffer, VkMemoryResource},
@@ -17,7 +18,8 @@ pub enum TfxDebugDisplayMode {
   Flat = 1,
   FollowGroups = 2,
   RootTipPercentage = 3,
-  Shadow = 4,
+  // non-user selectable modes, accessed from `Config.display_mode`
+  ShadowMap = 4,
 }
 
 pub struct TfxObject {
@@ -64,7 +66,13 @@ pub struct TfxObject {
 impl TfxObject {
   pub const MAX_FOLLOW_HAIRS_PER_GUIDE: u32 = 15;
 
-  pub fn from_file(vk_ctx: &VkCtx, name: &str, model_matrix: Mat4, data: &TfxFileData) -> Self {
+  pub fn from_file(
+    vk_ctx: &VkCtx,
+    config: &Config,
+    name: &str,
+    model_matrix: Mat4,
+    data: &TfxFileData,
+  ) -> Self {
     let positions_buffer = create_positions_buffer(vk_ctx, &name, data);
     let tangents_buffer = create_tangents_buffer(vk_ctx, &name, data);
     let (index_buffer, triangle_count) = create_index_buffer(vk_ctx, &name, data);
@@ -77,10 +85,10 @@ impl TfxObject {
       display_mode: TfxDebugDisplayMode::Final as _,
       material: TfxMaterial::default(),
       // tressfx:
-      fiber_radius: 0.01,
+      fiber_radius: 0.02,
       thin_tip: 0.9,
       follow_hairs: 10,
-      follow_hair_spread_root: 0.14,
+      follow_hair_spread_root: 0.3,
       follow_hair_spread_tip: 0.09,
       num_hair_strands: data.num_hair_strands,
       num_vertices_per_strand: data.num_vertices_per_strand,
@@ -94,7 +102,7 @@ impl TfxObject {
 
     // write initial value to each buffer. Used if we rely on data from previous frame
     for i in 0..(tfx_obj.tfx_params_ubo.len()) {
-      tfx_obj.update_params_uniform_buffer(i);
+      tfx_obj.update_params_uniform_buffer(i, config);
     }
 
     tfx_obj
@@ -127,8 +135,8 @@ impl TfxObject {
     device.cmd_draw_indexed(command_buffer, index_count, instance_count, 0, 0, 0);
   }
 
-  pub fn update_params_uniform_buffer(&self, frame_id: usize) {
-    let data = TfxParamsUBO::new(self);
+  pub fn update_params_uniform_buffer(&self, frame_id: usize, config: &Config) {
+    let data = TfxParamsUBO::new(config, self);
     let data_bytes = bytemuck::bytes_of(&data);
     let buffer = self.get_tfx_params_ubo_buffer(frame_id);
     buffer.write_to_mapped(data_bytes);

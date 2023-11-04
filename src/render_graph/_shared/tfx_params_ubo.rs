@@ -1,7 +1,11 @@
 use bytemuck;
 use glam::{vec4, Mat4, Vec3, Vec4};
 
-use crate::{scene::TfxObject, utils::mint_to_vec3};
+use crate::{
+  config::{Config, DisplayMode},
+  scene::{TfxDebugDisplayMode, TfxObject},
+  utils::mint_to_vec3,
+};
 
 #[derive(Copy, Clone, Debug)] // , bytemuck::Zeroable, bytemuck::Pod
 #[repr(C)]
@@ -22,13 +26,13 @@ unsafe impl bytemuck::Zeroable for TfxParamsUBO {}
 unsafe impl bytemuck::Pod for TfxParamsUBO {}
 
 impl TfxParamsUBO {
-  pub fn new(tfx: &TfxObject) -> Self {
+  pub fn new(config: &Config, tfx: &TfxObject) -> Self {
     let mat = &tfx.material;
 
     Self {
       u_model_matrix: tfx.model_matrix,
       u_general_settings: vec4(
-        tfx.display_mode as f32,
+        get_display_mode(config, tfx) as f32,
         tfx.num_vertices_per_strand as f32,
         mat.ao_strength,
         mat.ao_exp,
@@ -51,6 +55,13 @@ impl TfxParamsUBO {
       ),
     }
   }
+}
+
+fn get_display_mode(config: &Config, tfx: &TfxObject) -> usize {
+  if config.display_mode == (DisplayMode::ShadowMap as usize) {
+    return TfxDebugDisplayMode::ShadowMap as _;
+  }
+  tfx.display_mode
 }
 
 fn into_vec4(a: Vec3, b: f32) -> Vec4 {
