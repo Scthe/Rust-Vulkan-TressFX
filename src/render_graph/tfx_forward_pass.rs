@@ -9,19 +9,12 @@ use crate::vk_utils::*;
 use super::forward_pass::{ForwardPass, ForwardPassFramebuffer};
 use super::PassExecContext;
 
-const BINDING_INDEX_CONFIG_UBO: u32 = 0;
-const BINDING_INDEX_POSITIONS_SSBO: u32 = 1;
-const BINDING_INDEX_TANGENTS_SSBO: u32 = 2;
-const BINDING_INDEX_TFX_PARAMS_UBO: u32 = 3;
-const BINDING_INDEX_SHADOW_MAP: u32 = 4;
-const BINDING_INDEX_AO_TEX: u32 = 5;
-
 const SHADER_PATHS: (&str, &str) = (
   "./assets/shaders-compiled/tfx_forward.vert.spv",
   "./assets/shaders-compiled/tfx_forward.frag.spv",
 );
 
-// TODO tressfx pass: add hair shadows
+// TODO [critical] hair is not receiving shadow correctly
 
 /// Forward render TressFX hair asset. Same attachment textures as `ForwardPass`
 /// (used with `AttachmentLoadOp::LOAD` to preserve the values). Sets `HAIR` stencil flag.
@@ -35,6 +28,13 @@ pub struct TfxForwardPass {
 }
 
 impl TfxForwardPass {
+  pub const BINDING_INDEX_CONFIG_UBO: u32 = 0;
+  pub const BINDING_INDEX_POSITIONS_SSBO: u32 = 1;
+  pub const BINDING_INDEX_TANGENTS_SSBO: u32 = 2;
+  pub const BINDING_INDEX_TFX_PARAMS_UBO: u32 = 3;
+  pub const BINDING_INDEX_SHADOW_MAP: u32 = 4;
+  pub const BINDING_INDEX_AO_TEX: u32 = 5;
+
   pub fn new(vk_app: &VkCtx) -> Self {
     info!("Creating TfxForwardPass");
     let device = vk_app.vk_device();
@@ -100,17 +100,26 @@ impl TfxForwardPass {
   fn get_uniforms_layout() -> Vec<vk::DescriptorSetLayoutBinding> {
     vec![
       create_ubo_binding(
-        BINDING_INDEX_CONFIG_UBO,
+        Self::BINDING_INDEX_CONFIG_UBO,
         vk::ShaderStageFlags::VERTEX | vk::ShaderStageFlags::FRAGMENT,
       ),
-      create_ssbo_binding(BINDING_INDEX_POSITIONS_SSBO, vk::ShaderStageFlags::VERTEX),
-      create_ssbo_binding(BINDING_INDEX_TANGENTS_SSBO, vk::ShaderStageFlags::VERTEX),
+      create_ssbo_binding(
+        Self::BINDING_INDEX_POSITIONS_SSBO,
+        vk::ShaderStageFlags::VERTEX,
+      ),
+      create_ssbo_binding(
+        Self::BINDING_INDEX_TANGENTS_SSBO,
+        vk::ShaderStageFlags::VERTEX,
+      ),
       create_ubo_binding(
-        BINDING_INDEX_TFX_PARAMS_UBO,
+        Self::BINDING_INDEX_TFX_PARAMS_UBO,
         vk::ShaderStageFlags::VERTEX | vk::ShaderStageFlags::FRAGMENT,
       ),
-      create_texture_binding(BINDING_INDEX_SHADOW_MAP, vk::ShaderStageFlags::FRAGMENT),
-      create_texture_binding(BINDING_INDEX_AO_TEX, vk::ShaderStageFlags::FRAGMENT),
+      create_texture_binding(
+        Self::BINDING_INDEX_SHADOW_MAP,
+        vk::ShaderStageFlags::FRAGMENT,
+      ),
+      create_texture_binding(Self::BINDING_INDEX_AO_TEX, vk::ShaderStageFlags::FRAGMENT),
     ]
   }
 
@@ -253,32 +262,32 @@ impl TfxForwardPass {
     let uniform_resouces = [
       BindableResource::Buffer {
         usage: BindableBufferUsage::UBO,
-        binding: BINDING_INDEX_CONFIG_UBO,
+        binding: Self::BINDING_INDEX_CONFIG_UBO,
         buffer: config_buffer,
       },
       BindableResource::Buffer {
         usage: BindableBufferUsage::SSBO,
-        binding: BINDING_INDEX_POSITIONS_SSBO,
+        binding: Self::BINDING_INDEX_POSITIONS_SSBO,
         buffer: &entity.positions_buffer,
       },
       BindableResource::Buffer {
         usage: BindableBufferUsage::SSBO,
-        binding: BINDING_INDEX_TANGENTS_SSBO,
+        binding: Self::BINDING_INDEX_TANGENTS_SSBO,
         buffer: &entity.tangents_buffer,
       },
       BindableResource::Buffer {
         usage: BindableBufferUsage::UBO,
-        binding: BINDING_INDEX_TFX_PARAMS_UBO,
+        binding: Self::BINDING_INDEX_TFX_PARAMS_UBO,
         buffer: &entity.get_tfx_params_ubo_buffer(frame_id),
       },
       BindableResource::Texture {
-        binding: BINDING_INDEX_SHADOW_MAP,
+        binding: Self::BINDING_INDEX_SHADOW_MAP,
         texture: &shadow_map_texture,
         image_view: None,
         sampler: vk_app.default_texture_sampler_nearest,
       },
       BindableResource::Texture {
-        binding: BINDING_INDEX_AO_TEX,
+        binding: Self::BINDING_INDEX_AO_TEX,
         texture: &ao_texture,
         image_view: None,
         sampler: vk_app.default_texture_sampler_linear,

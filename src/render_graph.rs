@@ -197,6 +197,7 @@ impl RenderGraph {
       &pass_ctx,
       &mut frame_resources.shadow_map_pass,
       &pass_ctx.config.shadows.shadow_source,
+      true,
     );
 
     // sss forward scatter depth map generate pass
@@ -243,6 +244,9 @@ impl RenderGraph {
     }
 
     // tfx_forward_pass - render hair
+    // we have to do it after SSS, as it would create depth discontinuities
+    // that are hard to get rid off. Since this pass writes to depth buffer,
+    // we have to update linear depth render target too
     RenderGraph::debug_start_pass(&pass_ctx, "tfx_forward_pass");
     self.tfx_forward_pass.execute(
       &pass_ctx,
@@ -252,7 +256,7 @@ impl RenderGraph {
     );
 
     // linear depth again, after hair has written to original depth buffer
-    RenderGraph::debug_start_pass(&pass_ctx, "linear_depth_pass (after hair)");
+    RenderGraph::debug_start_pass(&pass_ctx, "linear_depth_pass_rerender_after_hair");
     self.linear_depth_pass.execute(
       &pass_ctx,
       &mut frame_resources.linear_depth_pass,

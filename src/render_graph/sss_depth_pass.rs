@@ -39,7 +39,7 @@ impl SSSDepthPass {
     shadow_pass: &ShadowMapPass,
     source: &ShadowSourceCfg,
   ) -> () {
-    shadow_pass.execute(exec_ctx, framebuffer, source);
+    shadow_pass.execute(exec_ctx, framebuffer, source, false);
   }
 
   pub fn get_sss_forward_mvp(source: &ShadowSourceCfg, model_matrix: Mat4) -> Mat4 {

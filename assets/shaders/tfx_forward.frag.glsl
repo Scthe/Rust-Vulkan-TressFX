@@ -120,10 +120,8 @@ vec3 doShading(Light lights[3]) {
   radianceSum *= aoRadianceFactor;
   ambient *= aoRadianceFactor;
 
-  /* TODO add shadow
   float shadow = calculateShadow();
   radianceSum = radianceSum * clamp(shadow, 1.0 - u_maxShadowContribution, 1.0);
-  */
   return ambient + radianceSum;
 }
 

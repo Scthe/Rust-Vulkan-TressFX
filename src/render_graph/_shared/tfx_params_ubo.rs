@@ -39,7 +39,7 @@ impl TfxParamsUBO {
       ),
       u_geometry: vec4(
         1.0 - tfx.thin_tip,
-        tfx.fiber_radius, // TODO 'u_fiberRadius': tfx.fiberRadius * params.radiusMultiplier, // shadows have bigger radius. Just provide it as param in `createTfxParams` with default 1.0
+        tfx.fiber_radius,
         tfx.follow_hair_spread_root,
         tfx.follow_hair_spread_tip,
       ),
