@@ -67,7 +67,7 @@ fn allocate_model_ubo(vk_ctx: &VkCtx, name: &str, frame_idx: usize) -> VkBuffer 
   let size = size_of::<ForwardModelUBO>() as _;
 
   let mut buffer = VkBuffer::empty(
-    format!("{}_model_ubo_#{}", name, frame_idx),
+    format!("{}.model_ubo_#{}", name, frame_idx),
     size,
     vk::BufferUsageFlags::UNIFORM_BUFFER,
     allocator,

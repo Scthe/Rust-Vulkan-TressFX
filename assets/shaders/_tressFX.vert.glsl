@@ -3,6 +3,8 @@
 
 #define TRESSFX_FLOAT_EPSILON (1e-7)
 
+const float EXPAND_PIXELS_FACTOR = 0.71;
+
 
 layout(std430, binding=1)
 buffer TfxVertexPositionsBuffer {
@@ -15,16 +17,6 @@ buffer TfxVertexTangentsBuffer {
 
 vec4  getPosition (uint index) { return u_vertexPositionsBuffer[index]; }
 vec4  getTangent  (uint index) { return u_vertexTangentsBuffer[index]; }
-
-// TODO hardcoded
-#define u_centerOfGravity (vec3(0,0,0))
-#define u_numVerticesPerStrand (32)
-
-
-const float EXPAND_PIXELS_FACTOR = 0.71;
-
-
-///////// END: uniforms
 
 
 
@@ -59,7 +51,7 @@ struct TressFXParams {
   uint strandId;
 
   vec3 eye;
-  float modelMat;
+  mat4 modelMat;
   mat4 viewProjMat;
   vec2 viewportSize;
 
@@ -69,9 +61,6 @@ struct TressFXParams {
   float followHairSpreadTip;
 };
 
-// TODO hardcoded
-#define u_centerOfGravity (vec3(0,0,0))
-#define u_numVerticesPerStrand (32)
 TressFXParams createTfxParams() {
   TressFXParams params;
   params.vertexId = uint(gl_VertexIndex);
@@ -79,14 +68,14 @@ TressFXParams createTfxParams() {
   params.strandId = uint(gl_VertexIndex / 2 / u_numVerticesPerStrand);
 
   params.eye = u_cameraPosition;
-  params.modelMat = 0.3;
+  params.modelMat = TfxParamsUbo.u_modelMatrix;
   params.viewProjMat = u_viewProjectionMat;
-  params.viewportSize = vec2(800, 600);
+  params.viewportSize = u_viewport;
 
-  params.thinTip = 0.9;
-  params.fiberRadius = 0.01;
-  params.followHairSpreadRoot = 0.14;
-  params.followHairSpreadTip = 0.09;
+  params.thinTip = u_thinTip;
+  params.fiberRadius = u_fiberRadius;
+  params.followHairSpreadRoot = u_followHairSpreadRoot;
+  params.followHairSpreadTip = u_followHairSpreadTip;
 
   return params;
 }
@@ -175,7 +164,7 @@ TressFXVertex getExpandedTressFXVert(TressFXParams params) {
   result.vertexRootToTipFactor = vertex_position;
   // result.normal = towardsCamera; // ?! might as well.
   // result.normal = normalize(result.positionWorldSpace.xyz - v);
-  result.normal = normalize(result.positionWorldSpace.xyz - u_centerOfGravity);
+  result.normal = normalize(result.positionWorldSpace.xyz - TfxParamsUbo.u_centerOfGravity.xyz);
 
   // some additional fixing
   {

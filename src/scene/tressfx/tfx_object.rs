@@ -1,7 +1,13 @@
+use std::mem::size_of;
+
 use ash::vk;
 use glam::{Mat4, Vec3};
 
-use crate::{vk_ctx::VkCtx, vk_utils::VkBuffer};
+use crate::{
+  render_graph::TfxParamsUBO,
+  vk_ctx::VkCtx,
+  vk_utils::{VkBuffer, VkMemoryResource},
+};
 
 use super::{TfxFileData, TfxMaterial};
 
@@ -38,6 +44,7 @@ pub struct TfxObject {
   pub positions_buffer: VkBuffer,
   pub tangents_buffer: VkBuffer,
   pub index_buffer: VkBuffer,
+  pub model_params_ubo: VkBuffer,
   pub triangle_count: u32,
 }
 
@@ -49,8 +56,10 @@ impl TfxObject {
     let tangents_buffer = create_tangents_buffer(vk_ctx, &name, data);
     let (index_buffer, triangle_count) = create_index_buffer(vk_ctx, &name, data);
 
-    Self {
-      //  displayMode: 0, // TODO debug display mode, see UISystem for modes
+    let model_params_ubo = Self::allocate_params_ubo(vk_ctx, name);
+
+    let tfx_obj = Self {
+      //  displayMode: 0, // TODO  debug display mode, see UISystem for modes
       name: name.to_string(),
       model_matrix,
       material: TfxMaterial::default(),
@@ -67,13 +76,19 @@ impl TfxObject {
       tangents_buffer,
       index_buffer,
       triangle_count, // closely related to `indices_buffer`
-    }
+      model_params_ubo,
+    };
+
+    tfx_obj.update_params_uniform_buffer();
+    tfx_obj
   }
 
   pub unsafe fn destroy(&mut self, allocator: &vma::Allocator) {
     self.positions_buffer.delete(allocator);
     self.tangents_buffer.delete(allocator);
     self.index_buffer.delete(allocator);
+    self.model_params_ubo.unmap_memory(allocator);
+    self.model_params_ubo.delete(allocator);
   }
 
   pub unsafe fn cmd_draw_mesh(&self, device: &ash::Device, command_buffer: vk::CommandBuffer) {
@@ -87,6 +102,28 @@ impl TfxObject {
     let index_count = self.triangle_count * 3;
     let instance_count = self.follow_hairs;
     device.cmd_draw_indexed(command_buffer, index_count, instance_count, 0, 0, 0);
+  }
+
+  fn allocate_params_ubo(vk_ctx: &VkCtx, name: &str) -> VkBuffer {
+    let allocator = &vk_ctx.allocator;
+    let size = size_of::<TfxParamsUBO>() as _;
+
+    let mut buffer = VkBuffer::empty(
+      format!("{}.params_ubo", name),
+      size,
+      vk::BufferUsageFlags::UNIFORM_BUFFER,
+      allocator,
+      vk_ctx.device.queue_family_index,
+      true,
+    );
+    buffer.map_memory(allocator); // always mapped
+    buffer
+  }
+
+  fn update_params_uniform_buffer(&self) {
+    let data = TfxParamsUBO::new(self);
+    let data_bytes = bytemuck::bytes_of(&data);
+    self.model_params_ubo.write_to_mapped(data_bytes);
   }
 }
 

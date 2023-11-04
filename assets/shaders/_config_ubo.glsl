@@ -67,43 +67,55 @@ uniform GlobalConfigUniformBuffer {
   vec4 u_colorOffsetHighlights;
 };
 
+// u_cameraPositionAndDisplayMode
 #define u_cameraPosition (u_cameraPositionAndDisplayMode.xyz)
 #define u_displayMode (readConfigUint(u_cameraPositionAndDisplayMode.w))
+// u_viewportAndNearFar
 #define u_viewport (u_viewportAndNearFar.xy)
 #define u_nearAndFar (u_viewportAndNearFar.zw)
+
 // AO + shadows
 #define u_directionalShadowSampleRadius (readConfigUint(u_shadowMiscSettings.x))
 #define u_shadowBias (u_directionalShadowCasterPosition.w)
+// u_aoAndShadowContrib
 #define u_shadowsTechnique (readConfigUint(u_aoAndShadowContrib.w))
 #define u_aoStrength (u_aoAndShadowContrib.r)
 #define u_aoExp (u_aoAndShadowContrib.g)
 #define u_maxShadowContribution (readConfigValueFromValueWithFlag(u_aoAndShadowContrib.b))
 #define u_showDebugPositions (readConfigFlagFromSign(u_aoAndShadowContrib.b))
-// SSS
+
+// SSS (u_sssSettings)
 #define u_sssPosition (u_sssSettings.xyz)
 #define u_sssFarPlane (u_sssSettings.w)
+// u_sssBlur
 #define u_sssBlurWidth (u_sssBlur.x)
 #define u_sssBlurStrength (u_sssBlur.y) // SSSS_STREGTH_SOURCE
 #define u_sssBlurFovy (readConfigValueFromValueWithFlag(u_sssBlur.z)) // SSSS_FOVY 20.0
 #define u_sssBlurFollowSurface (readConfigFlagFromSign(u_sssBlur.z) ? 1 : 0) // SSSS_FOLLOW_SURFACE: 0 or 1
-// fxaa
+// fxaa (u_fxaaSettings)
 #define u_subpixel (u_fxaaSettings.x)
 #define u_edgeThreshold (u_fxaaSettings.y)
 #define u_edgeThresholdMin (u_fxaaSettings.z)
 #define u_fxaa_luma_gamma (u_fxaaSettings.w)
+
 // TONEMAPPING
+// u_tonemapping
 #define u_exposure (u_tonemapping.x)
 #define u_whitePoint (u_tonemapping.y)
 #define u_acesC (u_tonemapping.z)
 #define u_acesS (u_tonemapping.w)
+// u_tonemapping2
 #define u_ditherStrength (u_tonemapping2.x)
 #define u_tonemappingMode (readConfigUint(u_tonemapping2.y))
 #define u_colorCorrectionShadowsMax (u_tonemapping2.z)
 #define u_colorCorrectionHighlightsMin (u_tonemapping2.w)
+
 // SSAO
+// u_ssao
 #define u_noiseScale (u_ssao.xy)
 #define u_radius (u_ssao.z)
 #define u_bias (u_ssao.w)
+// u_ssao_and_misc
 #define u_kernelSize (readConfigUint(u_ssao_and_misc.x))
 #define u_linear_depth_preview_range (u_ssao_and_misc.yz)
 

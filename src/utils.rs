@@ -43,6 +43,10 @@ pub fn vec3_to_mint(v: Vec3) -> mint::Vector3<f32> {
   mint::Vector3::from_slice(v.as_ref())
 }
 
+pub fn mint_to_vec3(v: mint::Vector3<f32>) -> Vec3 {
+  vec3(v.x, v.y, v.z)
+}
+
 /// Generate random vectors
 pub struct RngVectorGenerator {
   rng: ThreadRng,

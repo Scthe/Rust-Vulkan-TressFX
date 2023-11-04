@@ -17,7 +17,7 @@ const BINDING_INDEX_SPECULAR_TEXTURE: u32 = 3;
 const BINDING_INDEX_HAIR_SHADOW_TEXTURE: u32 = 4;
 const BINDING_INDEX_SHADOW_MAP: u32 = 5;
 const BINDING_INDEX_SSS_DEPTH_MAP: u32 = 6;
-const BINDING_INDEX_AO: u32 = 7;
+const BINDING_INDEX_AO_TEX: u32 = 7;
 
 const SHADER_PATHS: (&str, &str) = (
   "./assets/shaders-compiled/forward.vert.spv",
@@ -141,7 +141,7 @@ impl ForwardPass {
       ),
       create_texture_binding(BINDING_INDEX_SHADOW_MAP, vk::ShaderStageFlags::FRAGMENT),
       create_texture_binding(BINDING_INDEX_SSS_DEPTH_MAP, vk::ShaderStageFlags::FRAGMENT),
-      create_texture_binding(BINDING_INDEX_AO, vk::ShaderStageFlags::FRAGMENT),
+      create_texture_binding(BINDING_INDEX_AO_TEX, vk::ShaderStageFlags::FRAGMENT),
     ]
   }
 
@@ -449,7 +449,7 @@ impl ForwardPass {
         sampler: vk_app.default_texture_sampler_nearest,
       },
       BindableResource::Texture {
-        binding: BINDING_INDEX_AO,
+        binding: BINDING_INDEX_AO_TEX,
         texture: &ao_texture,
         image_view: None,
         sampler: vk_app.default_texture_sampler_linear,

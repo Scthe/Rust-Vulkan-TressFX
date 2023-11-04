@@ -2,7 +2,11 @@ use mint::Vector3;
 
 use crate::utils::{color_hex_to_vec, vec3_to_mint};
 
-// TODO add docs
+/// Kajiya-Kay hair shading model
+///
+/// ### References
+/// http://developer.amd.com/wordpress/media/2012/10/Scheuermann_HairRendering.pdf
+/// http://www.cemyuksel.com/courses/conferences/siggraph2010-hair/S2010_HairCourseNotes-Chapter4.pdf
 pub struct TfxMaterial {
   pub albedo: Vector3<f32>,
   pub ao_strength: f32,

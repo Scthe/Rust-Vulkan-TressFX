@@ -12,6 +12,7 @@ use super::PassExecContext;
 const BINDING_INDEX_CONFIG_UBO: u32 = 0;
 const BINDING_INDEX_POSITIONS_SSBO: u32 = 1;
 const BINDING_INDEX_TANGENTS_SSBO: u32 = 2;
+const BINDING_INDEX_TFX_PARAMS_UBO: u32 = 3;
 
 const SHADER_PATHS: (&str, &str) = (
   "./assets/shaders-compiled/tfx_forward.vert.spv",
@@ -24,7 +25,7 @@ const SHADER_PATHS: (&str, &str) = (
 // - finish rendering
 // - add debug modes
 // - rerender linear depth after hair
-// - add hair shadows
+// - add hair shadows + ?ao?
 
 /// Forward render TressFX hair asset. Same attachment textures as `ForwardPass`
 /// (used with `AttachmentLoadOp::LOAD` to preserve the values). Sets `HAIR` stencil flag.
@@ -108,6 +109,10 @@ impl TfxForwardPass {
       ),
       create_ssbo_binding(BINDING_INDEX_POSITIONS_SSBO, vk::ShaderStageFlags::VERTEX),
       create_ssbo_binding(BINDING_INDEX_TANGENTS_SSBO, vk::ShaderStageFlags::VERTEX),
+      create_ubo_binding(
+        BINDING_INDEX_TFX_PARAMS_UBO,
+        vk::ShaderStageFlags::VERTEX | vk::ShaderStageFlags::FRAGMENT,
+      ),
     ]
   }
 
@@ -227,6 +232,11 @@ impl TfxForwardPass {
         usage: BindableBufferUsage::SSBO,
         binding: BINDING_INDEX_TANGENTS_SSBO,
         buffer: &entity.tangents_buffer,
+      },
+      BindableResource::Buffer {
+        usage: BindableBufferUsage::UBO,
+        binding: BINDING_INDEX_TFX_PARAMS_UBO,
+        buffer: &entity.model_params_ubo,
       },
     ];
 
