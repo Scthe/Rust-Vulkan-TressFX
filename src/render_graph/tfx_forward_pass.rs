@@ -216,6 +216,7 @@ impl TfxForwardPass {
 
   unsafe fn bind_entity_ubos(&self, exec_ctx: &PassExecContext, entity: &TfxObject) {
     let config_buffer = exec_ctx.config_buffer;
+    let frame_id = exec_ctx.swapchain_image_idx;
 
     let uniform_resouces = [
       BindableResource::Buffer {
@@ -236,7 +237,7 @@ impl TfxForwardPass {
       BindableResource::Buffer {
         usage: BindableBufferUsage::UBO,
         binding: BINDING_INDEX_TFX_PARAMS_UBO,
-        buffer: &entity.model_params_ubo,
+        buffer: &entity.get_tfx_params_ubo_buffer(frame_id),
       },
     ];
 

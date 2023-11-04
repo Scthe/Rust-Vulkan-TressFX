@@ -24,19 +24,18 @@ unsafe impl bytemuck::Pod for TfxParamsUBO {}
 impl TfxParamsUBO {
   pub fn new(tfx: &TfxObject) -> Self {
     let mat = &tfx.material;
-    let display_mode: u32 = 0;
 
     Self {
       u_model_matrix: tfx.model_matrix,
       u_general_settings: vec4(
-        display_mode as f32,
+        tfx.display_mode as f32,
         tfx.num_vertices_per_strand as f32,
         mat.ao_strength,
         mat.ao_exp,
       ),
       u_geometry: vec4(
         1.0 - tfx.thin_tip,
-        tfx.fiber_radius, // TODO 'u_fiberRadius': tfx.fiberRadius * params.radiusMultiplier, // shadows have bigger radius
+        tfx.fiber_radius, // TODO 'u_fiberRadius': tfx.fiberRadius * params.radiusMultiplier, // shadows have bigger radius. Just provide it as param in `createTfxParams` with default 1.0
         tfx.follow_hair_spread_root,
         tfx.follow_hair_spread_tip,
       ),

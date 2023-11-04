@@ -80,7 +80,7 @@ fn load_sintel(vk_ctx: &VkCtx, model_matrix: Mat4) -> WorldEntity {
   let model_ubo = allocate_model_ubo_vec(vk_ctx, &name);
 
   WorldEntity {
-    name: "sintel".to_string(),
+    name,
     material,
     vertex_buffer: mesh.vertex_buffer,
     index_buffer: mesh.index_buffer,

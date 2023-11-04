@@ -153,6 +153,7 @@ impl RenderGraph {
     let config_vk_buffer = &frame_resources.config_uniform_buffer;
     update_config_uniform_buffer(vk_app, config, scene, config_vk_buffer);
     update_model_uniform_buffers(config, scene, swapchain_image_index);
+    update_tfx_uniform_buffers(scene, swapchain_image_index);
 
     // sync between frames
     unsafe {
@@ -467,9 +468,12 @@ fn update_config_uniform_buffer(
 fn update_model_uniform_buffers(config: &Config, scene: &World, frame_id: usize) {
   let camera = &scene.camera;
   scene.entities.iter().for_each(|entity| {
-    let data = ForwardModelUBO::new(config, entity, camera);
-    let data_bytes = bytemuck::bytes_of(&data);
-    let buffer = entity.get_ubo_buffer(frame_id);
-    buffer.write_to_mapped(data_bytes);
+    entity.update_ubo_data(frame_id, config, camera);
+  });
+}
+
+fn update_tfx_uniform_buffers(scene: &World, frame_id: usize) {
+  scene.tressfx_objects.iter().for_each(|entity| {
+    entity.update_params_uniform_buffer(frame_id);
   });
 }

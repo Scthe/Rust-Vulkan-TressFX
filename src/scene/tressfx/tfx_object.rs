@@ -11,9 +11,20 @@ use crate::{
 
 use super::{TfxFileData, TfxMaterial};
 
+// Must match consts in `tfx_forward.frag.glsl`.
+pub enum TfxDebugDisplayMode {
+  Final = 0,
+  Flat = 1,
+  FollowGroups = 2,
+  RootTipPercentage = 3,
+  Shadow = 4,
+}
+
 pub struct TfxObject {
   pub name: String,
   pub model_matrix: Mat4,
+  /// debug display mode
+  pub display_mode: usize,
   /// radius of each strand
   pub fiber_radius: f32,
   /// make strand tip thinner than the root by a factor e.g. half as thick
@@ -44,8 +55,10 @@ pub struct TfxObject {
   pub positions_buffer: VkBuffer,
   pub tangents_buffer: VkBuffer,
   pub index_buffer: VkBuffer,
-  pub model_params_ubo: VkBuffer,
   pub triangle_count: u32,
+
+  /// Tfx params uploaded to GPU. Refreshed every frame (cause changes from ui etc.)
+  pub tfx_params_ubo: Vec<VkBuffer>,
 }
 
 impl TfxObject {
@@ -56,12 +69,12 @@ impl TfxObject {
     let tangents_buffer = create_tangents_buffer(vk_ctx, &name, data);
     let (index_buffer, triangle_count) = create_index_buffer(vk_ctx, &name, data);
 
-    let model_params_ubo = Self::allocate_params_ubo(vk_ctx, name);
+    let tfx_params_ubo = allocate_params_ubo_vec(vk_ctx, name);
 
     let tfx_obj = Self {
-      //  displayMode: 0, // TODO  debug display mode, see UISystem for modes
       name: name.to_string(),
       model_matrix,
+      display_mode: TfxDebugDisplayMode::Final as _,
       material: TfxMaterial::default(),
       // tressfx:
       fiber_radius: 0.01,
@@ -76,10 +89,14 @@ impl TfxObject {
       tangents_buffer,
       index_buffer,
       triangle_count, // closely related to `indices_buffer`
-      model_params_ubo,
+      tfx_params_ubo,
     };
 
-    tfx_obj.update_params_uniform_buffer();
+    // write initial value to each buffer. Used if we rely on data from previous frame
+    for i in 0..(tfx_obj.tfx_params_ubo.len()) {
+      tfx_obj.update_params_uniform_buffer(i);
+    }
+
     tfx_obj
   }
 
@@ -87,8 +104,14 @@ impl TfxObject {
     self.positions_buffer.delete(allocator);
     self.tangents_buffer.delete(allocator);
     self.index_buffer.delete(allocator);
-    self.model_params_ubo.unmap_memory(allocator);
-    self.model_params_ubo.delete(allocator);
+    self.tfx_params_ubo.iter_mut().for_each(|buffer| {
+      buffer.unmap_memory(allocator);
+      buffer.delete(allocator);
+    })
+  }
+
+  pub fn get_tfx_params_ubo_buffer(&self, frame_id: usize) -> &VkBuffer {
+    &self.tfx_params_ubo[frame_id]
   }
 
   pub unsafe fn cmd_draw_mesh(&self, device: &ash::Device, command_buffer: vk::CommandBuffer) {
@@ -104,26 +127,11 @@ impl TfxObject {
     device.cmd_draw_indexed(command_buffer, index_count, instance_count, 0, 0, 0);
   }
 
-  fn allocate_params_ubo(vk_ctx: &VkCtx, name: &str) -> VkBuffer {
-    let allocator = &vk_ctx.allocator;
-    let size = size_of::<TfxParamsUBO>() as _;
-
-    let mut buffer = VkBuffer::empty(
-      format!("{}.params_ubo", name),
-      size,
-      vk::BufferUsageFlags::UNIFORM_BUFFER,
-      allocator,
-      vk_ctx.device.queue_family_index,
-      true,
-    );
-    buffer.map_memory(allocator); // always mapped
-    buffer
-  }
-
-  fn update_params_uniform_buffer(&self) {
+  pub fn update_params_uniform_buffer(&self, frame_id: usize) {
     let data = TfxParamsUBO::new(self);
     let data_bytes = bytemuck::bytes_of(&data);
-    self.model_params_ubo.write_to_mapped(data_bytes);
+    let buffer = self.get_tfx_params_ubo_buffer(frame_id);
+    buffer.write_to_mapped(data_bytes);
   }
 }
 
@@ -244,4 +252,27 @@ fn create_buffer_from_float_vec(vk_ctx: &VkCtx, name: String, data: &Vec<f32>) -
     &vk_ctx.allocator,
     vk_ctx.device.queue_family_index,
   )
+}
+
+fn allocate_params_ubo(vk_ctx: &VkCtx, name: &str, frame_idx: usize) -> VkBuffer {
+  let allocator = &vk_ctx.allocator;
+  let size = size_of::<TfxParamsUBO>() as _;
+
+  let mut buffer = VkBuffer::empty(
+    format!("{}.params_ubo#{}", name, frame_idx),
+    size,
+    vk::BufferUsageFlags::UNIFORM_BUFFER,
+    allocator,
+    vk_ctx.device.queue_family_index,
+    true,
+  );
+  buffer.map_memory(allocator); // always mapped
+  buffer
+}
+
+pub fn allocate_params_ubo_vec(vk_ctx: &VkCtx, name: &str) -> Vec<VkBuffer> {
+  let in_flight_frames = vk_ctx.frames_in_flight();
+  (0..in_flight_frames)
+    .map(|i| allocate_params_ubo(vk_ctx, &name, i))
+    .collect::<Vec<_>>()
 }

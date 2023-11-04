@@ -12,7 +12,7 @@ use crate::{
     ColorGradingPerRangeSettings, ColorGradingProp, Config, DisplayMode, PostFxCfg, SSAOConfig,
     SSSBlurPassCfg, SSSForwardScatterPassCfg, ShadowTechnique, ShadowsConfig, TonemappingMode,
   },
-  scene::{TfxObject, World, WorldEntity},
+  scene::{TfxDebugDisplayMode, TfxObject, World, WorldEntity},
   utils::vec3_to_pretty_str,
   vk_ctx::VkCtx,
 };
@@ -243,7 +243,25 @@ impl AppUI {
         entity.num_vertices_per_strand
       ));
 
-      // dir.add(displayModeDummy, 'displayMode', displayModeDummy.values).name('Display mode');
+      ui.combo(
+        "Display mode",
+        &mut entity.display_mode,
+        &[
+          TfxDebugDisplayMode::Final,
+          TfxDebugDisplayMode::Flat,
+          TfxDebugDisplayMode::FollowGroups,
+          TfxDebugDisplayMode::RootTipPercentage,
+          TfxDebugDisplayMode::Shadow,
+        ],
+        |idx| match *idx {
+          TfxDebugDisplayMode::Flat => Cow::Borrowed("Flat"),
+          TfxDebugDisplayMode::FollowGroups => Cow::Borrowed("Follow gr."),
+          TfxDebugDisplayMode::RootTipPercentage => Cow::Borrowed("Root-tip %"),
+          TfxDebugDisplayMode::Shadow => Cow::Borrowed("Shadow"),
+          _ => Cow::Borrowed("Final"),
+        },
+      );
+
       slider_small(ui, "Radius", 0.001, 0.015, &mut entity.fiber_radius);
       slider_small(ui, "Thin tip", 0.0, 1.0, &mut entity.thin_tip); // delta: 0.01,
       slider_small(

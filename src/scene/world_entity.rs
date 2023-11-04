@@ -5,12 +5,13 @@ use ash::vk;
 use glam::Mat4;
 
 use crate::{
+  config::Config,
   render_graph::ForwardModelUBO,
   vk_ctx::VkCtx,
   vk_utils::{VkBuffer, VkMemoryResource},
 };
 
-use super::{BoundingBox, Material};
+use super::{BoundingBox, Camera, Material};
 
 pub struct WorldEntity {
   pub name: String,
@@ -43,6 +44,13 @@ impl WorldEntity {
     &self.model_ubo[frame_id]
   }
 
+  pub fn update_ubo_data(&self, frame_id: usize, config: &Config, camera: &Camera) {
+    let data = ForwardModelUBO::new(config, self, camera);
+    let data_bytes = bytemuck::bytes_of(&data);
+    let buffer = self.get_ubo_buffer(frame_id);
+    buffer.write_to_mapped(data_bytes);
+  }
+
   pub unsafe fn cmd_bind_mesh_buffers(
     &self,
     device: &ash::Device,
@@ -67,7 +75,7 @@ fn allocate_model_ubo(vk_ctx: &VkCtx, name: &str, frame_idx: usize) -> VkBuffer 
   let size = size_of::<ForwardModelUBO>() as _;
 
   let mut buffer = VkBuffer::empty(
-    format!("{}.model_ubo_#{}", name, frame_idx),
+    format!("{}.model_ubo#{}", name, frame_idx),
     size,
     vk::BufferUsageFlags::UNIFORM_BUFFER,
     allocator,
