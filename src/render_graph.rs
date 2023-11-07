@@ -35,7 +35,7 @@ use self::tfx_forward_pass::TfxForwardPass;
 use self::tonemapping_pass::TonemappingPass;
 use self::{_shared::GlobalConfigUBO, present_pass::PresentPass};
 
-// TODO add check when compiling shader if .glsl is newer than .spv. Then panic and say to recompile shaders
+// TODO [IGNORE] add check when compiling shader if .glsl is newer than .spv. Then panic and say to recompile shaders
 
 /// https://github.com/Scthe/WebFX/blob/master/src/main.ts#L144
 pub struct RenderGraph {

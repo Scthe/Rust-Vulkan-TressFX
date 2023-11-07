@@ -1,7 +1,7 @@
 use std::mem::size_of;
 
 use ash::vk;
-use glam::{Mat4, Vec3};
+use glam::{vec3, Mat4, Vec3};
 
 use crate::{
   config::Config,
@@ -25,6 +25,7 @@ pub enum TfxDebugDisplayMode {
 pub struct TfxObject {
   pub name: String,
   pub model_matrix: Mat4,
+  pub center_of_gravity: Vec3,
   /// debug display mode
   pub display_mode: usize,
   /// radius of each strand
@@ -82,6 +83,7 @@ impl TfxObject {
     let tfx_obj = Self {
       name: name.to_string(),
       model_matrix,
+      center_of_gravity: vec3(0.0, 0.0, 0.0),
       display_mode: TfxDebugDisplayMode::Final as _,
       material: TfxMaterial::default(),
       // tressfx:

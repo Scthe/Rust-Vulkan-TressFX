@@ -97,7 +97,7 @@ impl Camera {
     self.apply_move(delta * MOVE_SENSITIVITY);
   }
 
-  /// TODO multiply by delta time?
+  /// TODO [LOW] multiply by delta time?
   /// - `delta` is in camera local space
   fn apply_move(&mut self, delta: Vec3) {
     let mut mat_rot = calc_rotation_matrix(self.rotation_yaw, self.rotation_pitch);

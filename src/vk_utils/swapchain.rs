@@ -129,11 +129,11 @@ pub fn create_swapchain_khr(
     .image_color_space(surface_format.color_space)
     .image_extent(*size)
     .image_array_layers(1)
-    // TODO VK_IMAGE_USAGE_TRANSFER_DST_BIT ?
+    // TODO [LOW] VK_IMAGE_USAGE_TRANSFER_DST_BIT ?
     .image_usage(vk::ImageUsageFlags::COLOR_ATTACHMENT)
     .image_sharing_mode(vk::SharingMode::EXCLUSIVE)
     .queue_family_indices(&[queue_familiy_idx])
-    // TODO: VSYNC ? VK_PRESENT_MODE_FIFO_KHR : VK_PRESENT_MODE_IMMEDIATE_KHR;
+    // TODO: [LOW] VSYNC ? VK_PRESENT_MODE_FIFO_KHR : VK_PRESENT_MODE_IMMEDIATE_KHR;
     .present_mode(vk::PresentModeKHR::FIFO) // guaranteed!
     .composite_alpha(vk::CompositeAlphaFlagsKHR::OPAQUE)
     .pre_transform(get_pre_transform(surface_capabilites))

@@ -54,12 +54,11 @@ pub enum ShadowTechnique {
 }
 
 pub struct ShadowsConfig {
-  // TODO pub show_debug_view: bool, // overlay shadow and sss depth map
+  // TODO [MEDIUM] pub show_debug_view: bool, // overlay shadow and sss depth map
   pub shadowmap_size: u32,
   pub shadow_technique: usize,
   pub strength: f32,
   pub shadow_source: ShadowSourceCfg,
-  // TODO  'u_directionalShadowSampleRadius': Math.floor(cfg.shadows.blurRadiusTfx),
 
   // meshes:
   /// in pixels
@@ -67,10 +66,11 @@ pub struct ShadowsConfig {
   pub bias: f32,
 
   // hair:
+  // TODO [CRITICAL] 'u_directionalShadowSampleRadius': Math.floor(cfg.shadows.blurRadiusTfx),
   /// in pixels
   pub blur_radius_tfx: u32,
-  pub bias_hair_tfx: f32,             // TODO not used?
-  pub hair_tfx_radius_multipler: f32, // TODO not used?
+  pub bias_hair_tfx: f32,             // TODO [CRITICAL] not used?
+  pub hair_tfx_radius_multipler: f32, // TODO [CRITICAL] not used?
 }
 
 impl ShadowsConfig {

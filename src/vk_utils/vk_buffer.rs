@@ -26,7 +26,7 @@ pub struct VkBuffer {
   mapped_pointer: Option<MemoryMapPointer>,
 }
 
-// TODO providing allocator to every fn is tiresome
+// TODO [LOW] providing allocator to every fn is tiresome
 
 impl VkBuffer {
   /// Allocate empty vulkan buffer
@@ -82,7 +82,7 @@ impl VkBuffer {
     let size = bytes.len();
     let mut buffer = VkBuffer::empty(name, size, usage, allocator, queue_family, true);
 
-    // TODO create temp buffer with `vk::BufferUsageFlags::TRANSFER_SRC`, like in
+    // TODO [HIGH] create temp buffer with `vk::BufferUsageFlags::TRANSFER_SRC`, like in
     // `kajiya-main\crates\lib\kajiya-backend\src\vulkan\buffer.rs`:134
     // Requires 'setup command pool' (.with_setup_cb(|cb| { ... })) for cmd_copy_buffer
     // https://vulkan-tutorial.com/Texture_mapping/Images#page_Layout-transitions - also used for images

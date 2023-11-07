@@ -15,7 +15,7 @@ pub fn create_sampler(
     .address_mode_u(vk::SamplerAddressMode::REPEAT)
     .address_mode_v(vk::SamplerAddressMode::REPEAT)
     .address_mode_w(vk::SamplerAddressMode::REPEAT)
-    .anisotropy_enable(false) // TODO turn on anisotropy in samplers
+    .anisotropy_enable(true)
     .max_anisotropy(8f32) // 1050TI handles 16
     .compare_enable(false)
     .compare_op(vk::CompareOp::ALWAYS)

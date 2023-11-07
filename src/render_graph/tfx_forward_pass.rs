@@ -14,7 +14,7 @@ const SHADER_PATHS: (&str, &str) = (
   "./assets/shaders-compiled/tfx_forward.frag.spv",
 );
 
-// TODO [critical] hair is not receiving shadow correctly
+// TODO [CRITICAL] hair is not receiving shadow correctly
 
 /// Forward render TressFX hair asset. Same attachment textures as `ForwardPass`
 /// (used with `AttachmentLoadOp::LOAD` to preserve the values). Sets `HAIR` stencil flag.
@@ -62,7 +62,7 @@ impl TfxForwardPass {
     device.destroy_pipeline(self.pipeline, None);
   }
 
-  // TODO copy-pasted from `ForwardPass`, but we do no longer `vk::AttachmentLoadOp::CLEAR`
+  // TODO [MEDIUM] copy-pasted from `ForwardPass`, but we do no longer `vk::AttachmentLoadOp::CLEAR`
   fn create_render_pass(device: &ash::Device) -> vk::RenderPass {
     let depth_attachment = create_depth_stencil_attachment(
       0,
@@ -139,7 +139,7 @@ impl TfxForwardPass {
       vertex_desc,
       ForwardPass::COLOR_ATTACHMENT_COUNT,
       |builder| {
-        // TODO write hair stencil bit
+        // TODO [???] write hair stencil bit
         let depth_stencil = ps_depth_less_stencil_always();
 
         let pipeline_create_info = builder.depth_stencil_state(&depth_stencil).build();

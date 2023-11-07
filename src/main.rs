@@ -109,7 +109,7 @@ fn main() {
 
       // mouse wheel
       Event::WindowEvent {
-        // TODO use DeviceEvent not WindowEvent?
+        // TODO [LOW] use DeviceEvent not WindowEvent?
         event: WindowEvent::MouseWheel { delta, .. },
         ..
       } => {

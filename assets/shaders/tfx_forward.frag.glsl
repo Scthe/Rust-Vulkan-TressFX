@@ -17,7 +17,7 @@ layout(location = 4) in vec3 v_tangent;
 layout(location = 5) in vec4 v_positionLightShadowSpace;
 
 layout(location = 0) out vec4 outColor1;
-layout(location = 1) out vec4 outColor2;
+layout(location = 1) out uvec4 outColor2;
 
 
 //@import ./_config_ubo;
@@ -89,7 +89,7 @@ vec3 doShading(Light lights[3]) {
   for (uint i = 0u; i < 3u; i++) {
     Light light = lights[i];
     vec3 L = normalize(light.position - v_position); // wi in integral
-    // float NdotL = dotMax0(v_normal, L); // no, cause it's hair
+    // float NdotL = dotMax0(normalize(v_normal), L); // no, cause it's hair
     float NdotL = dotMax0(v_tangent, L);
     vec3 radiance = light.color * light.intensity; // incoming color from light
 

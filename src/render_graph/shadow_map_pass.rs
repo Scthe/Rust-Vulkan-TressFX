@@ -134,7 +134,7 @@ impl ShadowMapPass {
     render_pass: &vk::RenderPass,
     pipeline_layout: &vk::PipelineLayout,
   ) -> vk::Pipeline {
-    // TODO duplicate from forward_pass, but references prevent fn extraction
+    // TODO [HIGH] duplicate from forward_pass, but references prevent fn extraction. Use static class members to store info?
     let vertex_desc = vk::PipelineVertexInputStateCreateInfo::builder()
       .vertex_attribute_descriptions(&RenderableVertex::get_attributes_descriptions())
       .vertex_binding_descriptions(&RenderableVertex::get_bindings_descriptions())

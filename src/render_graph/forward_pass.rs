@@ -24,7 +24,7 @@ const SHADER_PATHS: (&str, &str) = (
   "./assets/shaders-compiled/forward.frag.spv",
 );
 
-// TODO ATM attachment data is split into create_framebuffer, render_pass, execute (cause clear color). Unify.
+// TODO [LOW] ATM attachment data is split into create_framebuffer, render_pass, execute (cause clear color). Unify.
 //      Or create RenderPass abstract class that will get some attachment desc and calc most of things
 
 /// Render scene objects (not hair). Outputs `diffuse.rgb`, `normal.rgb` (packed) and `depth/stencil`.
@@ -83,7 +83,7 @@ impl ForwardPass {
 
   /// Define render pass to compile shader against
   fn create_render_pass(device: &ash::Device) -> vk::RenderPass {
-    // TODO check if render pass can auto convert attachment layouts after execution? The `final_layout` param
+    // TODO [LOW] check if render pass can auto convert attachment layouts after execution? The `final_layout` param
     let depth_attachment = create_depth_stencil_attachment(
       0,
       Self::DEPTH_TEXTURE_FORMAT,
@@ -164,7 +164,7 @@ impl ForwardPass {
       vertex_desc,
       Self::COLOR_ATTACHMENT_COUNT,
       |builder| {
-        // TODO cull backfaces
+        // TODO [MEDIUM] cull backfaces
         let stencil_write_skin = ps_stencil_write(Config::STENCIL_BIT_SKIN);
         let depth_stencil = vk::PipelineDepthStencilStateCreateInfo::builder()
           .depth_test_enable(true)
@@ -291,7 +291,7 @@ impl ForwardPass {
       config.clear_normals(),
     ];
 
-    // TODO no need to rerecord every frame TBH. Everything can be controlled by uniforms etc.
+    // TODO [LOW] no need to rerecord every frame TBH. Everything can be controlled by uniforms etc.
     unsafe {
       self.cmd_resource_barriers(
         device,

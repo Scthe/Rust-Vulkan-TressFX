@@ -117,7 +117,7 @@ bool isFlag(int flags, int flagValue) {
 }
 
 uvec3 packNormal(vec3 normal) {
-  vec3 n = to_0_1(normal);
+  vec3 n = to_0_1(normalize(normal));
   return uvec3(n * 255);
 }
 

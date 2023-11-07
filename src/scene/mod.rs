@@ -37,13 +37,14 @@ pub fn load_scene(vk_ctx: &VkCtx, config: &Config) -> World {
   let sintel_tfx_file = load_tressfx_file(std::path::Path::new(
     "./assets/sintel_lite_v2_1/GEO-sintel_hair_emit.002-sintel_hair.tfx",
   ));
-  let sintel_hair = TfxObject::from_file(
+  let mut sintel_hair = TfxObject::from_file(
     vk_ctx,
     config,
     "sintel_hair",
     model_matrix,
     &sintel_tfx_file,
   );
+  sintel_hair.center_of_gravity.y = 9.0; // just below the eyes
 
   World {
     camera: Camera::new(config, vk_ctx.window_size()),

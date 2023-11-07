@@ -157,7 +157,7 @@ pub fn ps_raster_polygons(
     // .rasterizer_discard_enable(rasterizer_discard_enable)
     .polygon_mode(vk::PolygonMode::FILL)
     .cull_mode(cull_mode)
-    .front_face(vk::FrontFace::COUNTER_CLOCKWISE) // TODO I don't remember OpenGL
+    .front_face(vk::FrontFace::COUNTER_CLOCKWISE)
     // .depth_bias_...
     .line_width(1.0) // validation layers: has to be 1.0 if not dynamic
     .build()

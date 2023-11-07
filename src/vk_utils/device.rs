@@ -38,7 +38,7 @@ pub fn create_instance() -> (ash::Entry, ash::Instance) {
     .api_version(vk::make_api_version(0, 1, 3, 0))
     .build();
 
-  // TODO turn off debug/validation in prod
+  // TODO [CRITICAL] turn off debug/validation in prod
   let layer_names = [CString::new("VK_LAYER_KHRONOS_validation").unwrap()];
   let layers_names_raw: Vec<*const i8> = layer_names
     .iter()
@@ -48,7 +48,7 @@ pub fn create_instance() -> (ash::Entry, ash::Instance) {
   let extension_names = vec![
     Surface::name().as_ptr(),
     Win32Surface::name().as_ptr(),
-    DebugUtils::name().as_ptr(), // TODO turn for off debug/validation in prod
+    DebugUtils::name().as_ptr(), // TODO [CRITICAL] turn for off debug/validation in prod
   ];
   let extension_names_raw: Vec<*const i8> = extension_names.iter().copied().collect();
 
@@ -170,6 +170,10 @@ pub fn pick_device_and_queue(
   let device_create_info = vk::DeviceCreateInfo::builder()
     .queue_create_infos(&[queue_create_infos])
     .enabled_extension_names(&device_extension_names_raw)
+    .enabled_features(&vk::PhysicalDeviceFeatures {
+      sampler_anisotropy: vk::TRUE,
+      ..Default::default()
+    })
     .push_next(&mut separate_depth_stencil)
     .build();
 

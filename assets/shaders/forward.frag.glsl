@@ -76,7 +76,7 @@ float readHairShadow() {
 
 Material createMaterial() {
   Material material;
-  material.normal = normalize(v_Normal); // TODO normalize here (cause it was interpolated between 3 vertices and is no longer normalized)
+  material.normal = normalize(v_Normal); // normalize here as it was interpolated between 3 vertices and is no longer normalized
   material.toEye = normalize(u_cameraPosition - v_Position);
   material.albedo = readModelTexture_srgb(u_albedoTexture, v_UV);
   material.positionWS = v_Position;

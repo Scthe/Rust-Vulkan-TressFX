@@ -48,7 +48,7 @@ impl Default for PostFxCfg {
         highlights: ColorGradingPerRangeSettings::default(),
       },
       // fxaa
-      use_fxaa: true, // TODO test how good it works
+      use_fxaa: true,
       subpixel: 0.75,
       edge_threshold: 0.125,
       edge_threshold_min: 0.0625,
