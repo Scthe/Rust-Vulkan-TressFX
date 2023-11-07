@@ -118,7 +118,6 @@ impl TonemappingPass {
       RESULT_TEXTURE_FORMAT,
       vk::ImageTiling::OPTIMAL,
       vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED,
-      vk::ImageAspectFlags::COLOR,
       vk::MemoryPropertyFlags::DEVICE_LOCAL,
       vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
     );

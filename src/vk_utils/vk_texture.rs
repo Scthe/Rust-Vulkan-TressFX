@@ -40,7 +40,6 @@ impl VkTexture {
   /// * `tiling` -  `vk::ImageTiling::OPTIMAL` if uploaded from staging buffer. `vk::ImageTiling::LINEAR` if written from CPU (mapped).
   /// * `usage` - usually `vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED`
   ///     (or `vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT` for depth)
-  /// * `aspect` - `vk::ImageAspectFlags::COLOR` or `vk::ImageAspectFlags::DEPTH`
   /// * `allocation_flags` - `vk::MemoryPropertyFlags::DEVICE_LOCAL` for GPU-allocated
   ///     or `vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT` for mapped
   pub fn empty(
@@ -52,10 +51,9 @@ impl VkTexture {
     format: vk::Format,
     tiling: vk::ImageTiling,
     usage: vk::ImageUsageFlags,
-    aspect: vk::ImageAspectFlags,
     allocation_flags: vk::MemoryPropertyFlags,
     initial_layout: vk::ImageLayout,
-  ) -> VkTexture {
+  ) -> Self {
     let create_info = vk::ImageCreateInfo::builder()
       .image_type(vk::ImageType::TYPE_2D)
       .extent(vk::Extent3D {
@@ -88,8 +86,9 @@ impl VkTexture {
         .expect("Failed allocating GPU memory for texture")
     };
 
+    let aspect = get_image_aspect_from_format(format);
     let image_view = create_image_view(device, image, create_info.format, aspect);
-    let mut texture = VkTexture {
+    let mut texture = Self {
       name: create_texture_name(name, size.width, size.height),
       width: size.width,
       height: size.height,
@@ -116,7 +115,7 @@ impl VkTexture {
     app_init: &impl WithSetupCmdBuffer,
     path: &std::path::Path,
     format: vk::Format,
-  ) -> VkTexture {
+  ) -> Self {
     // load image from file
     info!("Loading texture from '{}'", path.to_string_lossy());
     let file = File::open(path).expect("Failed to open file");
@@ -139,18 +138,20 @@ impl VkTexture {
     };
 
     // create texture
+    // TODO [HIGH] use temp texture with `HOST_VISIBLE | HOST_COHERENT` and then final one with `DEVICE_LOCAL`. `Self::from_transfer_source`?
+    //      https://vulkan-tutorial.com/Texture_mapping/Images#page_Layout-transitions
+    // TODO Add `VkCtx.create_texture_from_file` to make it more user friendly?
     let name = path.file_name().unwrap_or(OsStr::new(path));
     let name_str = name.to_string_lossy().to_string();
-    let mut texture = VkTexture::empty(
+    let mut texture = Self::empty(
       device,
       allocator,
       app_init,
       name_str,
       size,
       format,
-      vk::ImageTiling::LINEAR,
+      vk::ImageTiling::LINEAR, // TODO [HIGH] Optimal if you use temp buffer
       vk::ImageUsageFlags::SAMPLED,
-      vk::ImageAspectFlags::COLOR,
       vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
       vk::ImageLayout::PREINITIALIZED,
     );
@@ -174,7 +175,7 @@ impl VkTexture {
     size: vk::Extent2D,
     format: vk::Format,
     data_bytes: &Vec<u8>,
-  ) -> VkTexture {
+  ) -> Self {
     let pixel_cnt = (size.width * size.height) as usize;
     if data_bytes.len() % pixel_cnt != 0 {
       panic!(
@@ -187,7 +188,7 @@ impl VkTexture {
     }
 
     // create texture
-    let mut texture = VkTexture::empty(
+    let mut texture = Self::empty(
       device,
       allocator,
       app_init,
@@ -196,7 +197,6 @@ impl VkTexture {
       format,
       vk::ImageTiling::LINEAR,
       vk::ImageUsageFlags::SAMPLED,
-      vk::ImageAspectFlags::COLOR,
       vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
       vk::ImageLayout::PREINITIALIZED,
     );
@@ -249,7 +249,7 @@ impl VkTexture {
   }
 
   /// If you need extra image view. Needed for depth-stencil textures if we want
-  /// read depth only.
+  /// to read depth only.
   pub fn create_extra_image_view(
     &self,
     device: &ash::Device,
@@ -274,7 +274,7 @@ impl VkTexture {
   /// * `src_access_mask` - previous op e.g. `COLOR_ATTACHMENT_WRITE`
   /// * `dst_access_mask` - op we will do e.g. `COLOR_ATTACHMENT_READ`
   ///
-  /// TODO return Option if layout already matches? What if we want barrier with no layout change (Read-After-Read?)
+  /// TODO [???] return Option if layout already matches? What if we want barrier with no layout change (Read-After-Read?)
   pub fn barrier_prepare_for_layout_transition(
     &mut self,
     new_layout: vk::ImageLayout,
@@ -404,6 +404,18 @@ impl VkTexture {
 
     let bytes_slice: &[u8] = bytemuck::cast_slice(&result[..]);
     bytes_slice.iter().map(|v| *v).collect()
+  }
+}
+
+fn get_image_aspect_from_format(format: vk::Format) -> vk::ImageAspectFlags {
+  match format {
+    vk::Format::D24_UNORM_S8_UINT => vk::ImageAspectFlags::DEPTH | vk::ImageAspectFlags::STENCIL,
+    vk::Format::D32_SFLOAT => vk::ImageAspectFlags::DEPTH,
+    vk::Format::R8G8B8A8_SRGB
+    | vk::Format::R8G8B8A8_UINT
+    | vk::Format::R32G32B32A32_SFLOAT
+    | vk::Format::R32_SFLOAT => vk::ImageAspectFlags::COLOR,
+    _ => panic!("Cannot determine image aspect for {:?}", format),
   }
 }
 

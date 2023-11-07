@@ -200,7 +200,6 @@ impl ForwardPass {
       Self::DIFFUSE_TEXTURE_FORMAT,
       vk::ImageTiling::OPTIMAL,
       vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED,
-      vk::ImageAspectFlags::COLOR,
       vk::MemoryPropertyFlags::DEVICE_LOCAL,
       vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
     )
@@ -224,7 +223,6 @@ impl ForwardPass {
       Self::DEPTH_TEXTURE_FORMAT,
       vk::ImageTiling::OPTIMAL,
       vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT | vk::ImageUsageFlags::SAMPLED,
-      vk::ImageAspectFlags::DEPTH | vk::ImageAspectFlags::STENCIL,
       vk::MemoryPropertyFlags::DEVICE_LOCAL,
       vk::ImageLayout::DEPTH_STENCIL_READ_ONLY_OPTIMAL,
     );
@@ -243,7 +241,6 @@ impl ForwardPass {
       Self::NORMALS_TEXTURE_FORMAT,
       vk::ImageTiling::OPTIMAL,
       vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED,
-      vk::ImageAspectFlags::COLOR,
       vk::MemoryPropertyFlags::DEVICE_LOCAL,
       vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
     );
@@ -474,7 +471,6 @@ impl ForwardPass {
       VkTexture::RAW_DATA_TEXTURE_FORMAT,
       vk::ImageTiling::OPTIMAL,
       vk::ImageUsageFlags::SAMPLED,
-      vk::ImageAspectFlags::COLOR,
       vk::MemoryPropertyFlags::DEVICE_LOCAL,
       vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
     )

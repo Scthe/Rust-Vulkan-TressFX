@@ -216,7 +216,6 @@ impl ShadowMapPass {
       DEPTH_TEXTURE_FORMAT,
       vk::ImageTiling::OPTIMAL,
       vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT | vk::ImageUsageFlags::SAMPLED,
-      vk::ImageAspectFlags::DEPTH,
       vk::MemoryPropertyFlags::DEVICE_LOCAL,
       vk::ImageLayout::DEPTH_READ_ONLY_OPTIMAL,
     );
