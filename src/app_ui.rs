@@ -9,8 +9,9 @@ use winit::event::Event;
 
 use crate::{
   config::{
-    ColorGradingPerRangeSettings, ColorGradingProp, Config, DisplayMode, PostFxCfg, SSAOConfig,
-    SSSBlurPassCfg, SSSForwardScatterPassCfg, ShadowTechnique, ShadowsConfig, TonemappingMode,
+    ColorGradingPerRangeSettings, ColorGradingProp, Config, DisplayMode, LightAmbient, LightCfg,
+    PostFxCfg, SSAOConfig, SSSBlurPassCfg, SSSForwardScatterPassCfg, ShadowTechnique,
+    ShadowsConfig, TonemappingMode,
   },
   scene::{TfxDebugDisplayMode, TfxObject, World, WorldEntity},
   utils::vec3_to_pretty_str,
@@ -44,7 +45,7 @@ impl AppUI {
     let mut platform = WinitPlatform::init(&mut imgui);
     platform.attach_window(imgui.io_mut(), window, HiDpiMode::Rounded);
 
-    // TODO could be better if we used same allocator as rest of app, but..
+    // TODO [LOW] could be better if we used same allocator as rest of app, but..
     let renderer = Renderer::with_default_allocator(
       &vk_app.instance,
       vk_app.device.phys_device,
@@ -94,7 +95,6 @@ impl AppUI {
       let ui = self.imgui.frame();
 
       // UI START
-      // TODO lights etc. - verify all are configurable
       ui.window("Settings")
         .position([0.0, 0.0], Condition::Always)
         .movable(false)
@@ -112,6 +112,10 @@ impl AppUI {
             .tressfx_objects
             .iter_mut()
             .for_each(|entity| Self::draw_tfx_object(ui, entity));
+          Self::draw_ambient_light(ui, &mut config.light_ambient);
+          Self::draw_light(ui, "Light 0", &mut config.light0);
+          Self::draw_light(ui, "Light 1", &mut config.light1);
+          Self::draw_light(ui, "Light 2", &mut config.light2);
           Self::draw_shadows(ui, &mut config.shadows);
           Self::draw_sss_forward_pass(ui, &mut config.sss_forward_scatter);
           Self::draw_sss_blur(ui, &mut config.sss_blur);
@@ -318,6 +322,31 @@ impl AppUI {
     push_token.end();
   }
 
+  fn draw_ambient_light(ui: &Ui, light: &mut LightAmbient) {
+    let push_token = ui.push_id("ambient_light");
+
+    if ui.collapsing_header("Ambient light", *HEADER_FLAGS) {
+      color_rgb(ui, "Color", &mut light.color);
+      slider_small(ui, "Energy", 0.0, 0.2, &mut light.energy);
+    }
+
+    push_token.end();
+  }
+
+  fn draw_light(ui: &Ui, name: &str, light: &mut LightCfg) {
+    let push_token = ui.push_id(name);
+
+    if ui.collapsing_header(name, *HEADER_FLAGS) {
+      color_rgb(ui, "Color", &mut light.color);
+      slider_small(ui, "Energy", 0.0, 5.0, &mut light.energy);
+      slider_small(ui, "Position phi", -179.0, 179.0, &mut light.pos_phi);
+      slider_small(ui, "Position th", 15.0, 165.0, &mut light.pos_theta);
+      slider_small(ui, "Distance", 1.0, 20.0, &mut light.pos_distance);
+    }
+
+    push_token.end();
+  }
+
   fn draw_shadows(ui: &Ui, shadows: &mut ShadowsConfig) {
     let push_token = ui.push_id("shadows");
 
@@ -346,9 +375,19 @@ impl AppUI {
       }
       ui.slider("Strength", 0.0, 1.0, &mut shadows.strength);
       ui.slider("Bias", 0.001, 0.01, &mut shadows.bias);
-      // dir.add(this.cfg.shadows, 'blurRadiusTfx', [0, 1, 2, 3, 4]).name('HAIR Blur radius');
-      // dir.add(this.cfg.shadows, 'biasHairTfx', 0.001, 0.01).name('HAIR Bias');
-      // dir.add(this.cfg.shadows, 'hairTfxRadiusMultipler', 0.5, 3.0).name('HAIR Radius mul');
+
+      // hair
+      slider_small(ui, "Hair blur radius", 0, 4, &mut shadows.blur_radius_tfx);
+      slider_small(ui, "Hair bias", 0.001, 0.01, &mut shadows.bias_hair_tfx);
+      slider_small(
+        ui,
+        "Hair radius mul",
+        0.5,
+        3.0,
+        &mut shadows.hair_tfx_radius_multipler,
+      );
+      add_tooltip_to_previous_widget(ui, "Make hair strands thicker to cast bigger shadow");
+
       slider_small(
         ui,
         "Position phi",
@@ -514,20 +553,44 @@ impl AppUI {
 
     if ui.collapsing_header("Fxaa", *HEADER_FLAGS) {
       ui.checkbox("Use FXAA", &mut config.postfx.use_fxaa);
-      slider_small(ui, "Subpixel aa", 0.0, 1.0, &mut config.postfx.subpixel);
+
+      slider_small(ui, "Subpixel aa", 0.0, 2.0, &mut config.postfx.subpixel);
+      add_tooltip_to_previous_widget(ui, "0.0 - off, 1.0 - 'soft' result, >1.0 - nonsense");
+
       slider_small(
         ui,
-        "Contrast Treshold",
+        "Relative Edge Treshold",
         0.063,
         0.333,
         &mut config.postfx.edge_threshold,
       );
+      add_tooltip_to_previous_widget(
+        ui,
+        "The minimum amount of local contrast required to apply algorithm",
+      );
+
       slider_small(
         ui,
-        "Edge Treshold",
+        "Absolute Edge Treshold",
         0.0,
         0.0833,
         &mut config.postfx.edge_threshold_min,
+      );
+      add_tooltip_to_previous_widget(
+        ui,
+        "The minimum amount of contrast required to apply algorithm (mostly for dark areas)",
+      );
+
+      slider_small(
+        ui,
+        "Luma gamma",
+        1.0,
+        3.0,
+        &mut config.postfx.fxaa_luma_gamma,
+      );
+      add_tooltip_to_previous_widget(
+        ui,
+        "FXAA uses luma to detect edges, which includes gamma correction to perceptual space",
       );
     }
 

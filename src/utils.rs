@@ -1,4 +1,4 @@
-use glam::{vec3, Vec3};
+use glam::{vec3, vec4, Vec3, Vec4};
 use rand::rngs::ThreadRng;
 use rand::Rng;
 
@@ -43,8 +43,12 @@ pub fn vec3_to_mint(v: Vec3) -> mint::Vector3<f32> {
   mint::Vector3::from_slice(v.as_ref())
 }
 
-pub fn mint_to_vec3(v: mint::Vector3<f32>) -> Vec3 {
-  vec3(v.x, v.y, v.z)
+pub fn into_vec4(v: Vec3, w: f32) -> Vec4 {
+  vec4(v.x, v.y, v.z, w)
+}
+
+pub fn mint3_into_vec4(v: mint::Vector3<f32>, w: f32) -> Vec4 {
+  vec4(v.x, v.y, v.z, w)
 }
 
 /// Generate random vectors

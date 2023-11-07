@@ -5,7 +5,7 @@ use crate::{
   config::{ColorGradingProp, Config, LightAmbient, LightCfg, SSAOConfig},
   render_graph::{shadow_map_pass::ShadowMapPass, sss_depth_pass::SSSDepthPass},
   scene::Camera,
-  utils::spherical_to_cartesian_dgr,
+  utils::{into_vec4, mint3_into_vec4, spherical_to_cartesian_dgr},
   vk_ctx::VkCtx,
 };
 
@@ -113,7 +113,7 @@ impl GlobalConfigUBO {
         Mat4::IDENTITY,
       ),
       u_shadow_misc_settings: vec4(shadows.blur_radius as _, 0.0, 0.0, 0.0),
-      u_shadow_caster_position: vec4(shadow_pos.x, shadow_pos.y, shadow_pos.z, shadows.bias),
+      u_shadow_caster_position: into_vec4(shadow_pos, shadows.bias),
       u_ao_and_shadow_contrib: Vec4::new(
         config.ssao.ao_strength,
         config.ssao.ao_exp,
@@ -205,11 +205,11 @@ impl GlobalConfigUBO {
 }
 
 fn light_ambient(light: &LightAmbient) -> Vec4 {
-  vec4(light.color[0], light.color[1], light.color[2], light.energy)
+  mint3_into_vec4(light.color, light.energy)
 }
 
 fn light_color(light: &LightCfg) -> Vec4 {
-  vec4(light.color[0], light.color[1], light.color[2], light.energy)
+  mint3_into_vec4(light.color, light.energy)
 }
 
 fn light_pos(light: &LightCfg) -> Vec3 {
@@ -217,5 +217,5 @@ fn light_pos(light: &LightCfg) -> Vec3 {
 }
 
 fn pack_color_grading_prop(prop: &ColorGradingProp) -> Vec4 {
-  vec4(prop.color.x, prop.color.y, prop.color.z, prop.value)
+  mint3_into_vec4(prop.color, prop.value)
 }

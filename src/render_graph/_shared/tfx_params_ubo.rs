@@ -1,10 +1,10 @@
 use bytemuck;
-use glam::{vec4, Mat4, Vec3, Vec4};
+use glam::{vec4, Mat4, Vec4};
 
 use crate::{
   config::{Config, DisplayMode},
   scene::{TfxDebugDisplayMode, TfxObject},
-  utils::mint_to_vec3,
+  utils::{into_vec4, mint3_into_vec4},
 };
 
 #[derive(Copy, Clone, Debug)] // , bytemuck::Zeroable, bytemuck::Pod
@@ -43,10 +43,10 @@ impl TfxParamsUBO {
         tfx.follow_hair_spread_root,
         tfx.follow_hair_spread_tip,
       ),
-      u_center_of_gravity: vec4(0.0, 0.0, 0.0, 0.0), // TODO
-      u_albedo: into_vec4(mint_to_vec3(mat.albedo), 0.0),
-      u_specular1: into_vec4(mint_to_vec3(mat.specular_color1), mat.specular_power1),
-      u_specular2: into_vec4(mint_to_vec3(mat.specular_color2), mat.specular_power2),
+      u_center_of_gravity: into_vec4(tfx.center_of_gravity, 0.0),
+      u_albedo: mint3_into_vec4(mat.albedo, 0.0),
+      u_specular1: mint3_into_vec4(mat.specular_color1, mat.specular_power1),
+      u_specular2: mint3_into_vec4(mat.specular_color2, mat.specular_power2),
       u_material: vec4(
         mat.primary_shift,
         mat.secondary_shift,
@@ -62,8 +62,4 @@ fn get_display_mode(config: &Config, tfx: &TfxObject) -> usize {
     return TfxDebugDisplayMode::ShadowMap as _;
   }
   tfx.display_mode
-}
-
-fn into_vec4(a: Vec3, b: f32) -> Vec4 {
-  vec4(a.x, a.y, a.z, b)
 }
