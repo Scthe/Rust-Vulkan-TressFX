@@ -14,8 +14,6 @@ const SHADER_PATHS: (&str, &str) = (
   "./assets/shaders-compiled/tfx_forward.frag.spv",
 );
 
-// TODO [CRITICAL] hair is not receiving shadow correctly
-
 /// Forward render TressFX hair asset. Same attachment textures as `ForwardPass`
 /// (used with `AttachmentLoadOp::LOAD` to preserve the values). Sets `HAIR` stencil flag.
 ///

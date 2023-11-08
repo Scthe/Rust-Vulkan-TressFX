@@ -20,9 +20,9 @@ uniform GlobalConfigUniformBuffer {
   mat4 u_viewProjectionMat;
   // AO + Shadow
   mat4 u_directionalShadowMatrix_VP;
-  vec4 u_shadowMiscSettings; // [u_directionalShadowSampleRadius, -, -, -]
-  vec4 u_directionalShadowCasterPosition; // [position.xyz, bias (negative if pcss)]
-  vec4 u_aoAndShadowContrib; // (u_aoStrength, u_aoExp, u_maxShadowContribution, u_directionalShadowSampleRadius)
+  vec4 u_shadowRadiusAndBias; // [u_shadowRadiusForwardShading, u_shadowBiasForwardShading, u_shadowRadiusTfx, u_shadowBiasTfx]
+  vec4 u_directionalShadowCasterPosition; // [position.xyz, u_maxShadowContribution]
+  vec4 u_aoSettings; // (u_aoStrength, u_aoExp, showDebugPositions+u_maxShadowContribution, -)
   // sss
   vec4 u_sssSettings; // [u_sssPosition, u_sssFarPlane]
   mat4 u_sssMatrix_VP;
@@ -74,15 +74,18 @@ uniform GlobalConfigUniformBuffer {
 #define u_viewport (u_viewportAndNearFar.xy)
 #define u_nearAndFar (u_viewportAndNearFar.zw)
 
-// AO + shadows
-#define u_directionalShadowSampleRadius (readConfigUint(u_shadowMiscSettings.x))
-#define u_shadowBias (u_directionalShadowCasterPosition.w)
-// u_aoAndShadowContrib
-#define u_shadowsTechnique (readConfigUint(u_aoAndShadowContrib.w))
-#define u_aoStrength (u_aoAndShadowContrib.r)
-#define u_aoExp (u_aoAndShadowContrib.g)
-#define u_maxShadowContribution (readConfigValueFromValueWithFlag(u_aoAndShadowContrib.b))
-#define u_showDebugPositions (readConfigFlagFromSign(u_aoAndShadowContrib.b))
+// Shadows
+#define u_shadowRadiusForwardShading (readConfigInt(u_shadowRadiusAndBias.x))
+#define u_shadowBiasForwardShading (u_shadowRadiusAndBias.y)
+#define u_shadowRadiusTfx (readConfigInt(u_shadowRadiusAndBias.z))
+#define u_shadowBiasTfx (u_shadowRadiusAndBias.w)
+#define u_shadowsTechnique (readConfigUint(u_directionalShadowCasterPosition.w))
+
+// AO + misc
+#define u_aoStrength (u_aoSettings.r)
+#define u_aoExp (u_aoSettings.g)
+#define u_showDebugPositions (readConfigFlagFromSign(u_aoSettings.b))
+#define u_maxShadowContribution (readConfigValueFromValueWithFlag(u_aoSettings.b))
 
 // SSS (u_sssSettings)
 #define u_sssPosition (u_sssSettings.xyz)
@@ -119,9 +122,8 @@ uniform GlobalConfigUniformBuffer {
 #define u_kernelSize (readConfigUint(u_ssao_and_misc.x))
 #define u_linear_depth_preview_range (u_ssao_and_misc.yz)
 
-uint readConfigUint(float value) {
-  return uint(abs(value) + 0.5);
-}
+uint readConfigUint(float value) { return uint(abs(value) + 0.5); }
+int  readConfigInt (float value) { return int(abs(value) + 0.5); }
 
 bool readConfigFlagFromSign(float value) {
   return value < 0.0f;

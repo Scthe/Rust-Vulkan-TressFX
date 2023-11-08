@@ -60,17 +60,15 @@ pub struct ShadowsConfig {
   pub strength: f32,
   pub shadow_source: ShadowSourceCfg,
 
-  // meshes:
   /// in pixels
   pub blur_radius: u32,
-  pub bias: f32,
-
-  // hair:
-  // TODO [CRITICAL] 'u_directionalShadowSampleRadius': Math.floor(cfg.shadows.blurRadiusTfx),
   /// in pixels
   pub blur_radius_tfx: u32,
-  pub bias_hair_tfx: f32,             // TODO [CRITICAL] not used?
-  pub hair_tfx_radius_multipler: f32, // TODO [CRITICAL] not used?
+  pub bias: f32,
+  pub bias_hair_tfx: f32,
+
+  // hair-only:
+  pub hair_tfx_radius_multipler: f32,
 }
 
 impl ShadowsConfig {
@@ -84,8 +82,8 @@ impl Default for ShadowsConfig {
       shadowmap_size: 1024 * 2,
       shadow_technique: ShadowTechnique::PCSS as _,
       blur_radius: 4,
-      bias: 0.005,
       blur_radius_tfx: 1,
+      bias: 0.005,
       bias_hair_tfx: 0.050,
       hair_tfx_radius_multipler: 1.1,
       strength: 0.7,

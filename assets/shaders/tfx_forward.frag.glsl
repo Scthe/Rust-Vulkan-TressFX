@@ -60,7 +60,9 @@ float calculateShadow () {
   vec3 toCaster = normalize(u_directionalShadowCasterPosition.xyz - v_position);
   vec3 normal = normalize(v_normal); // TODO use tangent per http://developer.amd.com/wordpress/media/2012/10/Scheuermann_HairRendering.pdf s7?
   return 1.0 - calculateDirectionalShadow(
-    v_positionLightShadowSpace, normal, toCaster
+    v_positionLightShadowSpace, normal, toCaster,
+    u_shadowBiasTfx,
+    u_shadowRadiusTfx
   );
 }
 
@@ -121,7 +123,8 @@ vec3 doShading(Light lights[3]) {
   ambient *= aoRadianceFactor;
 
   float shadow = calculateShadow();
-  radianceSum = radianceSum * clamp(shadow, 1.0 - u_maxShadowContribution, 1.0);
+  float shadowContrib = clamp(shadow, 0.0, u_maxShadowContribution);
+  radianceSum = radianceSum * (1.0 - shadowContrib);
   return ambient + radianceSum;
 }
 
@@ -142,7 +145,7 @@ vec4 debugModeOverride(vec3 shadingResult){
       break;
     }
     case TFX_DISPLAY_MODE_SHADOW: {
-      float shadow = calculateShadow();
+      float shadow = 1.0 - calculateShadow();
       result = vec3(shadow);
       break;
     }

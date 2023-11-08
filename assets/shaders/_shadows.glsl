@@ -39,7 +39,7 @@ const float PCSS_PENUMBRA_WIDTH = 10.0;
 const int PCSS_PENUMBRA_BASE = 1; // we want at least some blur
 
 /** Simplest possible shadow implementation - just a binary in shadow or not */
-float shadowTestSimple(vec4 lightPosInterp, vec3 normal, vec3 toShadowCaster) {
+float shadowTestSimple(vec4 lightPosInterp, vec3 normal, vec3 toShadowCaster, float shadowBiasFromUi) {
   // position of fragment as rendered from light POV
   vec3 lightPosProj = lightPosInterp.xyz / lightPosInterp.w; // Useless for ORTHO, only PERSP.
   vec2 uv = to_0_1(lightPosProj.xy); // from opengl [-1, 1] to depth-texture-like [0..1]
@@ -60,7 +60,7 @@ float shadowTestSimple(vec4 lightPosInterp, vec3 normal, vec3 toShadowCaster) {
   }
 
   // GDC_Poster_NormalOffset.png
-  float bias = max(u_shadowBias * (1.0 - dot(normal, toShadowCaster)), 0.005);
+  float bias = max(shadowBiasFromUi * (1.0 - dot(normal, toShadowCaster)), 0.005);
 
   float shadowMapDepth = texture(u_directionalShadowDepthTex, uv).r;
   float shadow = fragmentDepth - bias > shadowMapDepth  ? IN_SHADOW : NOT_IN_SHADOW;
@@ -105,7 +105,13 @@ float sampleShadowMap (int sampleRadius, vec3 lightPosProj, float bias) {
   return shadow /= pcfTmp * pcfTmp;
 }
 
-float calculateDirectionalShadow(vec4 lightPosInterp, vec3 normal, vec3 toShadowCaster) {
+float calculateDirectionalShadow(
+  vec4 lightPosInterp, 
+  vec3 normal, 
+  vec3 toShadowCaster,
+  float shadowBiasFromUi,
+  int sampleRadius
+) {
   // position of fragment as rendered from light POV
   vec3 lightPosProj = lightPosInterp.xyz / lightPosInterp.w; // Useless for ORTHO, only PERSP.
   lightPosProj = vec3(to_0_1(lightPosProj.xy), lightPosProj.z); // from opengl [-1, 1] to depth-texture-like [0..1]
@@ -123,15 +129,15 @@ float calculateDirectionalShadow(vec4 lightPosInterp, vec3 normal, vec3 toShadow
   }
 
   // GDC_Poster_NormalOffset.png
-  float bias = max(u_shadowBias * (1.0 - dot(normal, toShadowCaster)), 0.005);
+  float bias = max(shadowBiasFromUi * (1.0 - dot(normal, toShadowCaster)), 0.005);
 
   switch(u_shadowsTechnique) {
     case SHADOW_TECHNIQUE_BINARY_DEBUG: {
       // discard variables above and use simplest possible way
-      return shadowTestSimple(lightPosInterp, normal, toShadowCaster);
+      return shadowTestSimple(lightPosInterp, normal, toShadowCaster, shadowBiasFromUi);
     }
     case SHADOW_TECHNIQUE_PFC: {
-      return 1.0 - sampleShadowMap(int(u_directionalShadowSampleRadius), lightPosProj, bias);
+      return 1.0 - sampleShadowMap(sampleRadius, lightPosProj, bias);
     }
     default:
     case SHADOW_TECHNIQUE_PCSS: {

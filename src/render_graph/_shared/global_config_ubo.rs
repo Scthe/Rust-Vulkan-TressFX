@@ -21,9 +21,9 @@ pub struct GlobalConfigUBO {
   pub u_view_projection_mat: Mat4,
   // AO + Shadow
   pub u_shadow_matrix_vp: Mat4,
-  pub u_shadow_misc_settings: Vec4,
-  pub u_shadow_caster_position: Vec4, // [position.xyz, bias (negative if pcss)]
-  pub u_ao_and_shadow_contrib: Vec4, // (u_aoStrength, u_aoExp, u_maxShadowContribution, u_directionalShadowSampleRadius)
+  pub u_shadow_radius_and_bias: Vec4, // [u_shadowRadiusForwardShading, u_shadowBiasForwardShading, u_shadowRadiusTfx, u_shadowBiasTfx]
+  pub u_shadow_caster_position: Vec4, // [position.xyz, u_shadowsTechnique]
+  pub u_ao_settings: Vec4, // (u_aoStrength, u_aoExp, showDebugPositions+u_maxShadowContribution, -)
   // sss
   pub u_sss_settings: Vec4, // [u_sssPosition, u_sssFarPlane]
   pub u_sss_matrix_vp: Mat4,
@@ -112,13 +112,18 @@ impl GlobalConfigUBO {
         &shadows.shadow_source,
         Mat4::IDENTITY,
       ),
-      u_shadow_misc_settings: vec4(shadows.blur_radius as _, 0.0, 0.0, 0.0),
-      u_shadow_caster_position: into_vec4(shadow_pos, shadows.bias),
-      u_ao_and_shadow_contrib: Vec4::new(
+      u_shadow_radius_and_bias: vec4(
+        shadows.blur_radius as _,
+        shadows.bias,
+        shadows.blur_radius_tfx as _,
+        shadows.bias_hair_tfx,
+      ),
+      u_shadow_caster_position: into_vec4(shadow_pos, shadows.shadow_technique as _),
+      u_ao_settings: Vec4::new(
         config.ssao.ao_strength,
         config.ssao.ao_exp,
         encode_flag_in_value_sign(config.show_debug_positions, shadows.strength),
-        shadows.shadow_technique as f32,
+        0.0,
       ),
       // sss
       u_sss_settings: vec4(

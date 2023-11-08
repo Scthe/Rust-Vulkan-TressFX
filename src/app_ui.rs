@@ -371,14 +371,13 @@ impl AppUI {
         "Use Percentage-Closer Soft Shadows or Percentage-closer Filtering or simplest possible binary debug check",
       );
       if shadows.shadow_technique == (ShadowTechnique::PFC as _) {
-        ui.slider("Blur radius", 0, 4, &mut shadows.blur_radius);
+        slider_small(ui, "Blur radius", 0, 4, &mut shadows.blur_radius);
+        slider_small(ui, "Hair blur radius", 0, 4, &mut shadows.blur_radius_tfx);
       }
       ui.slider("Strength", 0.0, 1.0, &mut shadows.strength);
-      ui.slider("Bias", 0.001, 0.01, &mut shadows.bias);
 
-      // hair
-      slider_small(ui, "Hair blur radius", 0, 4, &mut shadows.blur_radius_tfx);
-      slider_small(ui, "Hair bias", 0.001, 0.01, &mut shadows.bias_hair_tfx);
+      ui.slider("Bias", 0.001, 0.1, &mut shadows.bias);
+      ui.slider("Hair bias", 0.001, 0.1, &mut shadows.bias_hair_tfx);
       slider_small(
         ui,
         "Hair radius mul",
