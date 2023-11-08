@@ -38,7 +38,7 @@ impl TfxForwardPass {
     let device = vk_app.vk_device();
     let pipeline_cache = &vk_app.pipeline_cache;
 
-    let render_pass = Self::create_render_pass(device);
+    let render_pass = ForwardPass::create_render_pass(device, vk::AttachmentLoadOp::LOAD);
     let uniforms_desc = Self::get_uniforms_layout();
     let uniforms_layout = create_push_descriptor_layout(device, uniforms_desc);
     let pipeline_layout = create_pipeline_layout(device, &[uniforms_layout], &[]);
@@ -58,41 +58,6 @@ impl TfxForwardPass {
     device.destroy_descriptor_set_layout(self.uniforms_layout, None);
     device.destroy_pipeline_layout(self.pipeline_layout, None);
     device.destroy_pipeline(self.pipeline, None);
-  }
-
-  // TODO [MEDIUM] copy-pasted from `ForwardPass`, but we do no longer `vk::AttachmentLoadOp::CLEAR`
-  fn create_render_pass(device: &ash::Device) -> vk::RenderPass {
-    let depth_attachment = create_depth_stencil_attachment(
-      0,
-      ForwardPass::DEPTH_TEXTURE_FORMAT,
-      vk::AttachmentLoadOp::LOAD,   // depth_load_op
-      vk::AttachmentStoreOp::STORE, // depth_store_op
-      vk::AttachmentLoadOp::LOAD,   // stencil_load_op
-      vk::AttachmentStoreOp::STORE, // stencil_store_op
-      vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-    );
-    let color_attachment = create_color_attachment(
-      1,
-      ForwardPass::DIFFUSE_TEXTURE_FORMAT,
-      vk::AttachmentLoadOp::LOAD,
-      vk::AttachmentStoreOp::STORE,
-      false,
-    );
-    let normals_attachment = create_color_attachment(
-      2,
-      ForwardPass::NORMALS_TEXTURE_FORMAT,
-      vk::AttachmentLoadOp::LOAD,
-      vk::AttachmentStoreOp::STORE,
-      false,
-    );
-
-    unsafe {
-      create_render_pass_from_attachments(
-        device,
-        Some(depth_attachment),
-        &[color_attachment, normals_attachment],
-      )
-    }
   }
 
   fn get_uniforms_layout() -> Vec<vk::DescriptorSetLayoutBinding> {

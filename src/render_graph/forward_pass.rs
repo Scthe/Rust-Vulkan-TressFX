@@ -54,7 +54,7 @@ impl ForwardPass {
     let device = vk_app.vk_device();
     let pipeline_cache = &vk_app.pipeline_cache;
 
-    let render_pass = Self::create_render_pass(device);
+    let render_pass = Self::create_render_pass(device, vk::AttachmentLoadOp::CLEAR);
     let uniforms_desc = Self::get_uniforms_layout();
     let uniforms_layout = create_push_descriptor_layout(device, uniforms_desc);
     let pipeline_layout = create_pipeline_layout(device, &[uniforms_layout], &[]);
@@ -82,28 +82,28 @@ impl ForwardPass {
   }
 
   /// Define render pass to compile shader against
-  fn create_render_pass(device: &ash::Device) -> vk::RenderPass {
+  pub fn create_render_pass(device: &ash::Device, load_op: vk::AttachmentLoadOp) -> vk::RenderPass {
     // TODO [LOW] check if render pass can auto convert attachment layouts after execution? The `final_layout` param
     let depth_attachment = create_depth_stencil_attachment(
       0,
       Self::DEPTH_TEXTURE_FORMAT,
-      vk::AttachmentLoadOp::CLEAR,  // depth_load_op
+      load_op,                      // depth_load_op
       vk::AttachmentStoreOp::STORE, // depth_store_op
-      vk::AttachmentLoadOp::CLEAR,  // stencil_load_op
+      load_op,                      // stencil_load_op
       vk::AttachmentStoreOp::STORE, // stencil_store_op
       vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
     );
     let color_attachment = create_color_attachment(
       1,
       Self::DIFFUSE_TEXTURE_FORMAT,
-      vk::AttachmentLoadOp::CLEAR,
+      load_op,
       vk::AttachmentStoreOp::STORE,
       false,
     );
     let normals_attachment = create_color_attachment(
       2,
       Self::NORMALS_TEXTURE_FORMAT,
-      vk::AttachmentLoadOp::CLEAR,
+      load_op,
       vk::AttachmentStoreOp::STORE,
       false,
     );
