@@ -188,13 +188,7 @@ impl ForwardPass {
     size: &vk::Extent2D,
     name: String,
   ) -> VkTexture {
-    let device = vk_app.vk_device();
-    let allocator = &vk_app.allocator;
-
-    VkTexture::empty(
-      device,
-      allocator,
-      vk_app,
+    vk_app.create_texture_empty(
       name,
       *size,
       Self::DIFFUSE_TEXTURE_FORMAT,
@@ -212,12 +206,8 @@ impl ForwardPass {
     size: &vk::Extent2D,
   ) -> ForwardPassFramebuffer {
     let device = vk_app.vk_device();
-    let allocator = &vk_app.allocator;
 
-    let depth_stencil_tex = VkTexture::empty(
-      device,
-      allocator,
-      vk_app,
+    let depth_stencil_tex = vk_app.create_texture_empty(
       format!("ForwardPass.depth#{}", frame_id),
       *size,
       Self::DEPTH_TEXTURE_FORMAT,
@@ -232,10 +222,7 @@ impl ForwardPass {
       format!("ForwardPass.diffuse#{}", frame_id),
     );
 
-    let normals_tex = VkTexture::empty(
-      device,
-      allocator,
-      vk_app,
+    let normals_tex = vk_app.create_texture_empty(
       format!("ForwardPass.normal#{}", frame_id),
       *size,
       Self::NORMALS_TEXTURE_FORMAT,
@@ -458,11 +445,7 @@ impl ForwardPass {
   }
 
   fn create_dummy_texture(vk_app: &VkCtx) -> VkTexture {
-    let device = vk_app.vk_device();
-    VkTexture::empty(
-      device,
-      &vk_app.allocator,
-      vk_app,
+    vk_app.create_texture_empty(
       "ForwardPassDummyDataTex".to_string(),
       vk::Extent2D {
         width: 4,

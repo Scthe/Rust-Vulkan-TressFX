@@ -71,19 +71,13 @@ impl WorldEntity {
 }
 
 fn allocate_model_ubo(vk_ctx: &VkCtx, name: &str, frame_idx: usize) -> VkBuffer {
-  let allocator = &vk_ctx.allocator;
   let size = size_of::<ForwardModelUBO>() as _;
-
-  let mut buffer = VkBuffer::empty(
+  vk_ctx.create_buffer_empty(
     format!("{}.model_ubo#{}", name, frame_idx),
     size,
     vk::BufferUsageFlags::UNIFORM_BUFFER,
-    allocator,
-    vk_ctx.device.queue_family_index,
     true,
-  );
-  buffer.map_memory(allocator); // always mapped
-  buffer
+  )
 }
 
 pub fn allocate_model_ubo_vec(vk_ctx: &VkCtx, name: &str) -> Vec<VkBuffer> {

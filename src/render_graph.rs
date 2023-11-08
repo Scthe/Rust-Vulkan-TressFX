@@ -456,17 +456,12 @@ impl RenderGraph {
 
 fn allocate_config_uniform_buffer(vk_app: &VkCtx, frame_id: usize) -> VkBuffer {
   let size = size_of::<GlobalConfigUBO>() as _;
-  let allocator = &vk_app.allocator;
-  let mut buffer = VkBuffer::empty(
+  vk_app.create_buffer_empty(
     format!("scene_uniform_buffers_{}", frame_id),
     size,
     vk::BufferUsageFlags::UNIFORM_BUFFER,
-    allocator,
-    vk_app.device.queue_family_index,
     true,
-  );
-  buffer.map_memory(allocator); // always mapped
-  buffer
+  )
 }
 
 fn update_config_uniform_buffer(

@@ -45,7 +45,7 @@ impl VkTexture {
   pub fn empty(
     device: &ash::Device,
     allocator: &vma::Allocator,
-    app_init: &impl WithSetupCmdBuffer,
+    with_setup_cb: &impl WithSetupCmdBuffer,
     name: String,
     size: vk::Extent2D,
     format: vk::Format,
@@ -102,7 +102,7 @@ impl VkTexture {
     };
 
     if initial_layout != vk::ImageLayout::PREINITIALIZED {
-      texture.set_initial_image_layout(app_init, initial_layout);
+      texture.set_initial_image_layout(with_setup_cb, initial_layout);
     }
     texture
   }
@@ -112,7 +112,7 @@ impl VkTexture {
   pub fn from_file(
     device: &ash::Device,
     allocator: &vma::Allocator,
-    app_init: &impl WithSetupCmdBuffer,
+    with_setup_cb: &impl WithSetupCmdBuffer,
     path: &std::path::Path,
     format: vk::Format,
   ) -> Self {
@@ -138,39 +138,30 @@ impl VkTexture {
     };
 
     // create texture
-    // TODO [HIGH] use temp texture with `HOST_VISIBLE | HOST_COHERENT` and then final one with `DEVICE_LOCAL`. `Self::from_transfer_source`?
-    //      https://vulkan-tutorial.com/Texture_mapping/Images#page_Layout-transitions
-    // TODO Add `VkCtx.create_texture_from_file` to make it more user friendly?
     let name = path.file_name().unwrap_or(OsStr::new(path));
     let name_str = name.to_string_lossy().to_string();
     let mut texture = Self::empty(
       device,
       allocator,
-      app_init,
+      with_setup_cb,
       name_str,
       size,
       format,
-      vk::ImageTiling::LINEAR, // TODO [HIGH] Optimal if you use temp buffer
-      vk::ImageUsageFlags::SAMPLED,
-      vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
-      vk::ImageLayout::PREINITIALIZED,
+      vk::ImageTiling::OPTIMAL,
+      vk::ImageUsageFlags::SAMPLED | vk::ImageUsageFlags::TRANSFER_DST,
+      vk::MemoryPropertyFlags::DEVICE_LOCAL,
+      vk::ImageLayout::TRANSFER_DST_OPTIMAL,
     );
 
-    // map image and copy content
-    texture.map_memory(allocator);
-    texture.write_to_mapped(&pixel_bytes);
-    texture.unmap_memory(allocator);
-
-    // change layout after write
-    texture.set_initial_image_layout(app_init, vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL);
-
+    Self::write_initial_data(device, allocator, with_setup_cb, &pixel_bytes, &texture);
+    texture.set_initial_image_layout(with_setup_cb, vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL);
     texture
   }
 
   pub fn from_data(
     device: &ash::Device,
     allocator: &vma::Allocator,
-    app_init: &impl WithSetupCmdBuffer,
+    with_setup_cb: &impl WithSetupCmdBuffer,
     name: String,
     size: vk::Extent2D,
     format: vk::Format,
@@ -191,25 +182,75 @@ impl VkTexture {
     let mut texture = Self::empty(
       device,
       allocator,
-      app_init,
+      with_setup_cb,
       name,
       size,
       format,
+      vk::ImageTiling::OPTIMAL,
+      vk::ImageUsageFlags::SAMPLED | vk::ImageUsageFlags::TRANSFER_DST,
+      vk::MemoryPropertyFlags::DEVICE_LOCAL,
+      vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+    );
+
+    Self::write_initial_data(device, allocator, with_setup_cb, data_bytes, &texture);
+    texture.set_initial_image_layout(with_setup_cb, vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL);
+    texture
+  }
+
+  fn write_initial_data(
+    device: &ash::Device,
+    allocator: &vma::Allocator,
+    with_setup_cb: &impl WithSetupCmdBuffer,
+    pixel_bytes: &Vec<u8>,
+    dst_texture: &VkTexture,
+  ) {
+    let mut scratch_texture = Self::empty(
+      device,
+      allocator,
+      with_setup_cb,
+      format!("{}-scratch-texture", dst_texture.name),
+      dst_texture.size(),
+      dst_texture.format,
       vk::ImageTiling::LINEAR,
-      vk::ImageUsageFlags::SAMPLED,
+      vk::ImageUsageFlags::SAMPLED | vk::ImageUsageFlags::TRANSFER_SRC,
       vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
-      vk::ImageLayout::PREINITIALIZED,
+      vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
     );
 
     // map image and copy content
-    texture.map_memory(allocator);
-    texture.write_to_mapped(&data_bytes);
-    texture.unmap_memory(allocator);
+    scratch_texture.map_memory(allocator);
+    scratch_texture.write_to_mapped(&pixel_bytes);
+    scratch_texture.unmap_memory(allocator);
+    with_setup_cb.with_setup_cb(|device, cb| unsafe {
+      let offset_zero = vk::Offset3D { x: 0, y: 0, z: 0 };
+      let subresources = vk::ImageSubresourceLayers {
+        aspect_mask: dst_texture.aspect_flags, // same for both
+        mip_level: 0,
+        base_array_layer: 0,
+        layer_count: 1,
+      };
+      let img_copy = ash::vk::ImageCopy::builder()
+        .src_offset(offset_zero)
+        .src_subresource(subresources)
+        .dst_offset(offset_zero)
+        .dst_subresource(subresources)
+        .extent(vk::Extent3D {
+          width: dst_texture.width,
+          height: dst_texture.height,
+          depth: 1,
+        })
+        .build();
+      device.cmd_copy_image(
+        cb,
+        scratch_texture.image,
+        scratch_texture.layout,
+        dst_texture.image,
+        dst_texture.layout,
+        &[img_copy],
+      );
+    });
 
-    // change layout after write
-    texture.set_initial_image_layout(app_init, vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL);
-
-    texture
+    unsafe { scratch_texture.delete(device, allocator) };
   }
 
   fn set_initial_image_layout(

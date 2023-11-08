@@ -122,13 +122,7 @@ impl SSAOPass {
   }
 
   pub fn create_result_texture(vk_app: &VkCtx, size: &vk::Extent2D, name: String) -> VkTexture {
-    let device = vk_app.vk_device();
-    let allocator = &vk_app.allocator;
-
-    VkTexture::empty(
-      device,
-      allocator,
-      vk_app,
+    vk_app.create_texture_empty(
       name,
       *size,
       Self::RESULT_TEXTURE_FORMAT,
@@ -312,11 +306,7 @@ fn create_random_sampling_texture(vk_app: &VkCtx, size_px: u32) -> VkTexture {
   };
 
   let data_bytes = create_random_sampling_texture_data(size);
-
-  VkTexture::from_data(
-    vk_app.vk_device(),
-    &vk_app.allocator,
-    vk_app,
+  vk_app.create_texture_from_data(
     "SSAOPass.noiseTexture".to_string(),
     size,
     NOISE_TEXTURE_FORMAT,
@@ -346,11 +336,9 @@ fn create_random_directions_kernel(vk_app: &VkCtx, count: u32) -> VkBuffer {
   });
 
   let data_bytes: &[u8] = bytemuck::cast_slice(&data[..]);
-  VkBuffer::from_data(
+  vk_app.create_buffer_from_data(
     "SSAOPass.rngKernel".to_string(),
     data_bytes,
     vk::BufferUsageFlags::UNIFORM_BUFFER,
-    &vk_app.allocator,
-    vk_app.device.queue_family_index,
   )
 }

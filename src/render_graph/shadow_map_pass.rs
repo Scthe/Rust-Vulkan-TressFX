@@ -201,16 +201,12 @@ impl ShadowMapPass {
     size_px: u32,
   ) -> ShadowMapPassFramebuffer {
     let device = vk_app.vk_device();
-    let allocator = &vk_app.allocator;
     let size = vk::Extent2D {
       width: size_px,
       height: size_px,
     };
 
-    let depth_tex = VkTexture::empty(
-      device,
-      allocator,
-      vk_app,
+    let depth_tex = vk_app.create_texture_empty(
       format!("ShadowMapPass.depth#{}", frame_id),
       size,
       DEPTH_TEXTURE_FORMAT,

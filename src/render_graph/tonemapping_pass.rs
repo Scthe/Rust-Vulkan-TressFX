@@ -107,12 +107,8 @@ impl TonemappingPass {
     size: &vk::Extent2D,
   ) -> TonemappingPassFramebuffer {
     let device = vk_app.vk_device();
-    let allocator = &vk_app.allocator;
 
-    let tonemapped_tex = VkTexture::empty(
-      device,
-      allocator,
-      vk_app,
+    let tonemapped_tex = vk_app.create_texture_empty(
       format!("TonemappingPass.tonemapped#{}", frame_id),
       *size,
       RESULT_TEXTURE_FORMAT,

@@ -1,7 +1,7 @@
 use ash::vk;
 use vma::Alloc;
 
-use super::{MemoryMapPointer, VkMemoryResource};
+use super::{MemoryMapPointer, VkMemoryResource, WithSetupCmdBuffer};
 
 /*
 https://gpuopen-librariesandsdks.github.io/VulkanMemoryAllocator/html/quick_start.html
@@ -32,11 +32,11 @@ impl VkBuffer {
   /// Allocate empty vulkan buffer
   /// * `mappable` - optimize for CPU mapping to copy CPU->GPU data
   pub fn empty(
+    allocator: &vma::Allocator,
+    queue_family: u32,
     name: String,
     size: usize,
     usage: vk::BufferUsageFlags,
-    allocator: &vma::Allocator,
-    queue_family: u32,
     mappable: bool,
   ) -> Self {
     let queue_family_indices = [queue_family];
@@ -62,36 +62,66 @@ impl VkBuffer {
         .expect(&format!("Failed allocating: {}", fmt_buf_name(&name, size)))
     };
 
-    Self {
+    let mut buffer = Self {
       name,
       size,
       buffer,
       allocation,
       mapped_pointer: None,
+    };
+    if mappable {
+      buffer.map_memory(allocator);
     }
+
+    buffer
   }
 
   /// Allocate vulkan buffer and fill it with data
   pub fn from_data(
+    allocator: &vma::Allocator,
+    queue_family: u32,
+    with_setup_cb: &impl WithSetupCmdBuffer,
     name: String,
     bytes: &[u8],
     usage: vk::BufferUsageFlags,
-    allocator: &vma::Allocator,
-    queue_family: u32,
   ) -> Self {
     let size = bytes.len();
-    let mut buffer = VkBuffer::empty(name, size, usage, allocator, queue_family, true);
 
-    // TODO [HIGH] create temp buffer with `vk::BufferUsageFlags::TRANSFER_SRC`, like in
-    // `kajiya-main\crates\lib\kajiya-backend\src\vulkan\buffer.rs`:134
-    // Requires 'setup command pool' (.with_setup_cb(|cb| { ... })) for cmd_copy_buffer
-    // https://vulkan-tutorial.com/Texture_mapping/Images#page_Layout-transitions - also used for images
-
+    // create CPU-mapped scratch buffer and later trasfer data to the final GPU-only buffer.
+    // It's a performance optimization
+    let mut scratch_buffer = VkBuffer::empty(
+      allocator,
+      queue_family,
+      format!("{}-scratch-buffer", name),
+      size,
+      vk::BufferUsageFlags::TRANSFER_SRC,
+      true,
+    );
     // map buffer and copy content
-    buffer.map_memory(allocator);
-    buffer.write_to_mapped(bytes);
-    buffer.unmap_memory(allocator);
+    scratch_buffer.map_memory(allocator);
+    scratch_buffer.write_to_mapped(bytes);
+    scratch_buffer.unmap_memory(allocator);
 
+    // create final buffer and transfer the content
+    let buffer = VkBuffer::empty(
+      allocator,
+      queue_family,
+      name,
+      size,
+      usage | vk::BufferUsageFlags::TRANSFER_DST,
+      false,
+    );
+    with_setup_cb.with_setup_cb(|device, cb| unsafe {
+      let mem_region = ash::vk::BufferCopy::builder()
+        .dst_offset(0)
+        .src_offset(0)
+        .size(size as u64)
+        .build();
+      device.cmd_copy_buffer(cb, scratch_buffer.buffer, buffer.buffer, &[mem_region]);
+    });
+
+    // cleanup tmp buffer
+    unsafe { scratch_buffer.delete(allocator) };
     buffer
   }
 

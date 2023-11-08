@@ -54,26 +54,15 @@ pub fn load_scene(vk_ctx: &VkCtx, config: &Config) -> World {
 }
 
 fn load_sintel(vk_ctx: &VkCtx, model_matrix: Mat4) -> WorldEntity {
-  let device = vk_ctx.vk_device();
-
-  let tex_diffuse = VkTexture::from_file(
-    device,
-    &vk_ctx.allocator,
-    vk_ctx,
+  let tex_diffuse = vk_ctx.create_texture_from_file(
     Path::new("./assets/sintel_lite_v2_1/textures/sintel_skin_diff.jpg"),
     vk::Format::R8G8B8A8_SRGB,
   );
-  let specular_tex = VkTexture::from_file(
-    device,
-    &vk_ctx.allocator,
-    vk_ctx,
+  let specular_tex = vk_ctx.create_texture_from_file(
     Path::new("./assets/sintel_lite_v2_1/textures/sintel_skin_spec.jpg"),
     VkTexture::RAW_DATA_TEXTURE_FORMAT,
   );
-  let hair_shadow_tex = VkTexture::from_file(
-    device,
-    &vk_ctx.allocator,
-    vk_ctx,
+  let hair_shadow_tex = vk_ctx.create_texture_from_file(
     Path::new("./assets/sintel_lite_v2_1/textures/sintel_hair_shadow.jpg"),
     VkTexture::RAW_DATA_TEXTURE_FORMAT,
   );
@@ -99,12 +88,7 @@ fn load_sintel(vk_ctx: &VkCtx, model_matrix: Mat4) -> WorldEntity {
 }
 
 fn load_sintel_eyes(vk_ctx: &VkCtx, model_matrix: Mat4) -> WorldEntity {
-  let device = vk_ctx.vk_device();
-
-  let tex_diffuse = VkTexture::from_file(
-    device,
-    &vk_ctx.allocator,
-    vk_ctx,
+  let tex_diffuse = vk_ctx.create_texture_from_file(
     Path::new("./assets/sintel_lite_v2_1/textures/sintel_eyeball_diff.jpg"),
     vk::Format::R8G8B8A8_SRGB,
   );
@@ -185,23 +169,19 @@ fn load_obj_mesh(
 
   // allocate
   let vertices_bytes = bytemuck::cast_slice(&vertices);
-  let vertex_buffer = VkBuffer::from_data(
+  let vertex_buffer = vk_ctx.create_buffer_from_data(
     format!("{}_VertexBuffer", object.name),
     vertices_bytes,
     vk::BufferUsageFlags::VERTEX_BUFFER,
-    &vk_ctx.allocator,
-    vk_ctx.device.queue_family_index,
   );
 
   // index buffer
   let indices = &mesh.indices;
   let indices_bytes = bytemuck::cast_slice(&indices);
-  let index_buffer = VkBuffer::from_data(
+  let index_buffer = vk_ctx.create_buffer_from_data(
     format!("{}_IndexBuffer", object.name),
     indices_bytes,
     vk::BufferUsageFlags::INDEX_BUFFER,
-    &vk_ctx.allocator,
-    vk_ctx.device.queue_family_index,
   );
 
   let mesh = Mesh {

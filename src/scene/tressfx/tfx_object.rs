@@ -242,12 +242,10 @@ fn create_index_buffer(vk_ctx: &VkCtx, name: &str, data: &TfxFileData) -> (VkBuf
   }
 
   let bytes = bytemuck::cast_slice(&idx_data);
-  let buffer = VkBuffer::from_data(
+  let buffer = vk_ctx.create_buffer_from_data(
     format!("{}.tfx_tangents", name),
     bytes,
     vk::BufferUsageFlags::INDEX_BUFFER,
-    &vk_ctx.allocator,
-    vk_ctx.device.queue_family_index,
   );
   let triangle_cnt: u32 = (vert_idx / 3) as _;
   (buffer, triangle_cnt)
@@ -255,29 +253,17 @@ fn create_index_buffer(vk_ctx: &VkCtx, name: &str, data: &TfxFileData) -> (VkBuf
 
 fn create_buffer_from_float_vec(vk_ctx: &VkCtx, name: String, data: &Vec<f32>) -> VkBuffer {
   let bytes = bytemuck::cast_slice(&data);
-  VkBuffer::from_data(
-    name,
-    bytes,
-    vk::BufferUsageFlags::STORAGE_BUFFER,
-    &vk_ctx.allocator,
-    vk_ctx.device.queue_family_index,
-  )
+  vk_ctx.create_buffer_from_data(name, bytes, vk::BufferUsageFlags::STORAGE_BUFFER)
 }
 
 fn allocate_params_ubo(vk_ctx: &VkCtx, name: &str, frame_idx: usize) -> VkBuffer {
-  let allocator = &vk_ctx.allocator;
   let size = size_of::<TfxParamsUBO>() as _;
-
-  let mut buffer = VkBuffer::empty(
+  vk_ctx.create_buffer_empty(
     format!("{}.params_ubo#{}", name, frame_idx),
     size,
     vk::BufferUsageFlags::UNIFORM_BUFFER,
-    allocator,
-    vk_ctx.device.queue_family_index,
     true,
-  );
-  buffer.map_memory(allocator); // always mapped
-  buffer
+  )
 }
 
 pub fn allocate_params_ubo_vec(vk_ctx: &VkCtx, name: &str) -> Vec<VkBuffer> {
