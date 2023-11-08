@@ -19,6 +19,39 @@ unsafe impl bytemuck::Zeroable for RenderableVertex {}
 unsafe impl bytemuck::Pod for RenderableVertex {}
 
 impl RenderableVertex {
+  const BINDINGS_DESC: [vk::VertexInputBindingDescription; 1] =
+    [vk::VertexInputBindingDescription {
+      binding: 0,
+      input_rate: vk::VertexInputRate::VERTEX,
+      stride: std::mem::size_of::<RenderableVertex>() as u32,
+    }];
+
+  const ATTRIBUTES_DESC: [vk::VertexInputAttributeDescription; 3] = [
+    // position
+    vk::VertexInputAttributeDescription {
+      binding: 0,
+      location: 0,
+      format: vk::Format::R32G32B32_SFLOAT,
+      offset: 0, // offsetof(RenderableVertex, pos),
+    },
+    // normal
+    vk::VertexInputAttributeDescription {
+      binding: 0,
+      location: 1,
+      format: vk::Format::R32G32B32_SFLOAT,
+      // offsetted by 'position' from beginning of structure
+      offset: std::mem::size_of::<Vec3>() as u32,
+    },
+    // uv
+    vk::VertexInputAttributeDescription {
+      binding: 0,
+      location: 2,
+      format: vk::Format::R32G32_SFLOAT,
+      // offsetted by 'position' and 'normal' from beginning of structure
+      offset: 2 * std::mem::size_of::<Vec3>() as u32,
+    },
+  ];
+
   #[allow(dead_code)]
   pub fn new(pos: (f32, f32, f32), n: (f32, f32, f32), uv: (f32, f32)) -> RenderableVertex {
     RenderableVertex {
@@ -28,39 +61,10 @@ impl RenderableVertex {
     }
   }
 
-  pub fn get_bindings_descriptions() -> [vk::VertexInputBindingDescription; 1] {
-    [vk::VertexInputBindingDescription {
-      binding: 0,
-      input_rate: vk::VertexInputRate::VERTEX,
-      stride: std::mem::size_of::<RenderableVertex>() as u32,
-    }]
-  }
-
-  pub fn get_attributes_descriptions() -> [vk::VertexInputAttributeDescription; 3] {
-    [
-      // position
-      vk::VertexInputAttributeDescription {
-        binding: 0,
-        location: 0,
-        format: vk::Format::R32G32B32_SFLOAT,
-        offset: 0, // offsetof(RenderableVertex, pos),
-      },
-      // normal
-      vk::VertexInputAttributeDescription {
-        binding: 0,
-        location: 1,
-        format: vk::Format::R32G32B32_SFLOAT,
-        // offsetted by 'position' from beginning of structure
-        offset: std::mem::size_of::<Vec3>() as u32,
-      },
-      // uv
-      vk::VertexInputAttributeDescription {
-        binding: 0,
-        location: 2,
-        format: vk::Format::R32G32_SFLOAT,
-        // offsetted by 'position' and 'normal' from beginning of structure
-        offset: 2 * std::mem::size_of::<Vec3>() as u32,
-      },
-    ]
+  pub fn get_vertex_description() -> vk::PipelineVertexInputStateCreateInfo {
+    vk::PipelineVertexInputStateCreateInfo::builder()
+      .vertex_attribute_descriptions(&Self::ATTRIBUTES_DESC)
+      .vertex_binding_descriptions(&Self::BINDINGS_DESC)
+      .build()
   }
 }

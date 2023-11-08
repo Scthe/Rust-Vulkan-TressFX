@@ -151,10 +151,7 @@ impl ForwardPass {
     render_pass: &vk::RenderPass,
     pipeline_layout: &vk::PipelineLayout,
   ) -> vk::Pipeline {
-    let vertex_desc = vk::PipelineVertexInputStateCreateInfo::builder()
-      .vertex_attribute_descriptions(&RenderableVertex::get_attributes_descriptions())
-      .vertex_binding_descriptions(&RenderableVertex::get_bindings_descriptions())
-      .build();
+    let vertex_desc = RenderableVertex::get_vertex_description();
 
     create_pipeline_with_defaults(
       device,
