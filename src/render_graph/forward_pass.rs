@@ -331,28 +331,14 @@ impl ForwardPass {
       &mut [shadow_map_texture, sss_depth_texture, ao_texture],
     );
 
-    let diffuse_barrier = framebuffer
-      .diffuse_tex
-      .barrier_prepare_attachment_for_write();
-    let normal_barrier = framebuffer
-      .normals_tex
-      .barrier_prepare_attachment_for_write();
-    let depth_barrier = framebuffer
-      .depth_stencil_tex
-      .barrier_prepare_attachment_for_write();
-
-    device.cmd_pipeline_barrier(
+    VkTexture::cmd_transition_attachments_for_write_barrier(
+      device,
       *command_buffer,
-      // wait for previous use in:
-      vk::PipelineStageFlags::FRAGMENT_SHADER,
-      // before we: execute depth test or write output
-      vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS
-        | vk::PipelineStageFlags::LATE_FRAGMENT_TESTS
-        | vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
-      vk::DependencyFlags::empty(),
-      &[],
-      &[],
-      &[depth_barrier, diffuse_barrier, normal_barrier],
+      &mut [
+        &mut framebuffer.diffuse_tex,
+        &mut framebuffer.normals_tex,
+        &mut framebuffer.depth_stencil_tex,
+      ],
     );
   }
 

@@ -343,23 +343,10 @@ impl TfxPpllBuildPass {
     command_buffer: &vk::CommandBuffer,
     depth_stencil_tex: &mut VkTexture, // write
   ) {
-    let depth_barrier = depth_stencil_tex.barrier_prepare_attachment_for_write();
-    device.cmd_pipeline_barrier(
+    VkTexture::cmd_transition_attachments_for_write_barrier(
+      device,
       *command_buffer,
-      // wait for previous use in:
-      vk::PipelineStageFlags::FRAGMENT_SHADER
-        | vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS
-        | vk::PipelineStageFlags::LATE_FRAGMENT_TESTS
-        | vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
-      // before we: execute depth test or write output
-      vk::PipelineStageFlags::FRAGMENT_SHADER
-        | vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS
-        | vk::PipelineStageFlags::LATE_FRAGMENT_TESTS
-        | vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
-      vk::DependencyFlags::empty(),
-      &[],
-      &[],
-      &[depth_barrier],
+      &mut [depth_stencil_tex],
     );
   }
 

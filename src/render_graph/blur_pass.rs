@@ -233,17 +233,10 @@ impl BlurPass {
       &mut [color_source_tex, linear_depth_tex],
     );
 
-    let result_barrier = result_tex.barrier_prepare_attachment_for_write(); // we use stencil
-    device.cmd_pipeline_barrier(
+    VkTexture::cmd_transition_attachments_for_write_barrier(
+      device,
       *command_buffer,
-      // wait for previous use in:
-      vk::PipelineStageFlags::FRAGMENT_SHADER,
-      // before we: write output
-      vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
-      vk::DependencyFlags::empty(),
-      &[],
-      &[],
-      &[result_barrier],
+      &mut [result_tex],
     );
   }
 

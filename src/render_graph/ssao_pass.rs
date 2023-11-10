@@ -216,17 +216,10 @@ impl SSAOPass {
       &mut [depth_stencil_tex, normals_tex],
     );
 
-    let result_barrier = framebuffer.ssao_tex.barrier_prepare_attachment_for_write();
-    device.cmd_pipeline_barrier(
+    VkTexture::cmd_transition_attachments_for_write_barrier(
+      device,
       *command_buffer,
-      // wait for previous use in:
-      vk::PipelineStageFlags::FRAGMENT_SHADER,
-      // before we: write
-      vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
-      vk::DependencyFlags::empty(),
-      &[],
-      &[],
-      &[result_barrier],
+      &mut [&mut framebuffer.ssao_tex],
     );
   }
 

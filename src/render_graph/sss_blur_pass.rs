@@ -263,22 +263,10 @@ impl SSSBlurPass {
       &mut [color_source_tex, linear_depth_tex],
     );
 
-    let depth_barrier = depth_stencil_tex.barrier_prepare_attachment_for_write();
-    let result_barrier = result_tex.barrier_prepare_attachment_for_write(); // we use stencil
-    device.cmd_pipeline_barrier(
+    VkTexture::cmd_transition_attachments_for_write_barrier(
+      device,
       *command_buffer,
-      // wait for previous use in:
-      vk::PipelineStageFlags::FRAGMENT_SHADER
-        | vk::PipelineStageFlags::LATE_FRAGMENT_TESTS
-        | vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS,
-      // before we: execute stencil test or write output
-      vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS
-        | vk::PipelineStageFlags::LATE_FRAGMENT_TESTS
-        | vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
-      vk::DependencyFlags::empty(),
-      &[],
-      &[],
-      &[result_barrier, depth_barrier],
+      &mut [depth_stencil_tex, result_tex],
     );
   }
 
