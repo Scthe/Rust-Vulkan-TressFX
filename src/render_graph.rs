@@ -20,7 +20,6 @@ mod shadow_map_pass;
 mod ssao_pass;
 mod sss_blur_pass;
 mod sss_depth_pass;
-mod tfx_forward_pass;
 mod tfx_render;
 mod tonemapping_pass;
 
@@ -32,8 +31,7 @@ use self::shadow_map_pass::ShadowMapPass;
 use self::ssao_pass::SSAOPass;
 use self::sss_blur_pass::SSSBlurPass;
 use self::sss_depth_pass::SSSDepthPass;
-use self::tfx_forward_pass::TfxForwardPass;
-use self::tfx_render::{TfxPpllBuildPass, TfxPpllResolvePass};
+use self::tfx_render::{TfxForwardPass, TfxPpllBuildPass, TfxPpllResolvePass};
 use self::tonemapping_pass::TonemappingPass;
 use self::{_shared::GlobalConfigUBO, present_pass::PresentPass};
 

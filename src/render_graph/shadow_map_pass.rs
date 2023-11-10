@@ -6,7 +6,7 @@ use glam::{vec4, Mat4, Vec3, Vec4};
 use log::info;
 
 use crate::config::ShadowSourceCfg;
-use crate::render_graph::tfx_forward_pass::TfxForwardPass;
+use crate::render_graph::tfx_render::TfxForwardPass;
 use crate::scene::{Camera, TfxObject};
 use crate::vk_ctx::VkCtx;
 use crate::vk_utils::*;

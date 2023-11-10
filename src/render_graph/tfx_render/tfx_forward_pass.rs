@@ -6,8 +6,8 @@ use crate::scene::TfxObject;
 use crate::vk_ctx::VkCtx;
 use crate::vk_utils::*;
 
-use super::forward_pass::{ForwardPass, ForwardPassFramebuffer};
-use super::PassExecContext;
+use crate::render_graph::forward_pass::{ForwardPass, ForwardPassFramebuffer};
+use crate::render_graph::PassExecContext;
 
 const SHADER_PATHS: (&str, &str) = (
   "./assets/shaders-compiled/tfx_forward.vert.spv",
