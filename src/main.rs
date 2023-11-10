@@ -22,9 +22,6 @@ mod utils;
 mod vk_ctx;
 mod vk_utils;
 
-// glslangValidator.exe -V src/shaders/triangle.frag.glsl src/shaders/triangle.vert.glsl
-// spirv-dis.exe vert.spv
-
 fn main() {
   simple_logger::SimpleLogger::new()
     .with_module_level("imgui_rs_vulkan_renderer", log::LevelFilter::Debug)

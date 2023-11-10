@@ -23,7 +23,7 @@ uniform sampler2D u_linearDepthTex;
 
 //@import _config_ubo;
 //@import _utils;
-//@import _fxaa;
+//@import postfx/_fxaa;
 
 
 layout(location = 0) in vec2 v_position;

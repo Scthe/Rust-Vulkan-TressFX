@@ -13,8 +13,8 @@ const BINDING_INDEX_SCENE_DEPTH: u32 = 1;
 const RESULT_TEXTURE_FORMAT: vk::Format = vk::Format::R32_SFLOAT;
 const COLOR_ATTACHMENT_COUNT: usize = 1;
 const SHADER_PATHS: (&str, &str) = (
-  "./assets/shaders-compiled/fullscreenQuad.vert.spv",
-  "./assets/shaders-compiled/linearDepth.frag.spv",
+  "./assets/shaders-compiled/fullscreen_quad.vert.spv",
+  "./assets/shaders-compiled/linear_depth.frag.spv",
 );
 
 /// Used as precomputed value (in [-z_near, -z_far] range). Sometimes we need

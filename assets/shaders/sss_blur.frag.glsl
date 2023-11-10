@@ -30,7 +30,7 @@ float SSSSS_sampleDepthLinear (sampler2D depthTex, vec2 texcoord) {
 }
 
 #define SSSS_GLSL_3 1
-//@import ./_separableSSSSS;
+//@import ./materials/_separableSSSSS;
 
 
 void main() {

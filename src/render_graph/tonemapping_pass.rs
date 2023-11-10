@@ -14,7 +14,7 @@ const BINDING_INDEX_PREVIOUS_RESULT: u32 = 1;
 const RESULT_TEXTURE_FORMAT: vk::Format = vk::Format::R32G32B32A32_SFLOAT;
 const COLOR_ATTACHMENT_COUNT: usize = 1;
 const SHADER_PATHS: (&str, &str) = (
-  "./assets/shaders-compiled/fullscreenQuad.vert.spv",
+  "./assets/shaders-compiled/fullscreen_quad.vert.spv",
   "./assets/shaders-compiled/tonemapping.frag.spv",
 );
 

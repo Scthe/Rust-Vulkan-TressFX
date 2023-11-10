@@ -18,8 +18,8 @@ const BINDING_INDEX_DEPTH: u32 = 2;
 
 const COLOR_ATTACHMENT_COUNT: usize = 1;
 const SHADER_PATHS: (&str, &str) = (
-  "./assets/shaders-compiled/fullscreenQuad.vert.spv",
-  "./assets/shaders-compiled/sssBlur.frag.spv",
+  "./assets/shaders-compiled/fullscreen_quad.vert.spv",
+  "./assets/shaders-compiled/sss_blur.frag.spv",
 );
 
 /// Blur SSS, so a blur, but with a special per-channel profile.

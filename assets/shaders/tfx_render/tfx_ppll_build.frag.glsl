@@ -4,9 +4,9 @@
 #define PPLL_HEAD_POINTERS_IMAGE_BINDING 4
 #define PPLL_DATA_BUFFER_BINDING 5
 
-//@import ../_utils.glsl;
-//@import _tfx_ppll_shared.glsl;
-//@ import TressFXRendering.coverage.glsl;
+//@import ../_utils;
+//@import _tfx_ppll_shared;
+//@ import TressFXRendering.coverage;
 
 layout(location = 0) in vec4 v_position;
 layout(location = 1) in vec4 v_tangent;

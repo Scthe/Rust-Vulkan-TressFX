@@ -10,8 +10,8 @@
 #define PPLL_HEAD_POINTERS_IMAGE_BINDING 0
 #define PPLL_DATA_BUFFER_BINDING 1
 
-//@import _tfx_ppll_shared.glsl;
-//@ import _tfx_ppll_resolve_impl.glsl
+//@import _tfx_ppll_shared;
+//@ import _tfx_ppll_resolve_impl;
 
 
 // uniform vec3 g_vEye;

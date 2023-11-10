@@ -13,9 +13,9 @@ layout(location = 0) out vec4 outColor;
 
 //@import ./_config_ubo;
 //@import ./_utils;
-//@import ./_dither;
-//@import ./_tonemappers;
-//@import ./_colorGrading;
+//@import ./postfx/_dither;
+//@import ./postfx/_tonemappers;
+//@import ./postfx/_color_grading;
 
 const uint TONEMAP_LINEAR = 0;
 const uint TONEMAP_REINHARD = 1;

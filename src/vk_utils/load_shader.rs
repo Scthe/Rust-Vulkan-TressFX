@@ -8,8 +8,11 @@ use ash::vk;
 
 // https://github.com/zeux/niagara/blob/master/src/shaders.cpp
 
+const EXPECTED_EXTENSION: &str = "spv";
+
 fn load_shader_module(device: &ash::Device, path: &std::path::Path) -> vk::ShaderModule {
   trace!("Loading shader from {}", path.to_string_lossy());
+  check_extension(path);
 
   let mut file =
     std::fs::File::open(path).expect(&format!("Could not open file '{}'", path.to_string_lossy()));
@@ -71,4 +74,15 @@ pub fn load_render_shaders(
     std::path::Path::new(fragment_shader_path),
   );
   (module_vs, stage_vs, module_fs, stage_fs)
+}
+
+fn check_extension(path: &std::path::Path) {
+  match path.extension() {
+    Some(e) if e == EXPECTED_EXTENSION => (),
+    _ => panic!(
+      "Invalid extension for '{}', expected '{}'",
+      path.to_string_lossy(),
+      EXPECTED_EXTENSION
+    ),
+  }
 }

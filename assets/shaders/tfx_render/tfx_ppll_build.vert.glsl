@@ -5,9 +5,9 @@
 #define PPLL_DATA_BUFFER_BINDING 5
 
 //@import ../_config_ubo;
-//@import ../_tressFXParams_ubo;
 //@import ../_utils;
-//@import ../_tressFX.vert;
+//@import ./_tfx_params_ubo;
+//@import ./_tfx_vertex_resolve;
 
 
 layout(location = 0) out vec4 v_position; // position world space

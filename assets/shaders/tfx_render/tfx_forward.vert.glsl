@@ -11,10 +11,10 @@ layout(location = 4) out vec3 v_tangent;
 layout(location = 5) out vec4 v_positionLightShadowSpace;
 
 
-//@import ./_config_ubo;
-//@import ./_tressFXParams_ubo;
-//@import ./_utils;
-//@import ./_tressFX.vert;
+//@import ../_config_ubo;
+//@import ../_utils;
+//@import ./_tfx_params_ubo;
+//@import ./_tfx_vertex_resolve;
 
 
 

@@ -37,11 +37,11 @@ float SSSSS_sampleDepthLinear (sampler2D depthTex, vec2 texcoord) {
 
 
 //@import ./_utils;
-//@import ./_material;
-//@import ./_pbr;
-//@import ./_shadows;
+//@import ./materials/_material;
+//@import ./materials/_pbr;
+//@import ./materials/_shadows;
 #define SSSS_GLSL_3 1
-//@import ./_separableSSSSS;
+//@import ./materials/_separableSSSSS;
 //@i mport ./_skin; // not imported even in WebFx?
 
 

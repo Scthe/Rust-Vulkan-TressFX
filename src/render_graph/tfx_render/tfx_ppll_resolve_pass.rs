@@ -10,7 +10,7 @@ use crate::vk_utils::*;
 use crate::render_graph::PassExecContext;
 
 const SHADER_PATHS: (&str, &str) = (
-  "./assets/shaders-compiled/fullscreenQuad.vert.spv",
+  "./assets/shaders-compiled/fullscreen_quad.vert.spv",
   "./assets/shaders-compiled/tfx_ppll_resolve.frag.spv",
 );
 
