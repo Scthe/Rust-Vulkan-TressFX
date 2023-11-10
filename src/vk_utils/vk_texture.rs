@@ -259,16 +259,24 @@ impl VkTexture {
     target_layout: vk::ImageLayout,
   ) {
     self.trace_log_layout_transition("[INIT]", target_layout);
-    let barrier = self.barrier_prepare_for_layout_transition(
-      target_layout,
-      vk::AccessFlags::HOST_WRITE, // src_access_mask
-      vk::AccessFlags::empty(),    // dst_access_mask
-    );
 
+    // default, cause that's how we use `set_initial_image_layout`
+    let mut src_access_mask = vk::AccessFlags::HOST_WRITE;
     // https://vulkan-tutorial.com/Texture_mapping/Images#page_Transition-barrier-masks
     // as early as possible
-    let source_stage = vk::PipelineStageFlags::HOST;
+    let mut source_stage = vk::PipelineStageFlags::HOST;
     let destination_stage = vk::PipelineStageFlags::TOP_OF_PIPE;
+
+    if self.layout == vk::ImageLayout::TRANSFER_DST_OPTIMAL {
+      src_access_mask = vk::AccessFlags::TRANSFER_WRITE;
+      source_stage = vk::PipelineStageFlags::TRANSFER;
+    };
+
+    let barrier = self.barrier_prepare_for_layout_transition(
+      target_layout,
+      src_access_mask,          // src_access_mask
+      vk::AccessFlags::empty(), // dst_access_mask
+    );
 
     app_init.with_setup_cb(|device, cmd_buf| {
       unsafe {
@@ -316,6 +324,9 @@ impl VkTexture {
   /// * `dst_access_mask` - op we will do e.g. `COLOR_ATTACHMENT_READ`
   ///
   /// TODO [???] return Option if layout already matches? What if we want barrier with no layout change (Read-After-Read?)
+  /// TODO create wrapped `cmd_texture_layout_barrier_read(&[&VkTexture]); it auto checks if there are color/depth textures and adjust the PipelineStageFlags`
+  /// TODO move all sync code to `vk_texture_sync.rs`
+  /// TODO https://github.com/Tobski/simple_vulkan_synchronization/blob/main/thsvs_simpler_vulkan_synchronization.h
   pub fn barrier_prepare_for_layout_transition(
     &mut self,
     new_layout: vk::ImageLayout,
