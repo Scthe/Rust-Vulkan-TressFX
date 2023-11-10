@@ -276,33 +276,17 @@ impl PresentPass {
     shadow_map_texture: &mut VkTexture,
     linear_depth_texture: &mut VkTexture,
   ) {
-    let forward_barrier = forward_pass_result.barrier_prepare_attachment_for_shader_read();
-    let tonemapped_barrier = tonemapped_result.barrier_prepare_attachment_for_shader_read();
-    let normals_barrier = normals_texture.barrier_prepare_attachment_for_shader_read();
-    let ssao_barrier = ssao_texture.barrier_prepare_attachment_for_shader_read();
-    let depth_barrier = depth_texture.barrier_prepare_attachment_for_shader_read();
-    let shadow_map_barrier = shadow_map_texture.barrier_prepare_attachment_for_shader_read();
-    let linear_depth_barrier = linear_depth_texture.barrier_prepare_attachment_for_shader_read();
-
-    device.cmd_pipeline_barrier(
+    VkTexture::cmd_transition_attachments_for_read_barrier(
+      device,
       *command_buffer,
-      // wait for previous use in:
-      vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT
-        | vk::PipelineStageFlags::LATE_FRAGMENT_TESTS
-        | vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS,
-      // before we: execute fragment shader
-      vk::PipelineStageFlags::FRAGMENT_SHADER,
-      vk::DependencyFlags::empty(),
-      &[],
-      &[],
-      &[
-        tonemapped_barrier,
-        forward_barrier,
-        normals_barrier,
-        ssao_barrier,
-        depth_barrier,
-        shadow_map_barrier,
-        linear_depth_barrier,
+      &mut [
+        forward_pass_result,
+        tonemapped_result,
+        normals_texture,
+        ssao_texture,
+        depth_texture,
+        shadow_map_texture,
+        linear_depth_texture,
       ],
     );
   }

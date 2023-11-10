@@ -8,11 +8,7 @@ use crate::vk_utils::create_image_barrier;
 use super::VkMemoryResource;
 use super::VkTexture;
 
-/*
-TODO create wrapped `cmd_texture_layout_barrier_read(&[&VkTexture]);` or `cmd_transition_attachment_for_read(&[&VkTexture])`
-     it auto checks if there are color/depth textures and adjust the PipelineStageFlags
-TODO https://github.com/Tobski/simple_vulkan_synchronization/blob/main/thsvs_simpler_vulkan_synchronization.h
-*/
+// https://github.com/Tobski/simple_vulkan_synchronization/blob/main/thsvs_simpler_vulkan_synchronization.h
 
 const DEBUG_LAYOUT_TRANSITIONS: bool = false;
 
@@ -68,7 +64,7 @@ impl VkTexture {
       self.barrier_prepare_for_layout_transition(
         vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
         vk::AccessFlags::COLOR_ATTACHMENT_WRITE, // prev op
-        vk::AccessFlags::SHADER_READ | vk::AccessFlags::INPUT_ATTACHMENT_READ, // our op
+        vk::AccessFlags::SHADER_READ, //| vk::AccessFlags::INPUT_ATTACHMENT_READ (subpass only?), // our op
       )
     } else if self.is_depth_stencil() {
       self.barrier_prepare_for_layout_transition(
@@ -122,4 +118,69 @@ impl VkTexture {
       );
     }
   }
+
+  /// Most common layout transition between passes are attachment `read->write` or `write->read`.
+  ///
+  /// Util to wrap the barrier code to make the attachments **READABLE IN FRAGMENT SHADER**
+  /// (no depth/stencil test).
+  pub unsafe fn cmd_transition_attachments_for_read_barrier(
+    device: &ash::Device,
+    command_buffer: vk::CommandBuffer,
+    attachments: &mut [&mut VkTexture],
+  ) {
+    let mut prev_op_stage = vk::PipelineStageFlags::empty();
+    let mut current_op_stage = vk::PipelineStageFlags::FRAGMENT_SHADER;
+
+    let barriers = attachments
+      .iter_mut()
+      .map(|attchmt| {
+        let (prev_stage_tex, curr_stage_tex) = get_pipeline_stages_for_read(attchmt);
+        prev_op_stage |= prev_stage_tex;
+        current_op_stage |= curr_stage_tex;
+        attchmt.barrier_prepare_attachment_for_shader_read()
+      })
+      .collect::<Vec<_>>();
+
+    device.cmd_pipeline_barrier(
+      command_buffer,
+      // wait for previous use in:
+      prev_op_stage,
+      // before we: execute fragment shader / depth test
+      current_op_stage,
+      vk::DependencyFlags::empty(),
+      &[],
+      &[],
+      &barriers,
+    );
+  }
+}
+
+/// https://docs.vulkan.org/spec/latest/chapters/synchronization.html#synchronization-pipeline-stages-order
+///
+/// @return `(src_stage_mask/prev_op_stage, dst_stage_mask/current_op_stage)` depending on color/depth/stencil aspect.
+fn get_pipeline_stages_for_read(
+  texture: &VkTexture,
+) -> (vk::PipelineStageFlags, vk::PipelineStageFlags) {
+  if texture.is_color() {
+    return (
+      // wait for:
+      vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
+      // before we:
+      vk::PipelineStageFlags::FRAGMENT_SHADER,
+    );
+  }
+  if texture.is_depth() || texture.is_depth_stencil() {
+    // We do not know if previous/current passes used early depth stencil test, so both flags here. Suboptimal..
+    return (
+      // wait for:
+      vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS | vk::PipelineStageFlags::LATE_FRAGMENT_TESTS, // also includes store ops
+      // before we:
+      vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS | vk::PipelineStageFlags::LATE_FRAGMENT_TESTS,
+    );
+  }
+
+  panic!(
+    "Could not determine layout transtion PipelineStageFlags for '{:?}'",
+    texture.aspect_flags
+  )
 }

@@ -166,21 +166,10 @@ impl TfxForwardPass {
     shadow_map_texture: &mut VkTexture,
     ao_texture: &mut VkTexture,
   ) {
-    let shadow_map_barrier = shadow_map_texture.barrier_prepare_attachment_for_shader_read();
-    let ao_barrier = ao_texture.barrier_prepare_attachment_for_shader_read();
-
-    device.cmd_pipeline_barrier(
+    VkTexture::cmd_transition_attachments_for_read_barrier(
+      device,
       *command_buffer,
-      // wait for previous use in:
-      vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT
-        | vk::PipelineStageFlags::LATE_FRAGMENT_TESTS
-        | vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS,
-      // before we: execute fragment shader
-      vk::PipelineStageFlags::FRAGMENT_SHADER,
-      vk::DependencyFlags::empty(),
-      &[],
-      &[],
-      &[shadow_map_barrier, ao_barrier],
+      &mut [shadow_map_texture, ao_texture],
     );
 
     let diffuse_barrier = framebuffer

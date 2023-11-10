@@ -176,19 +176,10 @@ impl LinearDepthPass {
     framebuffer: &mut LinearDepthPassFramebuffer,
     depth_stencil_tex: &mut VkTexture,
   ) {
-    let depth_barrier = depth_stencil_tex.barrier_prepare_attachment_for_shader_read();
-    device.cmd_pipeline_barrier(
+    VkTexture::cmd_transition_attachments_for_read_barrier(
+      device,
       *command_buffer,
-      // wait for previous use in:
-      vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT
-        | vk::PipelineStageFlags::LATE_FRAGMENT_TESTS
-        | vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS,
-      // before we: execute fragment shader
-      vk::PipelineStageFlags::FRAGMENT_SHADER,
-      vk::DependencyFlags::empty(),
-      &[],
-      &[],
-      &[depth_barrier],
+      &mut [depth_stencil_tex],
     );
 
     let result_barrier = framebuffer

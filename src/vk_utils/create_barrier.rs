@@ -3,6 +3,7 @@ use ash::vk;
 
 /*
 https://docs.vulkan.org/spec/latest/chapters/synchronization.html#synchronization-global-memory-barriers
+https://docs.vulkan.org/spec/latest/chapters/synchronization.html#synchronization-pipeline-stages-order - pipeline stages implicit order
 https://www.reddit.com/r/vulkan/comments/8y5g6g/usage_of_vkevents/
 https://github.com/SaschaWillems/Vulkan/blob/master/examples/deferred/deferred.cpp#L447
 https://gpuopen.com/learn/vulkan-barriers-explained/

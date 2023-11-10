@@ -257,18 +257,10 @@ impl SSSBlurPass {
     color_source_tex: &mut VkTexture,  // read
     linear_depth_tex: &mut VkTexture,  // read
   ) {
-    let source_barrier = color_source_tex.barrier_prepare_attachment_for_shader_read();
-    let linear_depth_barrier = linear_depth_tex.barrier_prepare_attachment_for_shader_read();
-    device.cmd_pipeline_barrier(
+    VkTexture::cmd_transition_attachments_for_read_barrier(
+      device,
       *command_buffer,
-      // wait for previous use in:
-      vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
-      // before we: execute fragment shader
-      vk::PipelineStageFlags::FRAGMENT_SHADER,
-      vk::DependencyFlags::empty(),
-      &[],
-      &[],
-      &[linear_depth_barrier, source_barrier],
+      &mut [color_source_tex, linear_depth_tex],
     );
 
     let depth_barrier = depth_stencil_tex.barrier_prepare_attachment_for_write();

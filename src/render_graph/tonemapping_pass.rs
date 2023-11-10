@@ -197,17 +197,10 @@ impl TonemappingPass {
     framebuffer: &mut TonemappingPassFramebuffer,
     previous_result: &mut VkTexture,
   ) {
-    let source_barrier = previous_result.barrier_prepare_attachment_for_shader_read();
-    device.cmd_pipeline_barrier(
+    VkTexture::cmd_transition_attachments_for_read_barrier(
+      device,
       *command_buffer,
-      // wait for previous use in:
-      vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
-      // before we: execute fragment shader
-      vk::PipelineStageFlags::FRAGMENT_SHADER,
-      vk::DependencyFlags::empty(),
-      &[],
-      &[],
-      &[source_barrier],
+      &mut [previous_result],
     );
 
     let result_barrier = framebuffer
