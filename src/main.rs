@@ -69,7 +69,9 @@ fn main() {
 
   // start event loop
   event_loop.run(move |event, _, control_flow| {
-    *control_flow = ControlFlow::Wait;
+    // https://docs.rs/winit/0.25.0/winit/#event-handling
+    // *control_flow = ControlFlow::Wait;
+    *control_flow = ControlFlow::Poll;
 
     app_ui.handle_event(&window, &event);
 

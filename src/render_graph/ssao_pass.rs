@@ -22,8 +22,6 @@ const SHADER_PATHS: (&str, &str) = (
   "./assets/shaders-compiled/ssao.frag.spv",
 );
 
-// TODO [HIGH] initialize/clear to white texture to avoid flash of 1st frame black SSAO
-
 /// Screen space ambient occlusion. Not much more to say about it.
 /// Probably half screen size, but see `Config` to verify.
 pub struct SSAOPass {
