@@ -19,6 +19,7 @@ mod uniforms;
 mod vk_buffer;
 mod vk_memory_resource;
 mod vk_texture;
+mod vk_texture_sync;
 
 pub use create_barrier::*;
 pub use create_command_buffers::*;
@@ -40,3 +41,4 @@ pub use uniforms::*;
 pub use vk_buffer::*;
 pub use vk_memory_resource::*;
 pub use vk_texture::*;
+pub use vk_texture_sync::*;
