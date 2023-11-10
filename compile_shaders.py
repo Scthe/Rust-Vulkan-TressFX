@@ -3,13 +3,15 @@ import os
 import sys
 import subprocess
 from os import listdir
-from os.path import isfile, join, basename, dirname
+from os.path import isfile, isdir, join, basename, dirname
 
 SHADER_SRC_DIR = "./assets/shaders"
+# SHADER_SRC_DIR = "./assets/shaders/tfx_render"
 SHADER_OUT_DIR = "./assets/shaders-compiled"
 SHADER_IMPORT = "//@import"
 COMPILER_ERROR_REGEX = "^.*?:(.*?):\W*(.*?):(.*)$"
-PRINT_TRACE = False
+PRINT_VERBOSE = False
+ADD_DEBUG_DATA = True
 
 class Colors:
 	BLACK   = '\033[0;{}m'.format(30)
@@ -21,8 +23,11 @@ class Colors:
 	CYAN    = '\033[0;{}m'.format(36)
 	WHITE   = '\033[0;{}m'.format(37)
 
+def flatten(l):
+	return [item for sublist in l for item in sublist]
+
 def trace(line):
-	if PRINT_TRACE:
+	if PRINT_VERBOSE:
 		print(line)
 
 def is_valid_shader_file(path, allow_underscore=False):
@@ -35,22 +40,26 @@ def is_valid_shader_file(path, allow_underscore=False):
 def list_shader_files(path):
 	content_filenames = listdir(path)
 	content_files = [join(path, f) for f in content_filenames]
-	return [f for f in content_files if is_valid_shader_file(f)]
+	shaders_from_subdirs = [list_shader_files(f) for f in content_files if isdir(f)]
+	shaders_from_subdirs = flatten(shaders_from_subdirs)
+	shaders_in_curr_dir = [f for f in content_files if is_valid_shader_file(f)]
+	return shaders_in_curr_dir + shaders_from_subdirs
 
 # SECTION: PROCESS SHADER FILE FOR IMPORTS
 def print_import_stack(import_stack):
-		print("Import stack:" + "\n\t".join(import_stack))
+		print("Import stack: \n\t" + "\n\t".join(import_stack))
 
 def get_path_of_imported_file(current_file, import_line, import_stack):
 	start_idx = len(SHADER_IMPORT) + 1
 	end_idx = import_line.find(";", start_idx)
+	end_idx = end_idx == -1 and len(import_line) or end_idx # fix missing ';'
 	imported_filename = import_line[start_idx : end_idx]
 	imported_filename = imported_filename.startswith("./") and imported_filename[2:] or imported_filename
 	imported_filename = imported_filename.endswith(".glsl") and imported_filename or f"{imported_filename}.glsl"
 	imported_filepath = join(dirname(current_file), imported_filename)
 	
 	if not is_valid_shader_file(imported_filepath, True):
-		print(f"Unable to process '{import_line}' in '{current_file}'. Resolved file: '{imported_filepath}'")
+		print(f"{Colors.RED}Unable to process '{import_line}' in '{current_file}'. Resolved file: '{imported_filepath}'")
 		print_import_stack(import_stack)
 		sys.exit(1)
 	
@@ -84,7 +93,7 @@ def process_shader_file(path, import_stack=[]):
 	return buffer
 
 def write_processed_shader_file(path, lines):
-	out_path = path.replace(SHADER_SRC_DIR, SHADER_OUT_DIR)
+	out_path = join(SHADER_OUT_DIR, basename(path))
 	trace(f"\tWritting to {out_path}")
 	
 	with open(out_path, 'w') as f:
@@ -153,7 +162,8 @@ def compile_shader(path, shader_lines):
 	if result.returncode == 0:
 		# trace(f"\tSuccessully compiled to '{out_path}'")
 		print(f"\tDone, preview: '{clickable_path}'")
-		add_debug_data(path, out_path)
+		if ADD_DEBUG_DATA:
+			add_debug_data(path, out_path)
 	else:
 		print(f"\nError compiling '{clickable_path}'")
 		error_lines = result.stderr.split("\n")
