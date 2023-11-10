@@ -120,7 +120,8 @@ pub fn pick_physical_device_and_queue_family_idx(
 
     let is_discrete = props.device_type == vk::PhysicalDeviceType::DISCRETE_GPU;
     let has_anisotropy = features.sampler_anisotropy != vk::FALSE;
-    let phys_device_ok = is_discrete && has_anisotropy;
+    let has_in_fragment_store = features.fragment_stores_and_atomics != vk::FALSE;
+    let phys_device_ok = is_discrete && has_anisotropy && has_in_fragment_store;
 
     let graphic_fam_q_idx = find_queue_family(instance, surface_loader, surface_khr, phys_device);
     match graphic_fam_q_idx {
@@ -167,14 +168,19 @@ pub fn pick_device_and_queue(
   let mut separate_depth_stencil = vk::PhysicalDeviceSeparateDepthStencilLayoutsFeatures::builder()
     .separate_depth_stencil_layouts(true)
     .build();
+  let mut device_features_13 = vk::PhysicalDeviceVulkan13Features::builder()
+    .synchronization2(true)
+    .build();
   let device_create_info = vk::DeviceCreateInfo::builder()
     .queue_create_infos(&[queue_create_infos])
     .enabled_extension_names(&device_extension_names_raw)
     .enabled_features(&vk::PhysicalDeviceFeatures {
       sampler_anisotropy: vk::TRUE,
+      fragment_stores_and_atomics: vk::TRUE,
       ..Default::default()
     })
     .push_next(&mut separate_depth_stencil)
+    .push_next(&mut device_features_13)
     .build();
 
   let device: ash::Device = unsafe {

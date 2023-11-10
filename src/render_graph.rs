@@ -21,6 +21,7 @@ mod ssao_pass;
 mod sss_blur_pass;
 mod sss_depth_pass;
 mod tfx_forward_pass;
+mod tfx_render;
 mod tonemapping_pass;
 
 pub use self::_shared::*;
@@ -32,6 +33,7 @@ use self::ssao_pass::SSAOPass;
 use self::sss_blur_pass::SSSBlurPass;
 use self::sss_depth_pass::SSSDepthPass;
 use self::tfx_forward_pass::TfxForwardPass;
+use self::tfx_render::{TfxPpllBuildPass, TfxPpllResolvePass};
 use self::tonemapping_pass::TonemappingPass;
 use self::{_shared::GlobalConfigUBO, present_pass::PresentPass};
 
@@ -47,6 +49,8 @@ pub struct RenderGraph {
   sss_blur_pass: SSSBlurPass,
   forward_pass: ForwardPass,
   tfx_forward_pass: TfxForwardPass,
+  tfx_ppll_build_pass: TfxPpllBuildPass,
+  tfx_ppll_resolve_pass: TfxPpllResolvePass,
   linear_depth_pass: LinearDepthPass,
   ssao_pass: SSAOPass,
   ssao_blur_pass: BlurPass,
@@ -68,6 +72,8 @@ impl RenderGraph {
     let ssao_pass = SSAOPass::new(vk_app);
     let ssao_blur_pass = BlurPass::new(vk_app, SSAOPass::RESULT_TEXTURE_FORMAT);
     let tfx_forward_pass = TfxForwardPass::new(vk_app);
+    let tfx_ppll_build_pass = TfxPpllBuildPass::new(vk_app);
+    let tfx_ppll_resolve_pass = TfxPpllResolvePass::new(vk_app);
     let tonemapping_pass = TonemappingPass::new(vk_app);
     let present_pass = PresentPass::new(vk_app, image_format);
 
@@ -78,6 +84,8 @@ impl RenderGraph {
       sss_blur_pass,
       forward_pass,
       tfx_forward_pass,
+      tfx_ppll_build_pass,
+      tfx_ppll_resolve_pass,
       linear_depth_pass,
       ssao_pass,
       ssao_blur_pass,
@@ -99,6 +107,8 @@ impl RenderGraph {
     self.ssao_blur_pass.destroy(device);
     self.linear_depth_pass.destroy(device);
     self.tfx_forward_pass.destroy(vk_app);
+    self.tfx_ppll_build_pass.destroy(vk_app);
+    self.tfx_ppll_resolve_pass.destroy(vk_app);
     self.forward_pass.destroy(vk_app);
     self.sss_depth_pass.destroy();
     self.sss_blur_pass.destroy(device);
@@ -243,17 +253,36 @@ impl RenderGraph {
       );
     }
 
-    // tfx_forward_pass - render hair
+    // Render hair
     // we have to do it after SSS, as it would create depth discontinuities
     // that are hard to get rid off. Since this pass writes to depth buffer,
     // we have to update linear depth render target too
-    RenderGraph::debug_start_pass(&pass_ctx, "tfx_forward_pass");
-    self.tfx_forward_pass.execute(
-      &pass_ctx,
-      &mut frame_resources.forward_pass,
-      &mut frame_resources.shadow_map_pass.depth_tex,
-      &mut frame_resources.ssao_pass.ssao_tex,
-    );
+    if pass_ctx.config.is_hair_using_ppll() {
+      RenderGraph::debug_start_pass(&pass_ctx, "tfx_ppll_build_pass");
+      self.tfx_ppll_build_pass.execute(
+        &pass_ctx,
+        &mut frame_resources.tfx_ppll_build_pass,
+        &mut frame_resources.forward_pass.depth_stencil_tex,
+      );
+
+      RenderGraph::debug_start_pass(&pass_ctx, "tfx_ppll_resolve_pass");
+      self.tfx_ppll_resolve_pass.execute(
+        &pass_ctx,
+        &mut frame_resources.tfx_ppll_resolve_pass,
+        &mut frame_resources.forward_pass.depth_stencil_tex,
+        &mut frame_resources.forward_pass.diffuse_tex,
+        &mut frame_resources.tfx_ppll_build_pass.head_pointers_image,
+        &mut frame_resources.tfx_ppll_build_pass.ppll_data,
+      );
+    } else {
+      RenderGraph::debug_start_pass(&pass_ctx, "tfx_forward_pass");
+      self.tfx_forward_pass.execute(
+        &pass_ctx,
+        &mut frame_resources.forward_pass,
+        &mut frame_resources.shadow_map_pass.depth_tex,
+        &mut frame_resources.ssao_pass.ssao_tex,
+      );
+    }
 
     // linear depth again, after hair has written to original depth buffer
     RenderGraph::debug_start_pass(&pass_ctx, "linear_depth_pass_rerender_after_hair");
@@ -331,7 +360,7 @@ impl RenderGraph {
     unsafe {
       device
         .queue_submit(queue, &[submit_info], frame_sync.draw_command_fence)
-        .expect("Failed queue_submit()");
+        .expect("Failed queue_submit()"); // TODO sometimes causes DEVICE_LOST in RenderDoc/Nsight?
     }
 
     // present queue result
@@ -386,6 +415,17 @@ impl RenderGraph {
         let forward_pass = self
           .forward_pass
           .create_framebuffer(vk_app, frame_id, window_size);
+        let tfx_ppll_build_pass = self.tfx_ppll_build_pass.create_framebuffer(
+          vk_app,
+          frame_id,
+          &forward_pass.depth_stencil_tex,
+          &forward_pass.diffuse_tex,
+        );
+        let tfx_ppll_resolve_pass = self.tfx_ppll_resolve_pass.create_framebuffer(
+          vk_app,
+          &forward_pass.depth_stencil_tex,
+          &forward_pass.diffuse_tex,
+        );
         let sss_blur_fbo0 = self.sss_blur_pass.create_framebuffer(
           vk_app,
           &forward_pass.depth_stencil_tex,
@@ -428,6 +468,8 @@ impl RenderGraph {
           sss_blur_fbo0,
           sss_blur_fbo1,
           forward_pass,
+          tfx_ppll_build_pass,
+          tfx_ppll_resolve_pass,
           linear_depth_pass,
           ssao_pass,
           ssao_blur_fbo0,

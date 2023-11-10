@@ -7,6 +7,10 @@ pub struct World {
 }
 
 impl World {
+  pub fn has_hair_objects(&self) -> bool {
+    !self.tressfx_objects.is_empty()
+  }
+
   pub unsafe fn destroy(&mut self, device: &ash::Device, allocator: &vma::Allocator) -> () {
     for entity in &mut self.entities {
       entity.destroy(device, allocator);

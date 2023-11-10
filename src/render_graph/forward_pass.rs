@@ -162,7 +162,7 @@ impl ForwardPass {
       Self::COLOR_ATTACHMENT_COUNT,
       |builder| {
         // TODO [MEDIUM] cull backfaces
-        let stencil_write_skin = ps_stencil_write(Config::STENCIL_BIT_SKIN);
+        let stencil_write_skin = ps_stencil_write_if_touched(Config::STENCIL_BIT_SKIN, true);
         let depth_stencil = vk::PipelineDepthStencilStateCreateInfo::builder()
           .depth_test_enable(true)
           .depth_write_enable(true)

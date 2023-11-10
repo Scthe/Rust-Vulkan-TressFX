@@ -8,6 +8,48 @@ https://github.com/SaschaWillems/Vulkan/blob/master/examples/deferred/deferred.c
 https://gpuopen.com/learn/vulkan-barriers-explained/
 */
 
+#[allow(dead_code)]
+/// You should **ONLY USE THIS FOR DEBUGGING** - this is not something
+/// that should ever ship in real code, this will flush
+/// and invalidate all caches and stall everything, it is a tool
+/// not to be used lightly!
+///
+/// That said, it can be really handy if you think you have a race
+/// condition in your app and you just want to serialize everything
+/// so you can debug it.
+///
+/// https://github.com/KhronosGroup/Vulkan-Docs/wiki/Synchronization-Examples#full-pipeline-barrier
+pub unsafe fn execute_full_pipeline_barrier(
+  device: &ash::Device,
+  command_buffer: vk::CommandBuffer,
+) -> () {
+  let mem_barrier = vk::MemoryBarrier2::builder()
+    .src_stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
+    .src_access_mask(vk::AccessFlags2::MEMORY_READ | vk::AccessFlags2::MEMORY_WRITE)
+    .dst_stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
+    .dst_access_mask(vk::AccessFlags2::MEMORY_READ | vk::AccessFlags2::MEMORY_WRITE)
+    .build();
+  let dependency_info = vk::DependencyInfo::builder()
+    .memory_barriers(&[mem_barrier])
+    .build();
+
+  device.cmd_pipeline_barrier2(command_buffer, &dependency_info);
+}
+
+/// Barrier for all types of resources (both buffer and image)
+/// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkMemoryBarrier.html
+/// TODO is global barrier optimal? Or maybe use fine grained buffer/image barriers instead?
+pub fn create_global_barrier(
+  src_access_mask: vk::AccessFlags,
+  dst_access_mask: vk::AccessFlags,
+) -> vk::MemoryBarrier {
+  vk::MemoryBarrier::builder()
+    .src_access_mask(src_access_mask)
+    .dst_access_mask(dst_access_mask)
+    .build()
+}
+
+/// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageMemoryBarrier.html
 pub fn create_image_barrier(
   image: vk::Image,
   aspect_mask: vk::ImageAspectFlags,

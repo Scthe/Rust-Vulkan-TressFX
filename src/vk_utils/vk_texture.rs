@@ -21,9 +21,9 @@ pub struct VkTexture {
   pub width: u32,
   pub height: u32,
   /// Native Vulkan image
-  image: vk::Image,
+  pub image: vk::Image,
   image_view: vk::ImageView,
-  aspect_flags: vk::ImageAspectFlags,
+  pub aspect_flags: vk::ImageAspectFlags,
   pub layout: vk::ImageLayout,
   allocation: vma::Allocation,
   format: vk::Format,
@@ -455,6 +455,7 @@ fn get_image_aspect_from_format(format: vk::Format) -> vk::ImageAspectFlags {
     vk::Format::R8G8B8A8_SRGB
     | vk::Format::R8G8B8A8_UINT
     | vk::Format::R32G32B32A32_SFLOAT
+    | vk::Format::R32_UINT
     | vk::Format::R32_SFLOAT => vk::ImageAspectFlags::COLOR,
     _ => panic!("Cannot determine image aspect for {:?}", format),
   }

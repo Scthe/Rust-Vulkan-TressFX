@@ -68,7 +68,7 @@ pub struct Config {
 
 impl Config {
   pub const STENCIL_BIT_SKIN: u32 = 1 << 0;
-  // pub const STENCIL_BIT_HAIR: u32 = 1 << 1;
+  pub const STENCIL_BIT_HAIR: u32 = 1 << 1;
 
   pub fn new() -> Config {
     let clear_col: u8 = 93;
@@ -157,5 +157,10 @@ impl Config {
 
   pub fn get_camera_fov_y(&self) -> f32 {
     (self.camera.fov_dgr / self.window_width as f32) * self.window_height as f32
+  }
+
+  pub fn is_hair_using_ppll(&self) -> bool {
+    // false
+    true
   }
 }

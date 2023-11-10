@@ -204,14 +204,40 @@ pub fn ps_depth_always_stencil_always() -> vk::PipelineDepthStencilStateCreateIn
     .build()
 }
 
-pub fn ps_stencil_write(reference: u32) -> vk::StencilOpState {
+pub fn ps_stencil_write_if_touched(reference: u32, override_current: bool) -> vk::StencilOpState {
+  let write_mask = if override_current {
+    reference
+  } else {
+    0xffffffff
+  };
   vk::StencilOpState {
     // do not skip fields! Rust defaults masks to 0, so things do not work as expected
     pass_op: vk::StencilOp::REPLACE,
     depth_fail_op: vk::StencilOp::REPLACE,
     fail_op: vk::StencilOp::REPLACE,
     reference,
-    write_mask: 0xffffffff,
+    write_mask,
+    compare_mask: 0xffffffff,
+    compare_op: vk::CompareOp::ALWAYS,
+  }
+}
+
+pub fn ps_stencil_write_if_depth_passed(
+  reference: u32,
+  override_current: bool,
+) -> vk::StencilOpState {
+  let write_mask = if override_current {
+    reference
+  } else {
+    0xffffffff
+  };
+  vk::StencilOpState {
+    // do not skip fields! Rust defaults masks to 0, so things do not work as expected
+    pass_op: vk::StencilOp::REPLACE,
+    depth_fail_op: vk::StencilOp::KEEP,
+    fail_op: vk::StencilOp::KEEP,
+    reference,
+    write_mask,
     compare_mask: 0xffffffff,
     compare_op: vk::CompareOp::ALWAYS,
   }
@@ -225,8 +251,8 @@ pub fn ps_stencil_compare_equal(reference: u32) -> vk::StencilOpState {
     pass_op: vk::StencilOp::KEEP,
     depth_fail_op: vk::StencilOp::KEEP,
     fail_op: vk::StencilOp::KEEP,
-    write_mask: 0xffffffff,
-    compare_mask: 0xffffffff,
+    write_mask: 0,
+    compare_mask: reference,
   }
 }
 

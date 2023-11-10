@@ -43,18 +43,26 @@ DescriptorSetLayout is required during:
 /// Layout utils
 ////////////////////////////////
 
+fn create_binding(
+  binding: u32,
+  type_: vk::DescriptorType,
+  stage_flags: vk::ShaderStageFlags,
+) -> vk::DescriptorSetLayoutBinding {
+  vk::DescriptorSetLayoutBinding::builder()
+    .binding(binding)
+    .descriptor_type(type_)
+    .descriptor_count(1)
+    .stage_flags(stage_flags)
+    .build()
+}
+
 /// Create layout for a single uniform buffer object.
 /// That layout will be one of layouts gathered in DescriptorSetLayout.
 pub fn create_ubo_binding(
   binding: u32,
   stage_flags: vk::ShaderStageFlags,
 ) -> vk::DescriptorSetLayoutBinding {
-  vk::DescriptorSetLayoutBinding::builder()
-    .binding(binding)
-    .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
-    .descriptor_count(1)
-    .stage_flags(stage_flags)
-    .build()
+  create_binding(binding, vk::DescriptorType::UNIFORM_BUFFER, stage_flags)
 }
 
 /// Create layout for a single texture/sampler object.
@@ -63,12 +71,11 @@ pub fn create_texture_binding(
   binding: u32,
   stage_flags: vk::ShaderStageFlags,
 ) -> vk::DescriptorSetLayoutBinding {
-  vk::DescriptorSetLayoutBinding::builder()
-    .binding(binding)
-    .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
-    .descriptor_count(1)
-    .stage_flags(stage_flags)
-    .build()
+  create_binding(
+    binding,
+    vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
+    stage_flags,
+  )
 }
 
 /// Create layout for a single shader storage buffer object (SSBO).
@@ -77,12 +84,20 @@ pub fn create_ssbo_binding(
   binding: u32,
   stage_flags: vk::ShaderStageFlags,
 ) -> vk::DescriptorSetLayoutBinding {
-  vk::DescriptorSetLayoutBinding::builder()
-    .binding(binding)
-    .descriptor_type(vk::DescriptorType::STORAGE_BUFFER)
-    .descriptor_count(1)
-    .stage_flags(stage_flags)
-    .build()
+  create_binding(binding, vk::DescriptorType::STORAGE_BUFFER, stage_flags)
+}
+
+/// Create layout for an data image. This is a special image that does not use samplers.
+/// It allows to read and write from exact pixel as well as atomic operations.
+///
+/// ### Spec
+/// "descriptor type associated with an image resource via an image view that load, store, and atomic operations can be performed on."
+/// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#descriptorsets-storageimage
+pub fn create_storage_image_binding(
+  binding: u32,
+  stage_flags: vk::ShaderStageFlags,
+) -> vk::DescriptorSetLayoutBinding {
+  create_binding(binding, vk::DescriptorType::STORAGE_IMAGE, stage_flags)
 }
 
 pub fn create_push_descriptor_layout(
@@ -129,6 +144,11 @@ pub enum BindableResource<'a> {
     usage: BindableBufferUsage,
     binding: u32,
     buffer: &'a VkBuffer,
+  },
+  StorageImage {
+    binding: u32,
+    texture: &'a VkTexture,
+    sampler: vk::Sampler,
   },
   Texture {
     binding: u32,
@@ -188,6 +208,24 @@ pub unsafe fn bind_resources_to_descriptors(
             .dst_binding(*binding)
             .dst_array_element(0)
             .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+            .image_info(data_slice)
+            .build()
+        }
+        BindableResource::StorageImage {
+          binding,
+          texture,
+          sampler,
+        } => {
+          image_infos.push(vk::DescriptorImageInfo {
+            image_layout: texture.layout,
+            image_view: texture.image_view(),
+            sampler: *sampler,
+          });
+          let data_slice = &image_infos[(image_infos.len() - 1)..image_infos.len()];
+          vk::WriteDescriptorSet::builder()
+            .dst_binding(*binding)
+            .dst_array_element(0)
+            .descriptor_type(vk::DescriptorType::STORAGE_IMAGE)
             .image_info(data_slice)
             .build()
         }
