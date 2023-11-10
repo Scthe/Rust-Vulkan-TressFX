@@ -3,6 +3,7 @@ use log::trace;
 use ash;
 use ash::vk;
 
+use crate::either;
 use crate::vk_utils::create_image_barrier;
 
 use super::VkMemoryResource;
@@ -63,45 +64,52 @@ impl VkTexture {
   ///            Only for reads, as writes need barrier for write-after-write
   fn barrier_prepare_attachment_for_shader_read(&mut self) -> vk::ImageMemoryBarrier {
     if self.is_color() {
+      // Vulkan tools complain cause validation layer has bug. Need to update validation layer.
+      // https://stackoverflow.com/questions/75743040/vulkan-sync-hazard-read-after-write-despite-full-pipeline-barrier-between-opera
       self.barrier_prepare_for_layout_transition(
         vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
         vk::AccessFlags::COLOR_ATTACHMENT_WRITE, // prev op
-        vk::AccessFlags::SHADER_READ, //| vk::AccessFlags::INPUT_ATTACHMENT_READ (subpass only?), // our op
+        vk::AccessFlags::COLOR_ATTACHMENT_READ  // our op
+          | vk::AccessFlags::SHADER_READ, // | vk::AccessFlags::INPUT_ATTACHMENT_READ (subpass only?),
       )
     } else if self.is_depth_stencil() {
       self.barrier_prepare_for_layout_transition(
         vk::ImageLayout::DEPTH_STENCIL_READ_ONLY_OPTIMAL,
         vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE, // prev op
-        vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_READ,  // our op
+        vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_READ | vk::AccessFlags::SHADER_READ, // our op
       )
     } else if self.is_depth() {
       self.barrier_prepare_for_layout_transition(
         vk::ImageLayout::DEPTH_READ_ONLY_OPTIMAL,
         vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE, // prev op
-        vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_READ,  // our op
+        vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_READ | vk::AccessFlags::SHADER_READ, // our op
       )
     } else {
       panic!("Tried to transition texture {} for shader read, but it's neither color or depth-stencil texture.", self.get_name());
     }
   }
 
-  fn barrier_prepare_attachment_for_write(&mut self) -> vk::ImageMemoryBarrier {
+  fn barrier_prepare_attachment_for_write(
+    &mut self,
+    prev_op_src_acc_flag: vk::AccessFlags,
+  ) -> vk::ImageMemoryBarrier {
     if self.is_color() {
       self.barrier_prepare_for_layout_transition(
         vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
-        vk::AccessFlags::SHADER_READ,            // prev op
+        prev_op_src_acc_flag,                    // prev op
         vk::AccessFlags::COLOR_ATTACHMENT_WRITE, // our op
       )
     } else if self.is_depth_stencil() {
       self.barrier_prepare_for_layout_transition(
         vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-        vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_READ, // prev op TODO what if this was actually write?
-        vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE, // our op
+        prev_op_src_acc_flag, // prev op
+        vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_READ // our op
+          | vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE,
       )
     } else if self.is_depth() {
       self.barrier_prepare_for_layout_transition(
         vk::ImageLayout::DEPTH_ATTACHMENT_OPTIMAL,
-        vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_READ, // prev op
+        prev_op_src_acc_flag, // prev op
         vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_READ // our op
           | vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE,
       )
@@ -172,10 +180,12 @@ impl VkTexture {
     let barriers = attachments
       .iter_mut()
       .map(|attchmt| {
-        let (prev_stage_tex, curr_stage_tex) = get_pipeline_stages_for_write(attchmt);
+        let (prev_stage_tex, prev_acc_flag, curr_stage_tex) =
+          get_pipeline_stages_for_write(attchmt);
+
         prev_op_stage |= prev_stage_tex;
         current_op_stage |= curr_stage_tex;
-        attchmt.barrier_prepare_attachment_for_write()
+        attchmt.barrier_prepare_attachment_for_write(prev_acc_flag)
       })
       .collect::<Vec<_>>();
 
@@ -201,14 +211,14 @@ fn get_pipeline_stages_for_read(
 ) -> (vk::PipelineStageFlags, vk::PipelineStageFlags) {
   if texture.is_color() {
     return (
-      // wait for:
-      vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT, // only this as there is no read-after-read conflict!
+      // wait for (only this as there is no read-after-read conflict):
+      vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
       // before we:
       vk::PipelineStageFlags::FRAGMENT_SHADER,
     );
   }
   if texture.is_depth() || texture.is_depth_stencil() {
-    // We do not know if previous/current passes used early depth stencil test, so both flags here. Suboptimal..
+    // We do not know if previous/current passes used early depth stencil test, so both flags here
     return (
       // wait for:
       vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS | vk::PipelineStageFlags::LATE_FRAGMENT_TESTS, // also includes store ops
@@ -225,15 +235,29 @@ fn get_pipeline_stages_for_read(
 
 /// https://docs.vulkan.org/spec/latest/chapters/synchronization.html#synchronization-pipeline-stages-order
 ///
-/// @return `(src_stage_mask/prev_op_stage, dst_stage_mask/current_op_stage)` depending on color/depth/stencil aspect.
+/// @return `(src_stage_mask/prev_op_stage, prev_access_flag, dst_stage_mask/current_op_stage)` depending on color/depth/stencil aspect.
 fn get_pipeline_stages_for_write(
   texture: &VkTexture,
-) -> (vk::PipelineStageFlags, vk::PipelineStageFlags) {
+) -> (
+  vk::PipelineStageFlags,
+  vk::AccessFlags,
+  vk::PipelineStageFlags,
+) {
+  let is_write_after_write = is_layout_write(texture.layout);
+
   if texture.is_color() {
     return (
       // wait for:
-      // vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT | // TODO [NOW] wait for last write
-      vk::PipelineStageFlags::FRAGMENT_SHADER, // wait for last read
+      either!(
+        is_write_after_write,
+        vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT, // wait for last write
+        vk::PipelineStageFlags::FRAGMENT_SHADER          // wait for last read
+      ),
+      either!(
+        is_write_after_write,
+        vk::AccessFlags::COLOR_ATTACHMENT_WRITE, // wait for last write
+        vk::AccessFlags::SHADER_READ             // wait for last read
+      ),
       // before we:
       vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
     );
@@ -242,8 +266,16 @@ fn get_pipeline_stages_for_write(
     // We do not know if previous/current passes used early depth stencil test, so both flags here. Suboptimal..
     return (
       // wait for:
-      // vk::PipelineStageFlags::FRAGMENT_SHADER | // TODO [NOW] wait for last read
-      vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS | vk::PipelineStageFlags::LATE_FRAGMENT_TESTS, // write
+      either!(
+        is_write_after_write,
+        vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS | vk::PipelineStageFlags::LATE_FRAGMENT_TESTS, // wait for last write
+        vk::PipelineStageFlags::FRAGMENT_SHADER // wait for last read
+      ),
+      either!(
+        is_write_after_write,
+        vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE, // wait for last write
+        vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_READ   // wait for last read
+      ),
       // before we:
       vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS | vk::PipelineStageFlags::LATE_FRAGMENT_TESTS, // also includes store ops
     );
@@ -253,4 +285,20 @@ fn get_pipeline_stages_for_write(
     "Could not determine layout transtion PipelineStageFlags for '{:?}'",
     texture.aspect_flags
   )
+}
+
+/// @returns `true` if layout is for writes, `false` if it is for reads
+fn is_layout_write(layout: vk::ImageLayout) -> bool {
+  match layout {
+    vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL
+    | vk::ImageLayout::DEPTH_STENCIL_READ_ONLY_OPTIMAL
+    | vk::ImageLayout::DEPTH_READ_ONLY_OPTIMAL => return false,
+    vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL
+    | vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+    | vk::ImageLayout::DEPTH_ATTACHMENT_OPTIMAL => return true,
+    _ => panic!(
+      "Could not determine if layout '{:?}' is for write or read",
+      layout
+    ),
+  }
 }

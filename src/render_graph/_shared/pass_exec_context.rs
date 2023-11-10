@@ -1,4 +1,5 @@
 use ash::vk;
+use log::info;
 
 use crate::{
   config::Config,
@@ -27,6 +28,12 @@ impl PassExecContext<'_> {
       push_descriptor: &self.vk_app.push_descriptor,
       command_buffer: self.command_buffer,
       pipeline_layout,
+    }
+  }
+
+  pub fn debug_start_pass(&self, name: &str) {
+    if self.config.only_first_frame {
+      info!("Start {}", name);
     }
   }
 }

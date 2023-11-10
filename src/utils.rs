@@ -85,3 +85,16 @@ impl RngVectorGenerator {
     dir * scale_fac
   }
 }
+
+/// Macro to pick from 2 values based on conditional
+/// `either!(foo == bar; println!("it is true"); println!("it is false"));`
+#[macro_export]
+macro_rules! either {
+  ($test:expr, $true_expr:expr, $false_expr:expr) => {
+    if $test {
+      $true_expr
+    } else {
+      $false_expr
+    }
+  };
+}

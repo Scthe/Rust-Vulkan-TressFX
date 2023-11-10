@@ -3,7 +3,6 @@ use std::mem::size_of;
 use ash;
 use ash::vk;
 use bytemuck;
-use log::info;
 
 use crate::app_ui::AppUI;
 use crate::config::Config;
@@ -200,7 +199,7 @@ impl RenderGraph {
     // execute render graph passes
 
     // shadow map generate pass
-    RenderGraph::debug_start_pass(&pass_ctx, "shadow_map_pass");
+    pass_ctx.debug_start_pass("shadow_map_pass");
     self.shadow_map_pass.execute(
       &pass_ctx,
       &mut frame_resources.shadow_map_pass,
@@ -209,7 +208,7 @@ impl RenderGraph {
     );
 
     // sss forward scatter depth map generate pass
-    RenderGraph::debug_start_pass(&pass_ctx, "sss_depth_pass");
+    pass_ctx.debug_start_pass("sss_depth_pass");
     self.sss_depth_pass.execute(
       &pass_ctx,
       &mut frame_resources.sss_depth_pass,
@@ -218,7 +217,7 @@ impl RenderGraph {
     );
 
     // forward rendering
-    RenderGraph::debug_start_pass(&pass_ctx, "forward_pass");
+    pass_ctx.debug_start_pass("forward_pass");
     self.forward_pass.execute(
       &pass_ctx,
       &mut frame_resources.forward_pass,
@@ -228,7 +227,7 @@ impl RenderGraph {
     );
 
     // linear depth
-    RenderGraph::debug_start_pass(&pass_ctx, "linear_depth_pass");
+    pass_ctx.debug_start_pass("linear_depth_pass");
     self.linear_depth_pass.execute(
       &pass_ctx,
       &mut frame_resources.linear_depth_pass,
@@ -239,7 +238,7 @@ impl RenderGraph {
     // sss blur
     // skip SSSBlur pass for special debug modes
     if !pass_ctx.config.preserve_original_forward_pass_result() {
-      RenderGraph::debug_start_pass(&pass_ctx, "sss_blur");
+      pass_ctx.debug_start_pass("sss_blur");
       self.sss_blur_pass.execute(
         &pass_ctx,
         &mut frame_resources.sss_blur_fbo0,
@@ -256,14 +255,14 @@ impl RenderGraph {
     // that are hard to get rid off. Since this pass writes to depth buffer,
     // we have to update linear depth render target too
     if pass_ctx.config.is_hair_using_ppll() {
-      RenderGraph::debug_start_pass(&pass_ctx, "tfx_ppll_build_pass");
+      pass_ctx.debug_start_pass("tfx_ppll_build_pass");
       self.tfx_ppll_build_pass.execute(
         &pass_ctx,
         &mut frame_resources.tfx_ppll_build_pass,
         &mut frame_resources.forward_pass.depth_stencil_tex,
       );
 
-      RenderGraph::debug_start_pass(&pass_ctx, "tfx_ppll_resolve_pass");
+      pass_ctx.debug_start_pass("tfx_ppll_resolve_pass");
       self.tfx_ppll_resolve_pass.execute(
         &pass_ctx,
         &mut frame_resources.tfx_ppll_resolve_pass,
@@ -273,7 +272,7 @@ impl RenderGraph {
         &mut frame_resources.tfx_ppll_build_pass.ppll_data,
       );
     } else {
-      RenderGraph::debug_start_pass(&pass_ctx, "tfx_forward_pass");
+      pass_ctx.debug_start_pass("tfx_forward_pass");
       self.tfx_forward_pass.execute(
         &pass_ctx,
         &mut frame_resources.forward_pass,
@@ -283,7 +282,7 @@ impl RenderGraph {
     }
 
     // linear depth again, after hair has written to original depth buffer
-    RenderGraph::debug_start_pass(&pass_ctx, "linear_depth_pass_rerender_after_hair");
+    pass_ctx.debug_start_pass("linear_depth_pass_rerender_after_hair");
     self.linear_depth_pass.execute(
       &pass_ctx,
       &mut frame_resources.linear_depth_pass,
@@ -292,7 +291,7 @@ impl RenderGraph {
     );
 
     // ssao
-    RenderGraph::debug_start_pass(&pass_ctx, "ssao_pass");
+    pass_ctx.debug_start_pass("ssao_pass");
     self.ssao_pass.execute(
       &pass_ctx,
       &mut frame_resources.ssao_pass,
@@ -302,7 +301,7 @@ impl RenderGraph {
     );
 
     // ssao blur
-    RenderGraph::debug_start_pass(&pass_ctx, "ssao_blur_pass");
+    pass_ctx.debug_start_pass("ssao_blur_pass");
     self.ssao_blur_pass.execute(
       &pass_ctx,
       &mut frame_resources.ssao_blur_fbo0,
@@ -317,7 +316,7 @@ impl RenderGraph {
     );
 
     // color grading + tonemapping
-    RenderGraph::debug_start_pass(&pass_ctx, "tonemapping_pass");
+    pass_ctx.debug_start_pass("tonemapping_pass");
     self.tonemapping_pass.execute(
       &pass_ctx,
       &mut frame_resources.tonemapping_pass,
@@ -325,7 +324,7 @@ impl RenderGraph {
     );
 
     // final pass to render output to OS window framebuffer
-    RenderGraph::debug_start_pass(&pass_ctx, "present_pass");
+    pass_ctx.debug_start_pass("present_pass");
     self.present_pass.execute(
       &mut pass_ctx,
       &mut frame_resources.present_pass,
@@ -481,12 +480,6 @@ impl RenderGraph {
       });
 
     transition_window_framebuffers_for_present_khr(vk_app);
-  }
-
-  fn debug_start_pass(exec_ctx: &PassExecContext, name: &str) {
-    if exec_ctx.config.only_first_frame {
-      info!("Start {}", name);
-    }
   }
 
   pub fn get_ui_draw_render_pass(&self) -> vk::RenderPass {

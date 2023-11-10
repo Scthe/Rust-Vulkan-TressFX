@@ -285,6 +285,7 @@ impl SSSBlurPass {
     depth_stencil_tex: &mut VkTexture,
     linear_depth_tex: &mut VkTexture,
   ) -> () {
+    exec_ctx.debug_start_pass("sss_blur.pass1");
     self.execute_blur_single_direction(
       &exec_ctx,
       framebuffer0,
@@ -295,6 +296,7 @@ impl SSSBlurPass {
       linear_depth_tex,  // read
     );
 
+    exec_ctx.debug_start_pass("sss_blur.pass2");
     self.execute_blur_single_direction(
       &exec_ctx,
       framebuffer1,

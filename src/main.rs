@@ -22,6 +22,8 @@ mod utils;
 mod vk_ctx;
 mod vk_utils;
 
+// TODO [CRITICAL] After key is held, it 'stutters'. So camera moves for a second, stops and the moves again.
+
 fn main() {
   simple_logger::SimpleLogger::new()
     .with_module_level("imgui_rs_vulkan_renderer", log::LevelFilter::Debug)
