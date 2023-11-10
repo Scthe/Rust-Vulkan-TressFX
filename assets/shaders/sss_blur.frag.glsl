@@ -20,8 +20,8 @@ layout(location = 0) in vec2 v_position;
 layout(location = 0) out vec4 outColor1;
 
 
-//@import ./_config_ubo;
-//@import ./_utils;
+#pragma include ./_config_ubo;
+#pragma include ./_utils;
 
 
 float SSSSS_sampleDepthLinear (sampler2D depthTex, vec2 texcoord) {
@@ -30,7 +30,7 @@ float SSSSS_sampleDepthLinear (sampler2D depthTex, vec2 texcoord) {
 }
 
 #define SSSS_GLSL_3 1
-//@import ./materials/_separableSSSSS;
+#pragma include ./materials/_separableSSSSS;
 
 
 void main() {

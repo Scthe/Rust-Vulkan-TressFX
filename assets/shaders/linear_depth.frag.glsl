@@ -13,8 +13,8 @@ layout(location = 0) in vec2 v_position; // TexCoords
 // NOTE: this will be in [zNear...zFar], not [0..1] !!!
 layout(location = 0) out vec4 outDepth;
 
-//@import ./_config_ubo;
-//@import ./_utils;
+#pragma include ./_config_ubo;
+#pragma include ./_utils;
 
 
 void main() {

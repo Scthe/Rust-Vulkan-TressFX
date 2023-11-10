@@ -8,7 +8,7 @@ from os.path import isfile, isdir, join, basename, dirname
 SHADER_SRC_DIR = "./assets/shaders"
 # SHADER_SRC_DIR = "./assets/shaders/tfx_render"
 SHADER_OUT_DIR = "./assets/shaders-compiled"
-SHADER_IMPORT = "//@import"
+SHADER_IMPORT = "#pragma include"
 COMPILER_ERROR_REGEX = "^.*?:(.*?):\W*(.*?):(.*)$"
 PRINT_VERBOSE = False
 ADD_DEBUG_DATA = True

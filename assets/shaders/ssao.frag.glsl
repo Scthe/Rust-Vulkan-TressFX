@@ -21,8 +21,8 @@ layout(location = 0) in vec2 v_position;
 layout(location = 0) out float outColor1;
 
 
-//@import ./_config_ubo;
-//@import ./_utils;
+#pragma include ./_config_ubo;
+#pragma include ./_utils;
 
 
 /** Get view space coordinates for the depth map point */

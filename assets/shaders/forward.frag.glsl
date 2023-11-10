@@ -5,9 +5,9 @@ precision highp usampler2D;
 // precision highp sampler2D;
 
 
-//@import ./_config_ubo;
-//@import ./_forward_model_ubo;
-//@i mport ./_forward_model_per_frame_ubo;
+#pragma include ./_config_ubo;
+#pragma include ./_forward_model_ubo;
+// #pragma include ./_forward_model_per_frame_ubo;
 
 
 // material
@@ -36,13 +36,13 @@ float SSSSS_sampleDepthLinear (sampler2D depthTex, vec2 texcoord) {
 
 
 
-//@import ./_utils;
-//@import ./materials/_material;
-//@import ./materials/_pbr;
-//@import ./materials/_shadows;
+#pragma include ./_utils;
+#pragma include ./materials/_material;
+#pragma include ./materials/_pbr;
+#pragma include ./materials/_shadows;
 #define SSSS_GLSL_3 1
-//@import ./materials/_separableSSSSS;
-//@i mport ./_skin; // not imported even in WebFx?
+#pragma include ./materials/_separableSSSSS;
+// #pragma include ./_skin; // not imported even in WebFx?
 
 
 const int FLAG_IS_METALIC = 1;

@@ -3,8 +3,8 @@ precision highp float;
 precision highp int;
 
 
-//@import ./_config_ubo;
-//@import ./_forward_model_ubo;
+#pragma include ./_config_ubo;
+#pragma include ./_forward_model_ubo;
 
 
 // https://www.khronos.org/opengl/wiki/Layout_Qualifier_(GLSL)

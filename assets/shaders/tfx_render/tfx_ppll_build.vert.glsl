@@ -4,10 +4,10 @@
 #define PPLL_HEAD_POINTERS_IMAGE_BINDING 4
 #define PPLL_DATA_BUFFER_BINDING 5
 
-//@import ../_config_ubo;
-//@import ../_utils;
-//@import ./_tfx_params_ubo;
-//@import ./_tfx_vertex_resolve;
+#pragma include ../_config_ubo;
+#pragma include ../_utils;
+#pragma include ./_tfx_params_ubo;
+#pragma include ./_tfx_vertex_resolve;
 
 
 layout(location = 0) out vec4 v_position; // position world space

@@ -29,8 +29,8 @@ layout(location = 0) in vec2 v_position;
 layout(location = 0) out vec4 outColor;
 
 
-//@import ./_config_ubo;
-//@import ./_utils;
+#pragma include ./_config_ubo;
+#pragma include ./_utils;
 
 
 float sampleLinearDepth(vec2 coord) {

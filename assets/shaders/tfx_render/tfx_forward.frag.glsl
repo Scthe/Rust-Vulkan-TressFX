@@ -20,12 +20,12 @@ layout(location = 0) out vec4 outColor1;
 layout(location = 1) out uvec4 outColor2;
 
 
-//@import ../_config_ubo;
-//@import ../_utils;
-//@import ../materials/_material; // for light struct
-//@import ../materials/_shadows;
-//@import ../materials/_kajiyakay;
-//@import ./_tfx_params_ubo;
+#pragma include ../_config_ubo;
+#pragma include ../_utils;
+#pragma include ../materials/_material; // for light struct
+#pragma include ../materials/_shadows;
+#pragma include ../materials/_kajiyakay;
+#pragma include ./_tfx_params_ubo;
 
 const int TFX_DISPLAY_MODE_FINAL = 0;
 const int TFX_DISPLAY_MODE_FLAT = 1;

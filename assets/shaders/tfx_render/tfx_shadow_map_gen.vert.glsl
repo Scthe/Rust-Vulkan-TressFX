@@ -2,10 +2,10 @@
 precision highp float;
 precision highp int;
 
-//@import ../_config_ubo;
-//@import ../_utils;
-//@import ./_tfx_params_ubo;
-//@import ./_tfx_vertex_resolve;
+#pragma include ../_config_ubo;
+#pragma include ../_utils;
+#pragma include ./_tfx_params_ubo;
+#pragma include ./_tfx_vertex_resolve;
 
 layout(push_constant) uniform Constants {
   mat4 u_MVP;
