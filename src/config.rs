@@ -67,6 +67,9 @@ pub struct Config {
 }
 
 impl Config {
+  const ONLY_FIRST_FRAME: bool = false;
+  pub const DEBUG_LAYOUT_TRANSITIONS: bool = false;
+
   pub const STENCIL_BIT_SKIN: u32 = 1 << 0;
   pub const STENCIL_BIT_HAIR: u32 = 1 << 1;
 
@@ -74,7 +77,7 @@ impl Config {
     let clear_col: u8 = 93;
 
     Config {
-      only_first_frame: false,
+      only_first_frame: Self::ONLY_FIRST_FRAME,
       show_debug_positions: false,
       display_mode: DisplayMode::Final as _,
       linear_depth_preview_range: vec2(-2.0, -15.0),

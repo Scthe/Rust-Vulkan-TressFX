@@ -29,6 +29,7 @@ impl SSSDepthPass {
     shadow_pass: &ShadowMapPass,
     size_px: u32,
   ) -> ShadowMapPassFramebuffer {
+    // TODO [LOW] The texture will have name `ShadowMapPass.depth#0` instead of `SSSDepthPass.depth#0`
     shadow_pass.create_framebuffer(vk_app, frame_id, size_px)
   }
 

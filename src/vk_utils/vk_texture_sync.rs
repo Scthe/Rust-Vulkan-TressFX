@@ -3,6 +3,7 @@ use log::trace;
 use ash;
 use ash::vk;
 
+use crate::config::Config;
 use crate::either;
 use crate::vk_utils::create_image_barrier;
 
@@ -11,8 +12,6 @@ use super::VkTexture;
 
 // https://github.com/Tobski/simple_vulkan_synchronization/blob/main/thsvs_simpler_vulkan_synchronization.h
 // https://github.com/KhronosGroup/Vulkan-Docs/wiki/Synchronization-Examples-(Legacy-synchronization-APIs)
-
-const DEBUG_LAYOUT_TRANSITIONS: bool = false;
 
 impl VkTexture {
   /// The `srcStageMask` marks the stages to wait for in previous commands
@@ -60,8 +59,6 @@ impl VkTexture {
     barrier
   }
 
-  /// TODO [???] return Option if layout already matches (e.g. read-after-read)?
-  ///            Only for reads, as writes need barrier for write-after-write
   fn barrier_prepare_attachment_for_shader_read(&mut self) -> vk::ImageMemoryBarrier {
     if self.is_color() {
       // Vulkan tools complain cause validation layer has bug. Need to update validation layer.
@@ -119,7 +116,7 @@ impl VkTexture {
   }
 
   pub(super) fn trace_log_layout_transition(&mut self, tag: &str, new_layout: vk::ImageLayout) {
-    if DEBUG_LAYOUT_TRANSITIONS {
+    if Config::DEBUG_LAYOUT_TRANSITIONS {
       trace!(
         "VkTexture::LayoutTransition {} '{}' ({:?} -> {:?})",
         tag,
@@ -141,16 +138,20 @@ impl VkTexture {
   ) {
     let mut prev_op_stage = vk::PipelineStageFlags::empty();
     let mut current_op_stage = vk::PipelineStageFlags::FRAGMENT_SHADER;
+    let mut barriers: Vec<vk::ImageMemoryBarrier> = Vec::with_capacity(attachments.len());
 
-    let barriers = attachments
-      .iter_mut()
-      .map(|attchmt| {
+    attachments.iter_mut().for_each(|attchmt| {
+      let current_layout = attchmt.layout;
+      let barrier = attchmt.barrier_prepare_attachment_for_shader_read();
+
+      // skipped layout change if already in correct layout (read after read is always OK)
+      if current_layout != barrier.new_layout {
         let (prev_stage_tex, curr_stage_tex) = get_pipeline_stages_for_read(attchmt);
         prev_op_stage |= prev_stage_tex;
         current_op_stage |= curr_stage_tex;
-        attchmt.barrier_prepare_attachment_for_shader_read()
-      })
-      .collect::<Vec<_>>();
+        barriers.push(barrier);
+      }
+    });
 
     device.cmd_pipeline_barrier(
       command_buffer,
