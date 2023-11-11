@@ -43,9 +43,10 @@ pub enum HairSolidDisplayMode {
   Final = 0,
   Flat = 1,
   FollowGroups = 2,
-  RootTipPercentage = 3,
+  Strands = 3,
+  RootTipPercentage = 4,
   // non-user selectable modes, accessed from `Config.display_mode`
-  ShadowMap = 4,
+  ShadowMap = 5,
 }
 
 /// https://github.com/Scthe/WebFX/blob/master/src/Config.ts

@@ -14,6 +14,7 @@ layout(location = 2) out vec3 v_position;
 layout(location = 3) out vec3 v_normal;
 layout(location = 4) out vec3 v_tangent;
 layout(location = 5) out vec4 v_positionLightShadowSpace;
+layout(location = 6) flat out uint v_strandId;
 
 
 void main() {
@@ -28,4 +29,5 @@ void main() {
   v_position = tressfxVert.positionWorldSpace.xyz;
   v_normal = tressfxVert.normal;
   v_tangent = tressfxVert.tangent;
+  v_strandId = tfxParams.strandId;
 }

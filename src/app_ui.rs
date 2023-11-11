@@ -240,11 +240,13 @@ impl AppUI {
           HairSolidDisplayMode::Final,
           HairSolidDisplayMode::Flat,
           HairSolidDisplayMode::FollowGroups,
+          HairSolidDisplayMode::Strands,
           HairSolidDisplayMode::RootTipPercentage,
         ],
         |idx| match *idx {
           HairSolidDisplayMode::Flat => Cow::Borrowed("Flat"),
           HairSolidDisplayMode::FollowGroups => Cow::Borrowed("Follow gr."),
+          HairSolidDisplayMode::Strands => Cow::Borrowed("Strands"),
           HairSolidDisplayMode::RootTipPercentage => Cow::Borrowed("Root-tip %"),
           _ => Cow::Borrowed("Final"),
         },
