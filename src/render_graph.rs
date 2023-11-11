@@ -416,7 +416,6 @@ impl RenderGraph {
           vk_app,
           frame_id,
           &forward_pass.depth_stencil_tex,
-          &forward_pass.diffuse_tex,
         );
         let tfx_ppll_resolve_pass = self.tfx_ppll_resolve_pass.create_framebuffer(
           vk_app,

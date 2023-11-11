@@ -2,7 +2,9 @@ use bytemuck;
 use glam::{vec4, Mat4, Vec3, Vec4};
 
 use crate::{
-  config::{ColorGradingProp, Config, LightAmbient, LightCfg, SSAOConfig},
+  config::{
+    ColorGradingProp, Config, DisplayMode, HairSolidDisplayMode, LightAmbient, LightCfg, SSAOConfig,
+  },
   render_graph::{shadow_map_pass::ShadowMapPass, sss_depth_pass::SSSDepthPass},
   scene::Camera,
   utils::{into_vec4, mint3_into_vec4, spherical_to_cartesian_dgr},
@@ -19,6 +21,7 @@ pub struct GlobalConfigUBO {
   pub u_projection_mat: Mat4,
   pub u_inv_projection_mat: Mat4, // inverse projection matrix
   pub u_view_projection_mat: Mat4,
+  pub u_tfx_hair_settings: Vec4, // [hairDisplayMode, -, -, -]
   // AO + Shadow
   pub u_shadow_matrix_vp: Mat4,
   pub u_shadow_radius_and_bias: Vec4, // [u_shadowRadiusForwardShading, u_shadowBiasForwardShading, u_shadowRadiusTfx, u_shadowBiasTfx]
@@ -107,6 +110,7 @@ impl GlobalConfigUBO {
       u_projection_mat: *camera.perspective_matrix(),
       u_inv_projection_mat: camera.perspective_matrix().inverse(),
       u_view_projection_mat: camera.view_projection_matrix(),
+      u_tfx_hair_settings: vec4(get_hair_display_mode(config) as f32, 0.0, 0.0, 0.0),
       // shadows:
       u_shadow_matrix_vp: ShadowMapPass::get_light_shadow_mvp(
         &shadows.shadow_source,
@@ -223,4 +227,15 @@ fn light_pos(light: &LightCfg) -> Vec3 {
 
 fn pack_color_grading_prop(prop: &ColorGradingProp) -> Vec4 {
   mint3_into_vec4(prop.color, prop.value)
+}
+
+fn get_hair_display_mode(config: &Config) -> usize {
+  if config.is_hair_using_ppll() {
+    config.hair_ppll_display_mode
+  } else {
+    if config.display_mode == (DisplayMode::ShadowMap as usize) {
+      return HairSolidDisplayMode::ShadowMap as _;
+    }
+    config.hair_solid_display_mode
+  }
 }

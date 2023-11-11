@@ -9,11 +9,11 @@ use winit::event::Event;
 
 use crate::{
   config::{
-    ColorGradingPerRangeSettings, ColorGradingProp, Config, DisplayMode, LightAmbient, LightCfg,
-    PostFxCfg, SSAOConfig, SSSBlurPassCfg, SSSForwardScatterPassCfg, ShadowTechnique,
-    ShadowsConfig, TonemappingMode,
+    ColorGradingPerRangeSettings, ColorGradingProp, Config, DisplayMode, HairPPLLDisplayMode,
+    HairSolidDisplayMode, HairTechnique, LightAmbient, LightCfg, PostFxCfg, SSAOConfig,
+    SSSBlurPassCfg, SSSForwardScatterPassCfg, ShadowTechnique, ShadowsConfig, TonemappingMode,
   },
-  scene::{TfxDebugDisplayMode, TfxObject, World, WorldEntity},
+  scene::{TfxObject, World, WorldEntity},
   utils::vec3_to_pretty_str,
   vk_ctx::VkCtx,
 };
@@ -102,6 +102,7 @@ impl AppUI {
         .resizable(false)
         .build(|| {
           Self::draw_general_ui(ui, config);
+          Self::draw_hair_settings(ui, config);
           ui.spacing();
 
           scene
@@ -195,6 +196,64 @@ impl AppUI {
     push_token.end();
   }
 
+  fn draw_hair_settings(ui: &Ui, config: &mut Config) {
+    let push_token = ui.push_id("tressfx");
+
+    next_widget_small(ui);
+    ui.combo(
+      "Hair technique",
+      &mut config.hair_technique,
+      &[HairTechnique::PPLL, HairTechnique::Solid],
+      |idx| match *idx {
+        HairTechnique::Solid => Cow::Borrowed("Solid"),
+        _ => Cow::Borrowed("PPLL"),
+      },
+    );
+    add_tooltip_to_previous_widget(ui,
+      "PPLL - Order-Independent Transparency using Per-Pixel Linked List (TressFX)\nSolid - closest fragment wins, no alpha"
+    );
+
+    if config.hair_technique == HairTechnique::PPLL as _ {
+      next_widget_small(ui);
+      ui.combo(
+        "Hair display mode##ppll",
+        &mut config.hair_ppll_display_mode,
+        &[
+          HairPPLLDisplayMode::Final,
+          HairPPLLDisplayMode::Flat,
+          HairPPLLDisplayMode::PpllOverlap,
+          HairPPLLDisplayMode::RootTipPercentage,
+        ],
+        |idx| match *idx {
+          HairPPLLDisplayMode::Flat => Cow::Borrowed("Flat"),
+          HairPPLLDisplayMode::PpllOverlap => Cow::Borrowed("PPLL overlap"),
+          HairPPLLDisplayMode::RootTipPercentage => Cow::Borrowed("Root-tip %"),
+          _ => Cow::Borrowed("Final"),
+        },
+      );
+    } else {
+      next_widget_small(ui);
+      ui.combo(
+        "Hair display mode##solid",
+        &mut config.hair_solid_display_mode,
+        &[
+          HairSolidDisplayMode::Final,
+          HairSolidDisplayMode::Flat,
+          HairSolidDisplayMode::FollowGroups,
+          HairSolidDisplayMode::RootTipPercentage,
+        ],
+        |idx| match *idx {
+          HairSolidDisplayMode::Flat => Cow::Borrowed("Flat"),
+          HairSolidDisplayMode::FollowGroups => Cow::Borrowed("Follow gr."),
+          HairSolidDisplayMode::RootTipPercentage => Cow::Borrowed("Root-tip %"),
+          _ => Cow::Borrowed("Final"),
+        },
+      );
+    }
+
+    push_token.end();
+  }
+
   fn draw_entity(ui: &Ui, entity: &mut WorldEntity) {
     let push_token = ui.push_id(entity.name.clone());
     let material = &mut entity.material;
@@ -245,23 +304,6 @@ impl AppUI {
         "Verts per strand: {}",
         entity.num_vertices_per_strand
       ));
-
-      ui.combo(
-        "Display mode",
-        &mut entity.display_mode,
-        &[
-          TfxDebugDisplayMode::Final,
-          TfxDebugDisplayMode::Flat,
-          TfxDebugDisplayMode::FollowGroups,
-          TfxDebugDisplayMode::RootTipPercentage,
-        ],
-        |idx| match *idx {
-          TfxDebugDisplayMode::Flat => Cow::Borrowed("Flat"),
-          TfxDebugDisplayMode::FollowGroups => Cow::Borrowed("Follow gr."),
-          TfxDebugDisplayMode::RootTipPercentage => Cow::Borrowed("Root-tip %"),
-          _ => Cow::Borrowed("Final"),
-        },
-      );
 
       slider_small(ui, "Radius", 0.001, 0.025, &mut entity.fiber_radius);
       slider_small(ui, "Thin tip", 0.0, 1.0, &mut entity.thin_tip); // delta: 0.01,

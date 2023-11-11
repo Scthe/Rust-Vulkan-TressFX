@@ -8,10 +8,12 @@
 #pragma include _tfx_ppll_shared;
 // #pragma include TressFXRendering.coverage;
 
-layout(location = 0) in vec4 v_position;
-layout(location = 1) in vec4 v_tangent;
-layout(location = 2) in vec4 v_strandColor;
-// layout(location = 3) in vec4 v_p0p1;
+layout(location = 0) flat in int v_hairInstanceId;
+layout(location = 1) in float v_vertexRootToTipFactor;
+layout(location = 2) in vec3 v_position;
+layout(location = 3) in vec3 v_normal;
+layout(location = 4) in vec3 v_tangent;
+layout(location = 5) in vec4 v_positionLightShadowSpace;
 
 layout(location = 0) out vec4 outColor1;
 
@@ -46,7 +48,8 @@ float get_alpha () {
   // uniform vec2 g_WinSize;
 	// float coverage = ComputeCoverage(v_p0p1.xy, v_p0p1.zw, gl_FragCoord.xy, g_WinSize);
 	// return coverage * v_strandColor.a;
-  return v_strandColor.a;
+  // return v_strandColor.a;
+  return 0.5;
 }
 
 void main () {
@@ -65,7 +68,7 @@ void main () {
 			nNewFragmentAddress,
 			nOldFragmentAddress,
 			vec4(to_0_1(v_tangent.xyz), alpha), // data
-			v_strandColor.rgb, // color
+			vec3(0,0,1), // color
 			v_position.z // depth
 		);
 	}

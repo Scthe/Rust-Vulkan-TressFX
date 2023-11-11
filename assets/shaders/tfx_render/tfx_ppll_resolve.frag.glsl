@@ -25,6 +25,9 @@ layout(early_fragment_tests) in; // [earlydepthstencil]
 vec3 getDebugColorForPpllDepth();
 
 
+// TODO maybe just run full shading in build? In resolve we just blend.
+//      Then detect hair display modes, so _build pass is cheaper.
+//      Expensive..
 void main () {
   /*
   if (g_RenderMode == RENDER_MODE_FILL_ONE_COLOR) {
@@ -39,6 +42,7 @@ void main () {
   }
   */
   
+  // WARNING: Blend mode means `outColor.a==0` will render nothing!
   outColor = vec4(getDebugColorForPpllDepth(), 1);
 }
 

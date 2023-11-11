@@ -18,6 +18,7 @@ uniform GlobalConfigUniformBuffer {
   mat4 u_projectionMat;
   mat4 u_invProjectionMat; // inverse projection matrix
   mat4 u_viewProjectionMat;
+  vec4 u_tfxHairSettings; // [hairDisplayMode, -, -, -]
   // AO + Shadow
   mat4 u_directionalShadowMatrix_VP;
   vec4 u_shadowRadiusAndBias; // [u_shadowRadiusForwardShading, u_shadowBiasForwardShading, u_shadowRadiusTfx, u_shadowBiasTfx]
@@ -73,6 +74,7 @@ uniform GlobalConfigUniformBuffer {
 // u_viewportAndNearFar
 #define u_viewport (u_viewportAndNearFar.xy)
 #define u_nearAndFar (u_viewportAndNearFar.zw)
+#define u_tfxDisplayMode (readConfigUint(u_tfxHairSettings.x))
 
 // Shadows
 #define u_shadowRadiusForwardShading (readConfigInt(u_shadowRadiusAndBias.x))

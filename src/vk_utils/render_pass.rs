@@ -1,6 +1,9 @@
 use ash;
 use ash::vk;
 
+/// Raw Vulkan objects used to create vk::RenderPass
+pub type AttachmentDefinition = (vk::AttachmentDescription, vk::AttachmentReference);
+
 ///
 /// - presentable - `true` if image is rendered to window framebuffer. `false` if it's user-created texture
 pub fn create_color_attachment(
@@ -9,7 +12,7 @@ pub fn create_color_attachment(
   load_op: vk::AttachmentLoadOp,
   store_op: vk::AttachmentStoreOp,
   presentable: bool,
-) -> (vk::AttachmentDescription, vk::AttachmentReference) {
+) -> AttachmentDefinition {
   let final_layout = if presentable {
     vk::ImageLayout::PRESENT_SRC_KHR
   } else {
@@ -41,7 +44,7 @@ pub fn create_depth_stencil_attachment(
   stencil_load_op: vk::AttachmentLoadOp,
   stencil_store_op: vk::AttachmentStoreOp,
   final_layout: vk::ImageLayout,
-) -> (vk::AttachmentDescription, vk::AttachmentReference) {
+) -> AttachmentDefinition {
   let attachment = vk::AttachmentDescription::builder()
   .format(image_format)
   .samples(vk::SampleCountFlags::TYPE_1) // single sampled
@@ -63,8 +66,8 @@ pub fn create_depth_stencil_attachment(
 
 pub unsafe fn create_render_pass_from_attachments(
   device: &ash::Device,
-  depth: Option<(vk::AttachmentDescription, vk::AttachmentReference)>,
-  colors: &[(vk::AttachmentDescription, vk::AttachmentReference)],
+  depth: Option<AttachmentDefinition>,
+  colors: &[AttachmentDefinition],
 ) -> vk::RenderPass {
   // TODO this fn can implicitly change layouts by itself - use instead of `cmd_transition_attachments_for_write_barrier`?
   let mut all_attachment_descs = Vec::<vk::AttachmentDescription>::with_capacity(colors.len() + 1);

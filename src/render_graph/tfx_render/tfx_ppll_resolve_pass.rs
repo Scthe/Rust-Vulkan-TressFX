@@ -56,7 +56,6 @@ impl TfxPpllResolvePass {
   }
 
   fn create_render_pass(device: &ash::Device) -> vk::RenderPass {
-    // TODO this is copy from forward pass
     let depth_attachment = create_depth_stencil_attachment(
       0,
       ForwardPass::DEPTH_TEXTURE_FORMAT,
@@ -116,18 +115,17 @@ impl TfxPpllResolvePass {
           .depth_write_enable(false)
           .depth_compare_op(vk::CompareOp::ALWAYS)
           .depth_bounds_test_enable(false)
-          .stencil_test_enable(true) // TODO here!!!
+          .stencil_test_enable(true)
           .front(stencil_only_hair)
           .back(stencil_only_hair)
           .build();
 
-        /*
         let blend_hair_color_attachment = vk::PipelineColorBlendAttachmentState::builder()
           .color_write_mask(vk::ColorComponentFlags::RGBA)
           .blend_enable(true)
           .color_blend_op(vk::BlendOp::ADD)
-          .src_color_blend_factor(vk::BlendFactor::ONE) // shader output
-          .dst_color_blend_factor(vk::BlendFactor::SRC_ALPHA) // existing value on destination attachment
+          .src_color_blend_factor(vk::BlendFactor::SRC_ALPHA) // shader output
+          .dst_color_blend_factor(vk::BlendFactor::ONE_MINUS_SRC_ALPHA) // existing value on destination attachment
           .alpha_blend_op(vk::BlendOp::ADD)
           .src_alpha_blend_factor(vk::BlendFactor::ZERO) // shader output
           .dst_alpha_blend_factor(vk::BlendFactor::ONE) // existing value on destination attachment
@@ -135,12 +133,11 @@ impl TfxPpllResolvePass {
         let color_blend_state = vk::PipelineColorBlendStateCreateInfo::builder()
           .attachments(&[blend_hair_color_attachment])
           .build();
-        */
 
         // finish
         let pipeline_create_info = builder
           .depth_stencil_state(&depth_stencil)
-          // .color_blend_state(&color_blend_state) // TODO
+          .color_blend_state(&color_blend_state)
           .build();
         create_pipeline(device, pipeline_cache, pipeline_create_info)
       },
@@ -227,11 +224,11 @@ impl TfxPpllResolvePass {
     depth_stencil_tex: &mut VkTexture,
     forward_color_tex: &mut VkTexture,
   ) {
-    execute_full_pipeline_barrier(device, *command_buffer); // TODO remove
+    execute_full_pipeline_barrier(device, *command_buffer); // TODO [PPLL_sync] remove
 
     // Make a pipeline barrier to guarantee the geometry pass is done
     // https://github.com/SaschaWillems/Vulkan/blob/master/examples/oit/oit.cpp#L610
-    // TODO seems suboptimal. Why not provide ppll resources for prevois pass?
+    // TODO [PPLL_sync] seems suboptimal. Why not provide ppll resources for previous pass?
     device.cmd_pipeline_barrier(
       *command_buffer,
       // wait for previous use in:

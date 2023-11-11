@@ -2,8 +2,8 @@ use bytemuck;
 use glam::{vec4, Mat4, Vec4};
 
 use crate::{
-  config::{Config, DisplayMode},
-  scene::{TfxDebugDisplayMode, TfxObject},
+  config::Config,
+  scene::TfxObject,
   utils::{into_vec4, mint3_into_vec4},
 };
 
@@ -11,7 +11,7 @@ use crate::{
 #[repr(C)]
 pub struct TfxParamsUBO {
   pub u_model_matrix: Mat4,
-  pub u_general_settings: Vec4, // [uint u_tfx_display_mode, uint u_numVerticesPerStrand, u_tfx_ao_strength, u_tfx_ao_exp]
+  pub u_general_settings: Vec4, // [-, uint u_numVerticesPerStrand, u_tfx_ao_strength, u_tfx_ao_exp]
   // geometry
   pub u_geometry: Vec4, // [u_thin_tip, u_fiber_radius, u_follow_hair_spread_root, u_follow_hair_spread_tip]
   pub u_center_of_gravity: Vec4, // [cog.xyz, -]
@@ -26,13 +26,13 @@ unsafe impl bytemuck::Zeroable for TfxParamsUBO {}
 unsafe impl bytemuck::Pod for TfxParamsUBO {}
 
 impl TfxParamsUBO {
-  pub fn new(config: &Config, tfx: &TfxObject) -> Self {
+  pub fn new(_config: &Config, tfx: &TfxObject) -> Self {
     let mat = &tfx.material;
 
     Self {
       u_model_matrix: tfx.model_matrix,
       u_general_settings: vec4(
-        get_display_mode(config, tfx) as f32,
+        0.0,
         tfx.num_vertices_per_strand as f32,
         mat.ao_strength,
         mat.ao_exp,
@@ -55,11 +55,4 @@ impl TfxParamsUBO {
       ),
     }
   }
-}
-
-fn get_display_mode(config: &Config, tfx: &TfxObject) -> usize {
-  if config.display_mode == (DisplayMode::ShadowMap as usize) {
-    return TfxDebugDisplayMode::ShadowMap as _;
-  }
-  tfx.display_mode
 }

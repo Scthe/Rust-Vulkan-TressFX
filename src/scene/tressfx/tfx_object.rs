@@ -12,22 +12,11 @@ use crate::{
 
 use super::{TfxFileData, TfxMaterial};
 
-// Must match consts in `tfx_forward.frag.glsl`.
-pub enum TfxDebugDisplayMode {
-  Final = 0,
-  Flat = 1,
-  FollowGroups = 2,
-  RootTipPercentage = 3,
-  // non-user selectable modes, accessed from `Config.display_mode`
-  ShadowMap = 4,
-}
-
 pub struct TfxObject {
+  // TODO add PPLL opacity/transparency :f32
   pub name: String,
   pub model_matrix: Mat4,
   pub center_of_gravity: Vec3,
-  /// debug display mode
-  pub display_mode: usize,
   /// radius of each strand
   pub fiber_radius: f32,
   /// make strand tip thinner than the root by a factor e.g. half as thick
@@ -84,7 +73,6 @@ impl TfxObject {
       name: name.to_string(),
       model_matrix,
       center_of_gravity: vec3(0.0, 0.0, 0.0),
-      display_mode: TfxDebugDisplayMode::Final as _,
       material: TfxMaterial::default(),
       // tressfx:
       fiber_radius: 0.02,

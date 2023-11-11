@@ -26,6 +26,28 @@ pub enum DisplayMode {
   SSSThickness = 7,
 }
 
+pub enum HairTechnique {
+  PPLL = 0,
+  Solid = 1,
+}
+
+pub enum HairPPLLDisplayMode {
+  Final = 1,
+  Flat = 2,
+  PpllOverlap = 3,
+  RootTipPercentage = 4,
+}
+
+// Must match consts in `tfx_forward.frag.glsl`.
+pub enum HairSolidDisplayMode {
+  Final = 0,
+  Flat = 1,
+  FollowGroups = 2,
+  RootTipPercentage = 3,
+  // non-user selectable modes, accessed from `Config.display_mode`
+  ShadowMap = 4,
+}
+
 /// https://github.com/Scthe/WebFX/blob/master/src/Config.ts
 pub struct Config {
   /// crash program after first frame to read init errors
@@ -46,6 +68,9 @@ pub struct Config {
   // scene-related
   pub model_scale: f32,
   pub camera: CameraConfig,
+  pub hair_technique: usize,
+  pub hair_ppll_display_mode: usize,
+  pub hair_solid_display_mode: usize,
   // lights
   pub light_ambient: LightAmbient,
   pub light0: LightCfg,
@@ -92,6 +117,10 @@ impl Config {
       // scene
       model_scale: 0.3,
       camera: CameraConfig::default(),
+      hair_technique: HairTechnique::PPLL as _,
+      hair_ppll_display_mode: HairPPLLDisplayMode::Final as _,
+      hair_solid_display_mode: HairSolidDisplayMode::Final as _,
+      // lights
       light_ambient: LightAmbient::default(),
       light0: LightCfg::light0(),
       light1: LightCfg::light1(),
@@ -163,7 +192,6 @@ impl Config {
   }
 
   pub fn is_hair_using_ppll(&self) -> bool {
-    // false
-    true
+    self.hair_technique != (HairTechnique::Solid as _)
   }
 }

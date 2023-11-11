@@ -31,9 +31,10 @@ pub struct TfxPpllBuildPass {
 }
 
 impl TfxPpllBuildPass {
-  const COLOR_ATTACHMENT_COUNT: usize = 1; // TODO should be 0
-  const PPLL_NODE_BYTES: u32 = 16; // TODO hardcoded (4 uints)
+  const COLOR_ATTACHMENT_COUNT: usize = 0;
+  const PPLL_NODE_BYTES: u32 = 16; // Must match shader definition (4 uints == 16 bytes)
   const PPLL_AVG_NODES_PER_PIXEL: u32 = 4;
+  const PPLL_ATOMIC_COUNTER_BYTES: usize = 4; // single uint
   /// Must match shader value
   const PPLL_FRAGMENT_LIST_NULL: u32 = 0xffffffff;
   const PPLL_COUNTER_RESET_VALUE: u32 = 0;
@@ -74,7 +75,6 @@ impl TfxPpllBuildPass {
   }
 
   fn create_render_pass(device: &ash::Device) -> vk::RenderPass {
-    // TODO this is copy from forward pass
     let depth_attachment = create_depth_stencil_attachment(
       0,
       ForwardPass::DEPTH_TEXTURE_FORMAT,
@@ -84,18 +84,8 @@ impl TfxPpllBuildPass {
       vk::AttachmentStoreOp::STORE, // stencil_store_op
       vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
     );
-    let color_attachment = create_color_attachment(
-      // TODO remove!!!
-      1,
-      ForwardPass::DIFFUSE_TEXTURE_FORMAT,
-      vk::AttachmentLoadOp::LOAD,
-      vk::AttachmentStoreOp::STORE,
-      false,
-    );
 
-    return unsafe {
-      create_render_pass_from_attachments(device, Some(depth_attachment), &[color_attachment])
-    };
+    return unsafe { create_render_pass_from_attachments(device, Some(depth_attachment), &[]) };
   }
 
   fn get_uniforms_layout() -> Vec<vk::DescriptorSetLayoutBinding> {
@@ -151,7 +141,7 @@ impl TfxPpllBuildPass {
         let depth_stencil = vk::PipelineDepthStencilStateCreateInfo::builder()
           .depth_test_enable(true)
           // TODO [CRITICAL] what about later passes that use depth?
-          // `Write` here cannot be true as we would have skipped fragments due to self-'shadowing' (self-compare after this pass has self-written)
+          // `Write depth` here cannot be `true` as we would have skipped fragments due to self-'shadowing' (self-compare after this pass has self-written)
           .depth_write_enable(false)
           .depth_compare_op(vk::CompareOp::LESS)
           .depth_bounds_test_enable(false)
@@ -177,15 +167,13 @@ impl TfxPpllBuildPass {
     vk_app: &VkCtx,
     frame_id: usize,
     depth_stencil_tex: &VkTexture,
-    dbg_color_tex: &VkTexture,
   ) -> TfxPpllBuildPassFramebuffer {
-    // TODO if we clear atomic buffer and ppll heads from CPU, should we optimize to Device::HOST (instead of GPU-local)? Probably not, we use cmds after all.
     let device = vk_app.vk_device();
     let size = depth_stencil_tex.size();
     let fbo = create_framebuffer(
       device,
       self.render_pass,
-      &[depth_stencil_tex.image_view(), dbg_color_tex.image_view()],
+      &[depth_stencil_tex.image_view()],
       &size,
     );
 
@@ -216,7 +204,7 @@ impl TfxPpllBuildPass {
     // single atomic uint
     let ppll_next_free_entry_atomic = vk_app.create_buffer_empty(
       format!("TfxPpllBuildPass.ppll_next_free_entry_atomic#{}", frame_id),
-      4, // single uint
+      Self::PPLL_ATOMIC_COUNTER_BYTES,
       // will be cleared every frame:
       vk::BufferUsageFlags::STORAGE_BUFFER | vk::BufferUsageFlags::TRANSFER_DST,
       false,
@@ -248,7 +236,7 @@ impl TfxPpllBuildPass {
     unsafe {
       self.cmd_reset_current_values(exec_ctx, framebuffer);
       self.cmd_resource_barriers(device, &command_buffer, depth_stencil_tex);
-      execute_full_pipeline_barrier(device, command_buffer); // TODO remove
+      execute_full_pipeline_barrier(device, command_buffer); // TODO [PPLL_sync] remove
 
       // start render pass
       cmd_begin_render_pass_for_framebuffer(
