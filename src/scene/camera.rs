@@ -3,9 +3,9 @@ use glam::{vec3, vec4, Mat4, Vec3, Vec4Swizzles};
 
 use crate::config::Config;
 
-const ROTATE_SENSITIVITY: f32 = 0.002;
-const MOVE_SENSITIVITY: f32 = 0.3;
-const WHEEL_SENSITIVITY: f32 = 0.2;
+const ROTATE_SENSITIVITY: f32 = 0.0025;
+const MOVE_SENSITIVITY: f32 = 0.12;
+const WHEEL_SENSITIVITY: f32 = 0.5;
 
 pub struct Camera {
   view_matrix: Mat4,
@@ -123,6 +123,7 @@ impl Camera {
 
   /// Mostly for debug
   /// - returns `(side, up, forward)`
+  #[allow(dead_code)]
   pub fn get_rotation_axes(&self) -> (Vec3, Vec3, Vec3) {
     let mut mat_rot = calc_rotation_matrix(self.rotation_yaw, self.rotation_pitch);
     mat_rot = mat_rot.transpose();
