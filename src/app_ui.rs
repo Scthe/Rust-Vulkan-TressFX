@@ -222,12 +222,10 @@ impl AppUI {
           HairPPLLDisplayMode::Final,
           HairPPLLDisplayMode::Flat,
           HairPPLLDisplayMode::PpllOverlap,
-          HairPPLLDisplayMode::RootTipPercentage,
         ],
         |idx| match *idx {
           HairPPLLDisplayMode::Flat => Cow::Borrowed("Flat"),
           HairPPLLDisplayMode::PpllOverlap => Cow::Borrowed("PPLL overlap"),
-          HairPPLLDisplayMode::RootTipPercentage => Cow::Borrowed("Root-tip %"),
           _ => Cow::Borrowed("Final"),
         },
       );

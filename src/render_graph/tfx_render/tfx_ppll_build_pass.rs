@@ -140,7 +140,7 @@ impl TfxPpllBuildPass {
         let stencil_write_hair = ps_stencil_write_if_depth_passed(Config::STENCIL_BIT_HAIR, true);
         let depth_stencil = vk::PipelineDepthStencilStateCreateInfo::builder()
           .depth_test_enable(true)
-          // TODO [CRITICAL] what about later passes that use depth?
+          // TODO [CRITICAL] what about later passes that use depth? Same with normals
           // `Write depth` here cannot be `true` as we would have skipped fragments due to self-'shadowing' (self-compare after this pass has self-written)
           .depth_write_enable(false)
           .depth_compare_op(vk::CompareOp::LESS)

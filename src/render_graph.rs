@@ -30,7 +30,7 @@ use self::shadow_map_pass::ShadowMapPass;
 use self::ssao_pass::SSAOPass;
 use self::sss_blur_pass::SSSBlurPass;
 use self::sss_depth_pass::SSSDepthPass;
-use self::tfx_render::{TfxForwardPass, TfxPpllBuildPass, TfxPpllResolvePass};
+use self::tfx_render::{execute_tfx_ppll, TfxForwardPass, TfxPpllBuildPass, TfxPpllResolvePass};
 use self::tonemapping_pass::TonemappingPass;
 use self::{_shared::GlobalConfigUBO, present_pass::PresentPass};
 
@@ -255,21 +255,14 @@ impl RenderGraph {
     // that are hard to get rid off. Since this pass writes to depth buffer,
     // we have to update linear depth render target too
     if pass_ctx.config.is_hair_using_ppll() {
-      pass_ctx.debug_start_pass("tfx_ppll_build_pass");
-      self.tfx_ppll_build_pass.execute(
+      execute_tfx_ppll(
+        &self.tfx_ppll_build_pass,
+        &self.tfx_ppll_resolve_pass,
         &pass_ctx,
         &mut frame_resources.tfx_ppll_build_pass,
-        &mut frame_resources.forward_pass.depth_stencil_tex,
-      );
-
-      pass_ctx.debug_start_pass("tfx_ppll_resolve_pass");
-      self.tfx_ppll_resolve_pass.execute(
-        &pass_ctx,
         &mut frame_resources.tfx_ppll_resolve_pass,
         &mut frame_resources.forward_pass.depth_stencil_tex,
         &mut frame_resources.forward_pass.diffuse_tex,
-        &mut frame_resources.tfx_ppll_build_pass.head_pointers_image,
-        &mut frame_resources.tfx_ppll_build_pass.ppll_data,
       );
     } else {
       pass_ctx.debug_start_pass("tfx_forward_pass");

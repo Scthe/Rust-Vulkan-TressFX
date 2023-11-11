@@ -4,46 +4,65 @@
 #define KBUFFER_SIZE 8
 // Max entries per pixel in ppll data list
 #define MAX_FRAGMENTS 512
-// const int RENDER_MODE_FILL_ONE_COLOR = 1;
-// const int RENDER_MODE_PPLL_DEPTH = 2;
+const int PPLL_DISPLAY_MODE_FINAL = 0;
+const int PPLL_DISPLAY_MODE_FLAT = 1;
+const int PPLL_DISPLAY_MODE_OVERLAP = 2;
 
-#define PPLL_HEAD_POINTERS_IMAGE_BINDING 0
-#define PPLL_DATA_BUFFER_BINDING 1
 
+// includes
+#pragma include ../_config_ubo;
+#define PPLL_HEAD_POINTERS_IMAGE_BINDING 1
+#define PPLL_DATA_BUFFER_BINDING 2
 #pragma include _tfx_ppll_shared;
-// #pragma include _tfx_ppll_resolve_impl;
 
 
-// uniform vec3 g_vEye;
-// uniform int g_RenderMode;
-
+// intra-shader stuff
 layout(location = 0) out vec4 outColor;
 
 layout(early_fragment_tests) in; // [earlydepthstencil]
 
 
+// fwd decl.
 vec3 getDebugColorForPpllDepth();
+vec4 debugModeOverride(vec3 shadingResult);
 
 
 // TODO maybe just run full shading in build? In resolve we just blend.
 //      Then detect hair display modes, so _build pass is cheaper.
 //      Expensive..
 void main () {
-  /*
-  if (g_RenderMode == RENDER_MODE_FILL_ONE_COLOR) {
-    outColor = vec4(1,1,0,1);
-  } else if (g_RenderMode == RENDER_MODE_PPLL_DEPTH) {
-    outColor = vec4(getDebugColorForPpllDepth(), 1);
-  } else {
-    vec4 color = GatherLinkedList(gl_FragCoord.xy);
-    // outColor = vec4(gammaFix(tonemapReinhard(color.rgb), GAMMA), color.a);
-    // outColor = vec4(gammaFix(color.rgb, GAMMA), color.a);
-    outColor = vec4(color.rgb, color.a);
-  }
-  */
+  // vec4 color = GatherLinkedList(gl_FragCoord.xy);
+  // outColor = vec4(color.rgb, color.a);
+  
+  vec3 result = getDebugColorForPpllDepth();
   
   // WARNING: Blend mode means `outColor.a==0` will render nothing!
-  outColor = vec4(getDebugColorForPpllDepth(), 1);
+  
+  vec4 colorDebug = debugModeOverride(result);
+  result = mix(result, colorDebug.rgb, colorDebug.a);
+  outColor = vec4(result, 1.0); // TODO alpha for blending?
+}
+
+vec4 debugModeOverride(vec3 shadingResult){
+  vec3 result = vec3(0);
+  float mixFac = 1;
+
+  switch (u_tfxDisplayMode) {
+    case PPLL_DISPLAY_MODE_OVERLAP: {
+      result = getDebugColorForPpllDepth();
+      break;
+    }
+    case PPLL_DISPLAY_MODE_FLAT: {
+      result = vec3(0.8); // TODO use debugHairFlatColor()
+      break;
+    }
+    default: {
+      mixFac = 0;
+      break;
+    }
+  }
+
+  return vec4(result, mixFac);
 }
 
 uint countListNodesForPixel (vec2 vfScreenAddress) {

@@ -25,8 +25,9 @@ pub struct TfxPpllResolvePass {
 impl TfxPpllResolvePass {
   const COLOR_ATTACHMENT_COUNT: usize = 1;
 
-  const BINDING_INDEX_HEAD_POINTERS_IMAGE: u32 = 0;
-  const BINDING_INDEX_DATA_BUFFER: u32 = 1;
+  const BINDING_INDEX_CONFIG_UBO: u32 = 0;
+  const BINDING_INDEX_HEAD_POINTERS_IMAGE: u32 = 1; // Must match shader
+  const BINDING_INDEX_DATA_BUFFER: u32 = 2; // Must match shader
 
   pub fn new(vk_app: &VkCtx) -> Self {
     info!("Creating TfxPpllResolvePass");
@@ -80,6 +81,10 @@ impl TfxPpllResolvePass {
 
   fn get_uniforms_layout() -> Vec<vk::DescriptorSetLayoutBinding> {
     vec![
+      create_ubo_binding(
+        Self::BINDING_INDEX_CONFIG_UBO,
+        vk::ShaderStageFlags::FRAGMENT,
+      ),
       create_storage_image_binding(
         Self::BINDING_INDEX_HEAD_POINTERS_IMAGE,
         vk::ShaderStageFlags::FRAGMENT,
@@ -257,9 +262,15 @@ impl TfxPpllResolvePass {
     ppll_data_buffer: &mut VkBuffer,
   ) {
     let vk_app = exec_ctx.vk_app;
+    let config_buffer = exec_ctx.config_buffer;
     let resouce_binder = exec_ctx.create_resouce_binder(self.pipeline_layout);
 
     let uniform_resouces = [
+      BindableResource::Buffer {
+        usage: BindableBufferUsage::UBO,
+        binding: Self::BINDING_INDEX_CONFIG_UBO,
+        buffer: config_buffer,
+      },
       BindableResource::StorageImage {
         binding: Self::BINDING_INDEX_HEAD_POINTERS_IMAGE,
         texture: &ppll_head_pointers_image,

@@ -31,14 +31,14 @@ pub enum HairTechnique {
   Solid = 1,
 }
 
+/// Must match consts in `tfx_ppll_resolve.frag.glsl`
 pub enum HairPPLLDisplayMode {
-  Final = 1,
-  Flat = 2,
-  PpllOverlap = 3,
-  RootTipPercentage = 4,
+  Final = 0,
+  Flat = 1,
+  PpllOverlap = 2,
 }
 
-// Must match consts in `tfx_forward.frag.glsl`.
+/// Must match consts in `tfx_forward.frag.glsl`.
 pub enum HairSolidDisplayMode {
   Final = 0,
   Flat = 1,
