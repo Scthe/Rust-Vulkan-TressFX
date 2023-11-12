@@ -66,6 +66,9 @@ pub fn create_pipeline_with_defaults(
 
   let dynamic_state = ps_dynamic_state(&[vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR]);
 
+  let mut attachment_blends =
+    Vec::<vk::PipelineColorBlendAttachmentState>::with_capacity(color_attachment_count);
+
   // create pipeline itself
   let stages = [stage_vs, stage_fs];
   let input_assembly_state = ps_ia_triangle_list();
@@ -73,8 +76,11 @@ pub fn create_pipeline_with_defaults(
   let rasterization_state = ps_raster_polygons(vk::CullModeFlags::NONE);
   let multisample_state = ps_multisample_disabled();
   let depth_stencil_state = ps_depth_always_stencil_always();
-  let color_blend_state =
-    ps_color_blend_override(color_attachment_count, vk::ColorComponentFlags::RGBA);
+  let color_blend_state = ps_color_blend_override(
+    &mut attachment_blends,
+    color_attachment_count,
+    vk::ColorComponentFlags::RGBA,
+  );
   let create_info_builder = vk::GraphicsPipelineCreateInfo::builder()
     .stages(&stages)
     .vertex_input_state(&vertex_desc)
@@ -267,44 +273,48 @@ pub fn ps_multisample_disabled() -> vk::PipelineMultisampleStateCreateInfo {
 }
 
 /// Write result to all color attachments, disable blending
-fn ps_color_attachments_write_all(
-  attachment_count: usize,
+pub fn ps_color_attachment_override(
   color_write_mask: vk::ColorComponentFlags,
-) -> Vec<vk::PipelineColorBlendAttachmentState> {
-  // VULKAN SPEC:
-  // > If the independent blending feature is not enabled on the device,
-  // all VkPipelineColorBlendAttachmentState elements in the pAttachments
-  // array must be identical.
-
+) -> vk::PipelineColorBlendAttachmentState {
   // PS. I always hated blend state
-  let write_all = vk::PipelineColorBlendAttachmentState::builder()
+  vk::PipelineColorBlendAttachmentState::builder()
     .color_write_mask(color_write_mask)
     .blend_enable(false)
     .src_color_blend_factor(vk::BlendFactor::ONE) // shader output
     .dst_color_blend_factor(vk::BlendFactor::ZERO) // existing value on destination attachment
     .src_alpha_blend_factor(vk::BlendFactor::ONE) // shader output
     .dst_alpha_blend_factor(vk::BlendFactor::ZERO) // existing value on destination attachment
-    .build();
+    .build()
+}
 
-  let mut attachments =
-    Vec::<vk::PipelineColorBlendAttachmentState>::with_capacity(attachment_count);
-  for _i in 0..attachment_count {
-    attachments.push(write_all);
+/// Copy blends state `color_attachment_count` times.
+///
+/// **VULKAN SPEC:**
+/// > If the independent blending feature is not enabled on the device,
+/// all VkPipelineColorBlendAttachmentState elements in the pAttachments
+/// array must be identical.
+pub fn ps_color_blend_state(
+  attachment_blends: &mut Vec<vk::PipelineColorBlendAttachmentState>, // needed cause `PipelineColorBlendAttachmentState` has ref
+  color_attachment_count: usize,
+  blend_state: vk::PipelineColorBlendAttachmentState,
+) -> vk::PipelineColorBlendStateCreateInfo {
+  for _i in 0..color_attachment_count {
+    attachment_blends.push(blend_state);
   }
 
-  attachments
+  vk::PipelineColorBlendStateCreateInfo::builder()
+    .attachments(&attachment_blends)
+    .build()
 }
 
 /// Write result to all color attachments, disable blending
 pub fn ps_color_blend_override(
+  attachment_blends: &mut Vec<vk::PipelineColorBlendAttachmentState>,
   color_attachment_count: usize,
   color_write_mask: vk::ColorComponentFlags,
 ) -> vk::PipelineColorBlendStateCreateInfo {
-  let color_attachments_write_all =
-    ps_color_attachments_write_all(color_attachment_count, color_write_mask);
-  vk::PipelineColorBlendStateCreateInfo::builder()
-    .attachments(&color_attachments_write_all)
-    .build()
+  let blend_state = ps_color_attachment_override(color_write_mask);
+  ps_color_blend_state(attachment_blends, color_attachment_count, blend_state)
 }
 
 /// List of things that will be provided as separate command before draw (actuall 'runtime').

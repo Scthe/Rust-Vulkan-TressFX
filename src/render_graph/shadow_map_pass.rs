@@ -178,12 +178,15 @@ impl ShadowMapPass {
       vertex_desc,
       COLOR_ATTACHMENT_COUNT,
       |builder| {
+        let mut attachment_blends =
+          Vec::<vk::PipelineColorBlendAttachmentState>::with_capacity(COLOR_ATTACHMENT_COUNT);
+
         let pipeline_create_info = builder
           .depth_stencil_state(&ps_depth_less_stencil_always())
           // see https://docs.microsoft.com/en-us/windows/desktop/DxTechArts/common-techniques-to-improve-shadow-depth-maps#back-face-and-front-face
           .rasterization_state(&ps_raster_polygons(vk::CullModeFlags::NONE))
           // disable writes to color (we do not set any attachments anyway)
-          .color_blend_state(&ps_color_blend_override(COLOR_ATTACHMENT_COUNT, vk::ColorComponentFlags::empty()))
+          .color_blend_state(&ps_color_blend_override(&mut attachment_blends, COLOR_ATTACHMENT_COUNT, vk::ColorComponentFlags::empty()))
           .build();
         create_pipeline(device, pipeline_cache, pipeline_create_info)
       },

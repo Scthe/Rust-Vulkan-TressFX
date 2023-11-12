@@ -152,9 +152,13 @@ impl TfxPpllBuildPass {
           .back(stencil_write_hair)
           .build();
 
+        let mut attachment_blends =
+          Vec::<vk::PipelineColorBlendAttachmentState>::with_capacity(Self::COLOR_ATTACHMENT_COUNT);
+
         let pipeline_create_info = builder
           .depth_stencil_state(&depth_stencil)
           .color_blend_state(&ps_color_blend_override(
+            &mut attachment_blends,
             Self::COLOR_ATTACHMENT_COUNT,
             vk::ColorComponentFlags::empty(),
           ))
