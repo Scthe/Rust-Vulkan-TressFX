@@ -31,8 +31,8 @@ pub struct TfxPpllBuildPass {
 }
 
 impl TfxPpllBuildPass {
-  const COLOR_ATTACHMENT_COUNT: usize = 0;
-  const PPLL_NODE_BYTES: u32 = 16; // Must match shader definition (4 uints == 16 bytes)
+  /// Must match shader definition (4 uints + 4 f32 == 32 bytes)
+  const PPLL_NODE_BYTES: u32 = 32;
   const PPLL_AVG_NODES_PER_PIXEL: u32 = 4;
   const PPLL_ATOMIC_COUNTER_BYTES: usize = 4; // single uint
   /// Must match shader value
@@ -46,6 +46,8 @@ impl TfxPpllBuildPass {
   const BINDING_INDEX_HEAD_POINTERS_IMAGE: u32 = 4;
   const BINDING_INDEX_DATA_BUFFER: u32 = 5;
   const BINDING_INDEX_NEXT_FREE_ENTRY_ATOMIC: u32 = 6;
+
+  const COLOR_ATTACHMENT_COUNT: usize = 0;
 
   pub fn new(vk_app: &VkCtx) -> Self {
     info!("Creating TfxPpllBuildPass");
@@ -223,15 +225,11 @@ impl TfxPpllBuildPass {
     exec_ctx: &PassExecContext,
     framebuffer: &mut TfxPpllBuildPassFramebuffer,
     depth_stencil_tex: &mut VkTexture,
+    entity: &TfxObject,
   ) -> () {
     let vk_app = exec_ctx.vk_app;
-    let scene = &*exec_ctx.scene;
     let command_buffer = exec_ctx.command_buffer;
     let device = vk_app.vk_device();
-
-    if !exec_ctx.scene.has_hair_objects() {
-      return;
-    }
 
     unsafe {
       self.cmd_reset_current_values(exec_ctx, framebuffer);
@@ -254,10 +252,8 @@ impl TfxPpllBuildPass {
       );
 
       // draw calls
-      for entity in &scene.tressfx_objects {
-        self.bind_entity_ubos(exec_ctx, framebuffer, entity);
-        entity.cmd_draw_mesh(device, command_buffer);
-      }
+      self.bind_entity_ubos(exec_ctx, framebuffer, entity);
+      entity.cmd_draw_mesh(device, command_buffer);
 
       // end
       device.cmd_end_render_pass(command_buffer)

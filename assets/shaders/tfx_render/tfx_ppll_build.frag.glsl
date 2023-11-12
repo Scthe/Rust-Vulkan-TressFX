@@ -13,7 +13,7 @@ layout(location = 1) in float v_vertexRootToTipFactor;
 layout(location = 2) in vec3 v_position;
 layout(location = 3) in vec3 v_normal;
 layout(location = 4) in vec3 v_tangent;
-layout(location = 5) in vec4 v_positionLightShadowSpace;
+layout(location = 5) in vec4 v_positionLightShadowSpace; // TODO not used?
 
 layout(location = 0) out vec4 outColor1;
 
@@ -67,9 +67,10 @@ void main () {
 		writeFragmentAttributes(
 			nNewFragmentAddress,
 			nOldFragmentAddress,
-			vec4(to_0_1(v_tangent.xyz), alpha), // data
-			vec3(0,0,1), // color
-			v_position.z // depth
+			v_position.z, // depth
+			v_tangent.xyz, // tangent
+			alpha, // coverage
+			v_position.xyz // positionWorldSpace
 		);
 	}
 

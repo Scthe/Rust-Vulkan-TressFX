@@ -2,12 +2,12 @@
 // STRUCTS
 
 struct PerPixelListEntryData {
-  uint depth;
-  uint data;
-  uint color;
-  uint uNext;
+  uint uNext; // pointer to next data
+  uint tangentAndCoverage; // tangent.xyz and coverage
+  uint _padding;
+  uint _padding2;
+  vec4 positionWorldSpace; // [.xyz, depth]
 };
-#define KBUFFER_TYPE uvec4
 
 #define FRAGMENT_LIST_NULL (0xffffffff)
 
@@ -64,11 +64,18 @@ uint makeFragmentLink(ivec2 vScreenAddress, uint nNewHeadAddress) {
 
 
 // Write fragment attributes to list location.
-void writeFragmentAttributes(uint nAddress, uint nPreviousLink, vec4 vData, vec3 vColor3, float fDepth) {
-    u_linkedListDataBuffer[nAddress].data  = PackFloat4IntoUint(vData);
-    u_linkedListDataBuffer[nAddress].color = PackFloat4IntoUint(vec4(vColor3, 0));
-    u_linkedListDataBuffer[nAddress].depth = uint(fDepth * 255.0); //uint(saturate(fDepth)); or gl_FragCoord.z; ?
+void writeFragmentAttributes(
+  uint nAddress,
+  uint nPreviousLink,
+  float fDepth,
+  vec3 tangent,
+  float coverage,
+  vec3 positionWorldSpace
+) {
+    u_linkedListDataBuffer[nAddress].tangentAndCoverage  = PackFloat4IntoUint(vec4(to_0_1(tangent.xyz), coverage));
+    // u_linkedListDataBuffer[nAddress].depth = uint(fDepth * 255.0); //uint(saturate(fDepth)); or gl_FragCoord.z; ?
     u_linkedListDataBuffer[nAddress].uNext = nPreviousLink;
+    u_linkedListDataBuffer[nAddress].positionWorldSpace = vec4(positionWorldSpace, fDepth);
 }
 
 ////////////////// 
@@ -78,7 +85,13 @@ uint getListHeadPointer(vec2 vfScreenAddress) {
   return imageLoad(u_linkedListHeadPointersImage, ivec2(vfScreenAddress)).r;
 }
 
-#define NODE_DATA(x)  (u_linkedListDataBuffer[x].data)
+#define NODE_TANGENT_COV(x)  (u_linkedListDataBuffer[x].tangentAndCoverage)
 #define NODE_NEXT(x)  (u_linkedListDataBuffer[x].uNext)
-#define NODE_DEPTH(x) (u_linkedListDataBuffer[x].depth) // was multiplied by 255 in build stage
-#define NODE_COLOR(x) (u_linkedListDataBuffer[x].color)
+#define NODE_DEPTH(x) (u_linkedListDataBuffer[x].positionWorldSpace.w)
+#define NODE_POSITION(x) (u_linkedListDataBuffer[x].positionWorldSpace.xyz)
+
+vec4 parseTangentAndCoverage(uint tangentAndCoverage) {
+  vec4 value = UnpackUintIntoFloat4(tangentAndCoverage);
+  vec3 tangent = to_neg1_1(value.xyz);
+  return vec4(normalize(tangent), value.w);
+}

@@ -4,6 +4,7 @@ use log::info;
 
 use crate::config::Config;
 use crate::render_graph::forward_pass::ForwardPass;
+use crate::scene::TfxObject;
 use crate::vk_ctx::VkCtx;
 use crate::vk_utils::*;
 
@@ -28,6 +29,7 @@ impl TfxPpllResolvePass {
   const BINDING_INDEX_CONFIG_UBO: u32 = 0;
   const BINDING_INDEX_HEAD_POINTERS_IMAGE: u32 = 1; // Must match shader
   const BINDING_INDEX_DATA_BUFFER: u32 = 2; // Must match shader
+  const BINDING_INDEX_TFX_PARAMS_UBO: u32 = 3;
 
   pub fn new(vk_app: &VkCtx) -> Self {
     info!("Creating TfxPpllResolvePass");
@@ -93,6 +95,10 @@ impl TfxPpllResolvePass {
         Self::BINDING_INDEX_DATA_BUFFER,
         vk::ShaderStageFlags::FRAGMENT,
       ),
+      create_ubo_binding(
+        Self::BINDING_INDEX_TFX_PARAMS_UBO,
+        vk::ShaderStageFlags::FRAGMENT,
+      ),
     ]
   }
 
@@ -129,8 +135,8 @@ impl TfxPpllResolvePass {
           .color_write_mask(vk::ColorComponentFlags::RGBA)
           .blend_enable(true)
           .color_blend_op(vk::BlendOp::ADD)
-          .src_color_blend_factor(vk::BlendFactor::SRC_ALPHA) // shader output
-          .dst_color_blend_factor(vk::BlendFactor::ONE_MINUS_SRC_ALPHA) // existing value on destination attachment
+          .src_color_blend_factor(vk::BlendFactor::ONE) // shader output
+          .dst_color_blend_factor(vk::BlendFactor::SRC_ALPHA) // existing value on destination attachment
           .alpha_blend_op(vk::BlendOp::ADD)
           .src_alpha_blend_factor(vk::BlendFactor::ZERO) // shader output
           .dst_alpha_blend_factor(vk::BlendFactor::ONE) // existing value on destination attachment
@@ -179,14 +185,11 @@ impl TfxPpllResolvePass {
     forward_color_tex: &mut VkTexture,
     ppll_head_pointers_image: &mut VkTexture,
     ppll_data_buffer: &mut VkBuffer,
+    entity: &TfxObject,
   ) -> () {
     let vk_app = exec_ctx.vk_app;
     let command_buffer = exec_ctx.command_buffer;
     let device = vk_app.vk_device();
-
-    if !exec_ctx.scene.has_hair_objects() {
-      return;
-    }
 
     unsafe {
       self.cmd_resource_barriers(
@@ -212,7 +215,7 @@ impl TfxPpllResolvePass {
       );
 
       // bind uniforms (do not move this)
-      self.bind_uniforms(exec_ctx, ppll_head_pointers_image, ppll_data_buffer);
+      self.bind_uniforms(exec_ctx, ppll_head_pointers_image, ppll_data_buffer, entity);
 
       // draw calls
       cmd_draw_fullscreen_triangle(device, &command_buffer);
@@ -260,10 +263,12 @@ impl TfxPpllResolvePass {
     exec_ctx: &PassExecContext,
     ppll_head_pointers_image: &mut VkTexture,
     ppll_data_buffer: &mut VkBuffer,
+    entity: &TfxObject,
   ) {
     let vk_app = exec_ctx.vk_app;
     let config_buffer = exec_ctx.config_buffer;
     let resouce_binder = exec_ctx.create_resouce_binder(self.pipeline_layout);
+    let frame_id = exec_ctx.swapchain_image_idx;
 
     let uniform_resouces = [
       BindableResource::Buffer {
@@ -280,6 +285,11 @@ impl TfxPpllResolvePass {
         usage: BindableBufferUsage::SSBO,
         binding: Self::BINDING_INDEX_DATA_BUFFER,
         buffer: &ppll_data_buffer,
+      },
+      BindableResource::Buffer {
+        usage: BindableBufferUsage::UBO,
+        binding: Self::BINDING_INDEX_TFX_PARAMS_UBO,
+        buffer: &entity.get_tfx_params_ubo_buffer(frame_id),
       },
     ];
     bind_resources_to_descriptors(&resouce_binder, 0, &uniform_resouces);
