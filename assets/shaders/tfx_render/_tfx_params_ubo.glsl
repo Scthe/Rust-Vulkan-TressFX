@@ -30,6 +30,7 @@ uniform TfxParamsUniformBuffer {
 #define u_specularStrength1 (TfxParamsUbo.u_material.z)
 #define u_specularStrength2 (TfxParamsUbo.u_material.w)
 // u_generalSettings
+#define u_tfxOpacity (TfxParamsUbo.u_generalSettings.x)
 #define u_numVerticesPerStrand (readConfigUint(TfxParamsUbo.u_generalSettings.y))
 #define u_tfxAoStrength (TfxParamsUbo.u_generalSettings.z)
 #define u_tfxAoExp (TfxParamsUbo.u_generalSettings.w)

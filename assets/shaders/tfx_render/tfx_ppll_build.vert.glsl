@@ -13,9 +13,9 @@ layout(location = 1) out float v_vertexRootToTipFactor;
 layout(location = 2) out vec3 v_position;
 layout(location = 3) out vec3 v_normal;
 layout(location = 4) out vec3 v_tangent;
-layout(location = 5) out vec4 v_positionLightShadowSpace;
+layout(location = 5) out vec4 v_p0p1;
 
-// Funny this shader, is same as 'tfx_forward.vert.glsl'
+// TBH this shader is moslty same as 'tfx_forward.vert.glsl'
 void main() {
   TressFXParams tfxParams = createTfxParams();
   TressFXVertex tressfxVert = getExpandedTressFXVert(tfxParams);
@@ -24,8 +24,8 @@ void main() {
 
   v_hairInstanceId = gl_InstanceIndex;
   v_vertexRootToTipFactor = tressfxVert.vertexRootToTipFactor;
-  v_positionLightShadowSpace = u_directionalShadowMatrix_VP * tressfxVert.positionWorldSpace;
   v_position = tressfxVert.positionWorldSpace.xyz;
   v_normal = tressfxVert.normal;
   v_tangent = tressfxVert.tangent;
+  v_p0p1 = tressfxVert.p0p1;
 }

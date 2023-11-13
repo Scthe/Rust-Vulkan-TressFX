@@ -4,6 +4,7 @@
 #define PPLL_HEAD_POINTERS_IMAGE_BINDING 4
 #define PPLL_DATA_BUFFER_BINDING 5
 
+#pragma include ../_config_ubo;
 #pragma include ../_utils;
 #pragma include _tfx_ppll_shared;
 // #pragma include TressFXRendering.coverage;
@@ -13,7 +14,7 @@ layout(location = 1) in float v_vertexRootToTipFactor;
 layout(location = 2) in vec3 v_position;
 layout(location = 3) in vec3 v_normal;
 layout(location = 4) in vec3 v_tangent;
-layout(location = 5) in vec4 v_positionLightShadowSpace; // TODO not used?
+layout(location = 5) in vec4 v_p0p1;
 
 layout(location = 0) out vec4 outColor1;
 
@@ -42,21 +43,45 @@ uint allocateFragment(ivec2 vScreenAddress) {
   return newAddress;
 }
 
+// TODO [LOW] Check how well this works
+// Calculate the pixel coverage of a hair strand by computing the hair width
+// p0, p1, pixelLoc are in d3d clip space (-1 to 1)x(-1 to 1)
+//
+// @param vec2 p0 - position of 'left' vertex after perspective projection (-1 to 1)
+// @param vec2 p1 - position of 'right' vertex after perspective projection (-1 to 1)
+float computeCoverage(vec2 p0, vec2 p1, vec2 pixelLoc, vec2 winSize) {
+  vec4 dbg = vec4(p0,p1);
+  vec4 positionProj = u_viewProjectionMat * vec4(v_position, 1);
+  vec4 positionProjAfterW = positionProj / positionProj.w;
 
-float get_alpha () {
-  // TODO [HIGH] compute pixel coverage from strand
-  // uniform vec2 g_WinSize;
-	// float coverage = ComputeCoverage(v_p0p1.xy, v_p0p1.zw, gl_FragCoord.xy, g_WinSize);
-	// return coverage * v_strandColor.a;
-  // return v_strandColor.a;
-  return 0.5;
+  // Scale positions so 1.f = half pixel width
+  p0 *= winSize;
+  p1 *= winSize;
+
+  float p0dist = length(p0 - pixelLoc);
+  float p1dist = length(p1 - pixelLoc);
+  float hairWidth = length(p0 - p1); // distance to center of the pixel
+
+  // if outside, set sign to -1, else set sign to 1
+  bool outside = p0dist > hairWidth || p1dist > hairWidth;
+  float sign = outside ? -1 : 1;
+
+  // signed distance (positive if inside hair, negative if outside hair)
+  float relDist = sign * saturate(min(p0dist, p1dist));
+
+  // returns coverage based on the relative distance
+  // 0, if completely outside hair edge
+  // 1, if completely inside hair edge
+  return (relDist + 1.f) * 0.5f;
 }
 
+
+// https://github.com/GPUOpen-Effects/TressFX/blob/ba0bdacdfb964e38522fda812bf23169bc5fa603/src/Shaders/TressFXPPLL.hlsl#L116
 void main () {
-	float alpha = get_alpha(); // 1.0;
-	if (alpha < 1.0 / 255.0) {
-		discard;
-	}
+	float coverage = computeCoverage(v_p0p1.xy, v_p0p1.zw, gl_FragCoord.xy, u_viewport);
+	// if (coverage < 1.0 / 255.0) {
+		// discard;
+	// }
 
 	// Allocate a new fragment in heads texture
 	ivec2 vScreenAddress = ivec2(gl_FragCoord.xy);
@@ -69,12 +94,10 @@ void main () {
 			nOldFragmentAddress,
 			v_position.z, // depth
 			v_tangent.xyz, // tangent
-			alpha, // coverage
+			coverage, // coverage
 			v_position.xyz // positionWorldSpace
 		);
 	}
-
-  // outColor1 = vec4(1.0); // TODO debug that fragment shader is running. Then why stencil bit is not set?!
 }
 
 // paging algo breakdown(very rough draft):

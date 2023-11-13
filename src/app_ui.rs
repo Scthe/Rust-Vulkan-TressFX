@@ -338,6 +338,7 @@ impl AppUI {
       let min_shift = -0.1;
       let max_shift = 0.1;
       color_rgb(ui, "Diffuse", &mut mat.albedo);
+      slider_small(ui, "Opacity", 0.001, 1.0, &mut mat.opacity);
 
       color_rgb(ui, "Spec 1", &mut mat.specular_color1);
       slider_small(ui, "Spec exp 1", 0.0, max_spec, &mut mat.specular_power1);

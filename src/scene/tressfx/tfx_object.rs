@@ -13,7 +13,6 @@ use crate::{
 use super::{TfxFileData, TfxMaterial};
 
 pub struct TfxObject {
-  // TODO add PPLL opacity/transparency :f32
   pub name: String,
   pub model_matrix: Mat4,
   pub center_of_gravity: Vec3,

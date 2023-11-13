@@ -11,7 +11,7 @@ use crate::{
 #[repr(C)]
 pub struct TfxParamsUBO {
   pub u_model_matrix: Mat4,
-  pub u_general_settings: Vec4, // [-, uint u_numVerticesPerStrand, u_tfx_ao_strength, u_tfx_ao_exp]
+  pub u_general_settings: Vec4, // [opacity, uint u_numVerticesPerStrand, u_tfx_ao_strength, u_tfx_ao_exp]
   // geometry
   pub u_geometry: Vec4, // [u_thin_tip, u_fiber_radius, u_follow_hair_spread_root, u_follow_hair_spread_tip]
   pub u_center_of_gravity: Vec4, // [cog.xyz, -]
@@ -32,7 +32,7 @@ impl TfxParamsUBO {
     Self {
       u_model_matrix: tfx.model_matrix,
       u_general_settings: vec4(
-        0.0,
+        mat.opacity,
         tfx.num_vertices_per_strand as f32,
         mat.ao_strength,
         mat.ao_exp,

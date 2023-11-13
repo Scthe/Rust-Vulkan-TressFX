@@ -36,21 +36,17 @@ struct PPLLFragmentData {
   float depth;
 };
 
-#define PPLL_DBG_COVERAGE (0.8)
-
 vec4 tfxCalculateFarFragmentsColor(vec2 pixelCoord, inout PPLLFragmentData frag) {
-  // return vec4(0,0,1, PPLL_DBG_COVERAGE);
-  float coverage = frag.tangentAndCoverage.w; // TODO use alpha? Send coverage in PPLL
+  float coverage = frag.tangentAndCoverage.w;
   if (u_tfxDisplayMode == PPLL_DISPLAY_MODE_COVERAGE) {
     return vec4(coverage,coverage,coverage, 1);
   }
-  return vec4(TfxParamsUbo.u_albedo.rgb, PPLL_DBG_COVERAGE);
+  return vec4(TfxParamsUbo.u_albedo.rgb, u_tfxOpacity);
 }
 
 vec4 tfxCalculateCloseFragmentsColor(vec2 pixelCoord, inout PPLLFragmentData frag) {
-  // return vec4(1,0,0, PPLL_DBG_COVERAGE);
   vec3 positionWorld = frag.positionWorldSpace;
-  float coverage = frag.tangentAndCoverage.w; // TODO use alpha? Send coverage in PPLL
+  float coverage = frag.tangentAndCoverage.w;
   vec3 tangent = frag.tangentAndCoverage.xyz;
   vec3 normal = calculateHairNormal(positionWorld.xyz);
 
@@ -73,7 +69,7 @@ vec4 tfxCalculateCloseFragmentsColor(vec2 pixelCoord, inout PPLLFragmentData fra
   // TODO support debug modes. Maybe inout last `PPLLFragmentData` from `GatherLinkedList`?
   //      The we could try depth write from frag. shader (gl_FragDepth) maybe.. (prob not working - ATM early_fragment_tests)
   //      LinearDepth | SSAO | Shadows
-  return vec4(result, PPLL_DBG_COVERAGE);
+  return vec4(result, u_tfxOpacity);
 }
 
 #define TFX_SHADING_FAR_FN tfxCalculateFarFragmentsColor
