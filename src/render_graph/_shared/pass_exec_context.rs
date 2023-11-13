@@ -5,7 +5,10 @@ use crate::{
   config::Config,
   scene::World,
   vk_ctx::VkCtx,
-  vk_utils::{ResouceBinder, VkBuffer},
+  vk_utils::{
+    cmd_begin_render_pass_for_framebuffer, debug::add_render_pass_debug_label, ResouceBinder,
+    VkBuffer,
+  },
 };
 
 /// All the kitchen sink that we might want to use in the render pass.
@@ -31,9 +34,37 @@ impl PassExecContext<'_> {
     }
   }
 
-  pub fn debug_start_pass(&self, name: &str) {
+  pub unsafe fn cmd_start_render_pass(
+    &self,
+    name: &str,
+    render_pass: &vk::RenderPass,
+    framebuffer: &vk::Framebuffer,
+    viewport_size: &vk::Extent2D,
+    clear_values: &[vk::ClearValue],
+  ) {
     if self.config.only_first_frame {
       info!("Start {}", name);
     }
+    add_render_pass_debug_label(&self.vk_app.debug_utils_loader, self.command_buffer, name);
+
+    let device = self.vk_app.vk_device();
+    cmd_begin_render_pass_for_framebuffer(
+      &device,
+      &self.command_buffer,
+      &render_pass,
+      &framebuffer,
+      &viewport_size,
+      clear_values,
+    );
+  }
+
+  pub unsafe fn cmd_end_render_pass(&self) {
+    let device = self.vk_app.vk_device();
+    device.cmd_end_render_pass(self.command_buffer);
+
+    self
+      .vk_app
+      .debug_utils_loader
+      .cmd_end_debug_utils_label(self.command_buffer);
   }
 }

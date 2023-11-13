@@ -5,6 +5,7 @@ use log::info;
 use crate::config::Config;
 use crate::render_graph::_shared::RenderableVertex;
 use crate::scene::WorldEntity;
+use crate::utils::get_simple_type_name;
 use crate::vk_ctx::VkCtx;
 use crate::vk_utils::*;
 
@@ -265,6 +266,7 @@ impl ForwardPass {
     let config = &exec_ctx.config;
     let command_buffer = exec_ctx.command_buffer;
     let device = vk_app.vk_device();
+    let pass_name = &get_simple_type_name::<Self>();
 
     let clear_values = [
       config.clear_depth_stencil(),
@@ -284,9 +286,8 @@ impl ForwardPass {
       );
 
       // start render pass
-      cmd_begin_render_pass_for_framebuffer(
-        &device,
-        &command_buffer,
+      exec_ctx.cmd_start_render_pass(
+        pass_name,
         &self.render_pass,
         &framebuffer.fbo,
         &exec_ctx.size,
@@ -312,7 +313,7 @@ impl ForwardPass {
       }
 
       // end
-      device.cmd_end_render_pass(command_buffer)
+      exec_ctx.cmd_end_render_pass();
     }
   }
 

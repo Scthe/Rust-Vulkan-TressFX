@@ -205,7 +205,6 @@ impl RenderGraph {
     // execute render graph passes
 
     // shadow map generate pass
-    pass_ctx.debug_start_pass("shadow_map_pass");
     self.shadow_map_pass.execute(
       &pass_ctx,
       &mut frame_resources.shadow_map_pass,
@@ -214,7 +213,6 @@ impl RenderGraph {
     );
 
     // sss forward scatter depth map generate pass
-    pass_ctx.debug_start_pass("sss_depth_pass");
     self.sss_depth_pass.execute(
       &pass_ctx,
       &mut frame_resources.sss_depth_pass,
@@ -223,7 +221,6 @@ impl RenderGraph {
     );
 
     // forward rendering
-    pass_ctx.debug_start_pass("forward_pass");
     self.forward_pass.execute(
       &pass_ctx,
       &mut frame_resources.forward_pass,
@@ -233,7 +230,6 @@ impl RenderGraph {
     );
 
     // linear depth
-    pass_ctx.debug_start_pass("linear_depth_pass");
     self.linear_depth_pass.execute(
       &pass_ctx,
       &mut frame_resources.linear_depth_pass,
@@ -244,7 +240,6 @@ impl RenderGraph {
     // sss blur
     // skip SSSBlur pass for special debug modes
     if !pass_ctx.config.preserve_original_forward_pass_result() {
-      pass_ctx.debug_start_pass("sss_blur");
       self.sss_blur_pass.execute(
         &pass_ctx,
         &mut frame_resources.sss_blur_fbo0,
@@ -275,7 +270,6 @@ impl RenderGraph {
         &mut frame_resources.shadow_map_pass.depth_tex,
       );
     } else {
-      pass_ctx.debug_start_pass("tfx_forward_pass");
       self.tfx_forward_pass.execute(
         &pass_ctx,
         &mut frame_resources.forward_pass,
@@ -285,7 +279,6 @@ impl RenderGraph {
     }
 
     // linear depth again, after hair has written to original depth buffer
-    pass_ctx.debug_start_pass("linear_depth_pass_rerender_after_hair");
     self.linear_depth_pass.execute(
       &pass_ctx,
       &mut frame_resources.linear_depth_pass,
@@ -294,7 +287,6 @@ impl RenderGraph {
     );
 
     // ssao
-    pass_ctx.debug_start_pass("ssao_pass");
     self.ssao_pass.execute(
       &pass_ctx,
       &mut frame_resources.ssao_pass,
@@ -304,7 +296,6 @@ impl RenderGraph {
     );
 
     // ssao blur
-    pass_ctx.debug_start_pass("ssao_blur_pass");
     self.ssao_blur_pass.execute(
       &pass_ctx,
       &mut frame_resources.ssao_blur_fbo0,
@@ -319,7 +310,6 @@ impl RenderGraph {
     );
 
     // color grading + tonemapping
-    pass_ctx.debug_start_pass("tonemapping_pass");
     self.tonemapping_pass.execute(
       &pass_ctx,
       &mut frame_resources.tonemapping_pass,
@@ -327,7 +317,6 @@ impl RenderGraph {
     );
 
     // final pass to render output to OS window framebuffer
-    pass_ctx.debug_start_pass("present_pass");
     self.present_pass.execute(
       &mut pass_ctx,
       &mut frame_resources.present_pass,

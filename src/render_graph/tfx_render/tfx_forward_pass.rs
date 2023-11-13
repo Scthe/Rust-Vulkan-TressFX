@@ -3,6 +3,7 @@ use ash::vk;
 use log::info;
 
 use crate::scene::TfxObject;
+use crate::utils::get_simple_type_name;
 use crate::vk_ctx::VkCtx;
 use crate::vk_utils::*;
 
@@ -122,6 +123,7 @@ impl TfxForwardPass {
     let scene = &*exec_ctx.scene;
     let command_buffer = exec_ctx.command_buffer;
     let device = vk_app.vk_device();
+    let pass_name = &get_simple_type_name::<Self>();
 
     unsafe {
       self.cmd_resource_barriers(
@@ -133,9 +135,8 @@ impl TfxForwardPass {
       );
 
       // start render pass
-      cmd_begin_render_pass_for_framebuffer(
-        &device,
-        &command_buffer,
+      exec_ctx.cmd_start_render_pass(
+        pass_name,
         &self.render_pass,
         &framebuffer.fbo,
         &exec_ctx.size,
@@ -154,7 +155,7 @@ impl TfxForwardPass {
       }
 
       // end
-      device.cmd_end_render_pass(command_buffer)
+      exec_ctx.cmd_end_render_pass();
     }
   }
 

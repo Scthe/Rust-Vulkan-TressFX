@@ -2,6 +2,7 @@ use ash;
 use ash::vk;
 use log::info;
 
+use crate::utils::get_simple_type_name;
 use crate::vk_ctx::VkCtx;
 use crate::vk_utils::*;
 
@@ -140,14 +141,15 @@ impl TonemappingPass {
     let vk_app = exec_ctx.vk_app;
     let command_buffer = exec_ctx.command_buffer;
     let device = vk_app.vk_device();
+    let pass_name = &get_simple_type_name::<Self>();
 
     unsafe {
       self.cmd_resource_barriers(device, &command_buffer, framebuffer, previous_result);
 
       // start render pass
-      cmd_begin_render_pass_for_framebuffer(
-        &device,
-        &command_buffer,
+
+      exec_ctx.cmd_start_render_pass(
+        pass_name,
         &self.render_pass,
         &framebuffer.fbo,
         &exec_ctx.size,
@@ -166,7 +168,7 @@ impl TonemappingPass {
       cmd_draw_fullscreen_triangle(device, &command_buffer);
 
       // end
-      device.cmd_end_render_pass(command_buffer)
+      exec_ctx.cmd_end_render_pass();
     }
   }
 

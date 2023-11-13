@@ -7,6 +7,7 @@ use log::info;
 
 use crate::config::Config;
 use crate::render_graph::forward_pass::ForwardPass;
+use crate::utils::get_simple_type_name;
 use crate::vk_ctx::VkCtx;
 use crate::vk_utils::*;
 
@@ -164,6 +165,7 @@ impl SSSBlurPass {
     let vk_app = exec_ctx.vk_app;
     let command_buffer = exec_ctx.command_buffer;
     let device = vk_app.vk_device();
+    let pass_name = &get_simple_type_name::<Self>();
 
     unsafe {
       self.cmd_resource_barriers(
@@ -176,13 +178,13 @@ impl SSSBlurPass {
       );
 
       // start render pass
-      cmd_begin_render_pass_for_framebuffer(
-        &device,
-        &command_buffer,
+      exec_ctx.cmd_start_render_pass(
+        pass_name,
         &self.render_pass,
         &framebuffer.fbo,
         &exec_ctx.size,
-        &[], // TODO [LOW] clear https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkAttachmentLoadOp.html
+        // TODO [LOW] clear https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkAttachmentLoadOp.html
+        &[],
       );
       device.cmd_bind_pipeline(
         command_buffer,
@@ -197,7 +199,7 @@ impl SSSBlurPass {
       cmd_draw_fullscreen_triangle(device, &command_buffer);
 
       // end
-      device.cmd_end_render_pass(command_buffer)
+      exec_ctx.cmd_end_render_pass();
     }
   }
 
@@ -285,7 +287,6 @@ impl SSSBlurPass {
     depth_stencil_tex: &mut VkTexture,
     linear_depth_tex: &mut VkTexture,
   ) -> () {
-    exec_ctx.debug_start_pass("sss_blur.pass1");
     self.execute_blur_single_direction(
       &exec_ctx,
       framebuffer0,
@@ -296,7 +297,8 @@ impl SSSBlurPass {
       linear_depth_tex,  // read
     );
 
-    exec_ctx.debug_start_pass("sss_blur.pass2");
+    // TODO [LOW] this rebinds same render pass/pipeline as the pass above (same for normal blur). But what about the barriers?
+    //      Optimize: BARRIER_1 -> START_RENDER_PASS -> RENDER_1 -> BARRIER_2 -> RENDER_2 -> END_RENDER_PASS
     self.execute_blur_single_direction(
       &exec_ctx,
       framebuffer1,

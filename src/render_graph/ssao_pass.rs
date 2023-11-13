@@ -3,7 +3,7 @@ use ash::vk;
 use log::info;
 
 use crate::config::SSAOConfig;
-use crate::utils::RngVectorGenerator;
+use crate::utils::{get_simple_type_name, RngVectorGenerator};
 use crate::vk_ctx::VkCtx;
 use crate::vk_utils::*;
 
@@ -161,6 +161,7 @@ impl SSAOPass {
     let command_buffer = exec_ctx.command_buffer;
     let device = vk_app.vk_device();
     let size = exec_ctx.config.get_ssao_viewport_size();
+    let pass_name = &get_simple_type_name::<Self>();
 
     unsafe {
       self.cmd_resource_barriers(
@@ -172,14 +173,7 @@ impl SSAOPass {
       );
 
       // start render pass
-      cmd_begin_render_pass_for_framebuffer(
-        &device,
-        &command_buffer,
-        &self.render_pass,
-        &framebuffer.fbo,
-        &size,
-        &[],
-      );
+      exec_ctx.cmd_start_render_pass(pass_name, &self.render_pass, &framebuffer.fbo, &size, &[]);
       device.cmd_bind_pipeline(
         command_buffer,
         vk::PipelineBindPoint::GRAPHICS,
@@ -198,7 +192,7 @@ impl SSAOPass {
       cmd_draw_fullscreen_triangle(device, &command_buffer);
 
       // end
-      device.cmd_end_render_pass(command_buffer)
+      exec_ctx.cmd_end_render_pass();
     }
   }
 

@@ -86,6 +86,15 @@ impl RngVectorGenerator {
   }
 }
 
+pub fn get_simple_type_name<T>() -> String {
+  let type_name = std::any::type_name::<T>();
+  let simple_name = match type_name.rsplit_once("::") {
+    Some(parts) => parts.1,
+    _ => &type_name,
+  };
+  simple_name.to_string()
+}
+
 /// Macro to pick from 2 values based on conditional
 /// `either!(foo == bar; println!("it is true"); println!("it is false"));`
 #[macro_export]

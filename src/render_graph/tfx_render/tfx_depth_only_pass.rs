@@ -5,6 +5,7 @@ use log::info;
 use crate::render_graph::forward_pass::ForwardPass;
 use crate::render_graph::tfx_render::TfxForwardPass;
 use crate::scene::TfxObject;
+use crate::utils::get_simple_type_name;
 use crate::vk_ctx::VkCtx;
 use crate::vk_utils::*;
 
@@ -151,19 +152,14 @@ impl TfxDepthOnlyPass {
     let vk_app = exec_ctx.vk_app;
     let command_buffer = exec_ctx.command_buffer;
     let device = vk_app.vk_device();
+    let pass_type_name = get_simple_type_name::<Self>();
+    let pass_name = format!("{}.{}", pass_type_name, entity.name);
 
     unsafe {
       self.cmd_resource_barriers(device, &command_buffer, depth_tex);
 
       // start render pass
-      cmd_begin_render_pass_for_framebuffer(
-        &device,
-        &command_buffer,
-        &self.render_pass,
-        &fbo,
-        &depth_tex.size(),
-        &[],
-      );
+      exec_ctx.cmd_start_render_pass(&pass_name, &self.render_pass, &fbo, &depth_tex.size(), &[]);
 
       // draw hair
       device.cmd_bind_pipeline(
@@ -175,7 +171,7 @@ impl TfxDepthOnlyPass {
       entity.cmd_draw_mesh(device, command_buffer);
 
       // end
-      device.cmd_end_render_pass(command_buffer)
+      exec_ctx.cmd_end_render_pass();
     }
   }
 

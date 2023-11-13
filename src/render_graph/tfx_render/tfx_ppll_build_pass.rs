@@ -5,6 +5,7 @@ use log::info;
 use crate::config::Config;
 use crate::render_graph::forward_pass::ForwardPass;
 use crate::scene::TfxObject;
+use crate::utils::get_simple_type_name;
 use crate::vk_ctx::VkCtx;
 use crate::vk_utils::*;
 
@@ -238,6 +239,8 @@ impl TfxPpllBuildPass {
     let vk_app = exec_ctx.vk_app;
     let command_buffer = exec_ctx.command_buffer;
     let device = vk_app.vk_device();
+    let pass_type_name = get_simple_type_name::<Self>();
+    let pass_name = format!("{}.{}", pass_type_name, entity.name);
 
     unsafe {
       self.cmd_reset_current_values(exec_ctx, framebuffer);
@@ -245,9 +248,8 @@ impl TfxPpllBuildPass {
       execute_full_pipeline_barrier(device, command_buffer); // TODO [PPLL_sync] remove
 
       // start render pass
-      cmd_begin_render_pass_for_framebuffer(
-        &device,
-        &command_buffer,
+      exec_ctx.cmd_start_render_pass(
+        &pass_name,
         &self.render_pass,
         &framebuffer.fbo,
         &exec_ctx.size,
@@ -264,7 +266,7 @@ impl TfxPpllBuildPass {
       entity.cmd_draw_mesh(device, command_buffer);
 
       // end
-      device.cmd_end_render_pass(command_buffer)
+      exec_ctx.cmd_end_render_pass();
     }
   }
 

@@ -8,6 +8,7 @@ use log::info;
 use crate::config::ShadowSourceCfg;
 use crate::render_graph::tfx_render::TfxForwardPass;
 use crate::scene::{Camera, TfxObject};
+use crate::utils::get_simple_type_name;
 use crate::vk_ctx::VkCtx;
 use crate::vk_utils::*;
 
@@ -24,6 +25,8 @@ const SHADER_PATHS_TRESSFX_HAIR: (&str, &str) = (
   "./assets/shaders-compiled/shadow_map_gen.frag.spv",
 );
 
+/// Render depth map from the point of view of `ShadowSource`. Quite flexible honestly,
+/// many other effects might want to reuse it (e.g. SSS depth pass).
 pub struct ShadowMapPass {
   render_pass: vk::RenderPass,
   pipeline_meshes: vk::Pipeline,
@@ -33,8 +36,6 @@ pub struct ShadowMapPass {
   uniforms_layout_hair: vk::DescriptorSetLayout,
 }
 
-/// Render depth map from the point of view of `ShadowSource`. Quite flexible honestly,
-/// many other effects might want to reuse it (e.g. SSS depth pass).
 impl ShadowMapPass {
   pub fn new(vk_app: &VkCtx) -> Self {
     info!("Creating ShadowMapPass");
@@ -231,6 +232,7 @@ impl ShadowMapPass {
     let scene = &*exec_ctx.scene;
     let command_buffer = exec_ctx.command_buffer;
     let device = vk_app.vk_device();
+    let pass_name = &get_simple_type_name::<Self>();
 
     let clear_depth = vk::ClearValue {
       depth_stencil: vk::ClearDepthStencilValue {
@@ -247,9 +249,8 @@ impl ShadowMapPass {
       self.cmd_resource_barriers(device, &command_buffer, framebuffer);
 
       // start render pass
-      cmd_begin_render_pass_for_framebuffer(
-        &device,
-        &command_buffer,
+      exec_ctx.cmd_start_render_pass(
+        pass_name,
         &self.render_pass,
         &framebuffer.fbo,
         &size,
@@ -297,7 +298,7 @@ impl ShadowMapPass {
       }
 
       // end
-      device.cmd_end_render_pass(command_buffer)
+      exec_ctx.cmd_end_render_pass();
     }
   }
 
