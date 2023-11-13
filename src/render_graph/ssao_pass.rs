@@ -5,7 +5,7 @@ use log::info;
 use crate::config::SSAOConfig;
 use crate::utils::{get_simple_type_name, RngVectorGenerator};
 use crate::vk_ctx::VkCtx;
-use crate::vk_utils::*;
+use crate::{either, vk_utils::*};
 
 use super::PassExecContext;
 
@@ -121,16 +121,14 @@ impl SSAOPass {
     )
   }
 
-  pub fn create_result_texture(vk_app: &VkCtx, size: &vk::Extent2D, name: String) -> VkTexture {
-    vk_app.create_texture_empty(
-      name,
-      *size,
-      Self::RESULT_TEXTURE_FORMAT,
-      vk::ImageTiling::OPTIMAL,
-      vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED,
-      vk::MemoryPropertyFlags::DEVICE_LOCAL,
-      vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
-    )
+  pub fn create_result_texture(
+    vk_app: &VkCtx,
+    size: &vk::Extent2D,
+    frame_id: usize,
+    is_ping_pass: bool,
+  ) -> VkTexture {
+    let name = either!(is_ping_pass, "ssao_blur_tmp", "ssao");
+    vk_app.create_attachment::<Self>(name, frame_id, Self::RESULT_TEXTURE_FORMAT, *size)
   }
 
   pub fn create_framebuffer(
@@ -141,8 +139,7 @@ impl SSAOPass {
   ) -> SSAOPassFramebuffer {
     let device = vk_app.vk_device();
 
-    let ssao_tex =
-      Self::create_result_texture(vk_app, &size, format!("SSAOPass.ssao#{}", frame_id));
+    let ssao_tex = Self::create_result_texture(vk_app, &size, frame_id, false);
 
     let fbo = create_framebuffer(device, self.render_pass, &[ssao_tex.image_view()], &size);
 

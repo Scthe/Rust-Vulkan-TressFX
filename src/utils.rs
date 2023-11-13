@@ -95,6 +95,11 @@ pub fn get_simple_type_name<T>() -> String {
   simple_name.to_string()
 }
 
+pub fn get_attachment_name<PassType>(name: &str, frame_id: usize) -> String {
+  let pass_name = get_simple_type_name::<PassType>();
+  format!("{}.{}#{}", pass_name, name, frame_id)
+}
+
 /// Macro to pick from 2 values based on conditional
 /// `either!(foo == bar; println!("it is true"); println!("it is false"));`
 #[macro_export]

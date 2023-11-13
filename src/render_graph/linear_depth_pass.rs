@@ -107,15 +107,8 @@ impl LinearDepthPass {
   ) -> LinearDepthPassFramebuffer {
     let device = vk_app.vk_device();
 
-    let linear_depth_tex = vk_app.create_texture_empty(
-      format!("LinearDepthPass.linear_depth#{}", frame_id),
-      *size,
-      RESULT_TEXTURE_FORMAT,
-      vk::ImageTiling::OPTIMAL,
-      vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED,
-      vk::MemoryPropertyFlags::DEVICE_LOCAL,
-      vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
-    );
+    let linear_depth_tex =
+      vk_app.create_attachment::<Self>("linear_depth", frame_id, RESULT_TEXTURE_FORMAT, *size);
 
     let fbo = create_framebuffer(
       device,

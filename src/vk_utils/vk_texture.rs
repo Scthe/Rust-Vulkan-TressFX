@@ -351,7 +351,7 @@ impl VkTexture {
   }
 }
 
-fn get_image_aspect_from_format(format: vk::Format) -> vk::ImageAspectFlags {
+pub fn get_image_aspect_from_format(format: vk::Format) -> vk::ImageAspectFlags {
   match format {
     vk::Format::D24_UNORM_S8_UINT => vk::ImageAspectFlags::DEPTH | vk::ImageAspectFlags::STENCIL,
     vk::Format::D32_SFLOAT => vk::ImageAspectFlags::DEPTH,

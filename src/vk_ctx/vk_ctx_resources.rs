@@ -1,8 +1,9 @@
 use ash::vk;
 use ash::{self};
 
+use crate::utils::get_attachment_name;
 use crate::vk_utils::debug::{set_buffer_debug_label, set_texture_debug_label};
-use crate::vk_utils::{VkBuffer, VkMemoryResource, VkTexture};
+use crate::vk_utils::{get_image_aspect_from_format, VkBuffer, VkMemoryResource, VkTexture};
 
 use super::*;
 
@@ -81,6 +82,48 @@ impl VkCtx {
     );
     self.assign_texture_debug_label(&tex);
     tex
+  }
+
+  pub fn create_attachment<PassType>(
+    &self,
+    name: &str,
+    frame_id: usize,
+    format: vk::Format,
+    size: vk::Extent2D,
+  ) -> VkTexture {
+    let aspect = get_image_aspect_from_format(format);
+    let mut usage_flags = vk::ImageUsageFlags::SAMPLED;
+    let mut initial_layout = vk::ImageLayout::PREINITIALIZED;
+
+    if aspect == (vk::ImageAspectFlags::DEPTH | vk::ImageAspectFlags::STENCIL) {
+      usage_flags |= vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT;
+      initial_layout = vk::ImageLayout::DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+    }
+    if aspect == vk::ImageAspectFlags::DEPTH {
+      usage_flags |= vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT;
+      initial_layout = vk::ImageLayout::DEPTH_READ_ONLY_OPTIMAL;
+    }
+    if aspect == vk::ImageAspectFlags::COLOR {
+      usage_flags |= vk::ImageUsageFlags::COLOR_ATTACHMENT;
+      initial_layout = vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL;
+    }
+    if initial_layout == vk::ImageLayout::PREINITIALIZED {
+      // we have not changed from defaults - invalid!
+      panic!(
+        "Could not determine create_attachment properties for {:?} ({:?})",
+        format, aspect
+      );
+    }
+
+    self.create_texture_empty(
+      get_attachment_name::<PassType>(name, frame_id),
+      size,
+      format,
+      vk::ImageTiling::OPTIMAL,
+      usage_flags,
+      vk::MemoryPropertyFlags::DEVICE_LOCAL,
+      initial_layout,
+    )
   }
 
   pub fn create_texture_from_file(&self, path: &std::path::Path, format: vk::Format) -> VkTexture {

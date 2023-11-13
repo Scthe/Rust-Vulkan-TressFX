@@ -181,20 +181,13 @@ impl ForwardPass {
   }
 
   /// Separate fn as some other passess will use same parameters (e.g. sss blur for ping-pong).
-  pub fn create_diffuse_attachment_tex(
+  pub fn create_diffuse_attachment_tex<PassType>(
     vk_app: &VkCtx,
+    name: &str,
+    frame_id: usize,
     size: &vk::Extent2D,
-    name: String,
   ) -> VkTexture {
-    vk_app.create_texture_empty(
-      name,
-      *size,
-      Self::DIFFUSE_TEXTURE_FORMAT,
-      vk::ImageTiling::OPTIMAL,
-      vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED,
-      vk::MemoryPropertyFlags::DEVICE_LOCAL,
-      vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
-    )
+    vk_app.create_attachment::<PassType>(name, frame_id, Self::DIFFUSE_TEXTURE_FORMAT, *size)
   }
 
   pub fn create_framebuffer(
@@ -205,30 +198,13 @@ impl ForwardPass {
   ) -> ForwardPassFramebuffer {
     let device = vk_app.vk_device();
 
-    let depth_stencil_tex = vk_app.create_texture_empty(
-      format!("ForwardPass.depth#{}", frame_id),
-      *size,
-      Self::DEPTH_TEXTURE_FORMAT,
-      vk::ImageTiling::OPTIMAL,
-      vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT | vk::ImageUsageFlags::SAMPLED,
-      vk::MemoryPropertyFlags::DEVICE_LOCAL,
-      vk::ImageLayout::DEPTH_STENCIL_READ_ONLY_OPTIMAL,
-    );
-    let diffuse_tex = Self::create_diffuse_attachment_tex(
-      vk_app,
-      size,
-      format!("ForwardPass.diffuse#{}", frame_id),
-    );
+    let depth_stencil_tex =
+      vk_app.create_attachment::<Self>("depth", frame_id, Self::DEPTH_TEXTURE_FORMAT, *size);
+    let diffuse_tex =
+      Self::create_diffuse_attachment_tex::<Self>(vk_app, "diffuse", frame_id, size);
 
-    let normals_tex = vk_app.create_texture_empty(
-      format!("ForwardPass.normal#{}", frame_id),
-      *size,
-      Self::NORMALS_TEXTURE_FORMAT,
-      vk::ImageTiling::OPTIMAL,
-      vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED,
-      vk::MemoryPropertyFlags::DEVICE_LOCAL,
-      vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
-    );
+    let normals_tex =
+      vk_app.create_attachment::<Self>("normal", frame_id, Self::NORMALS_TEXTURE_FORMAT, *size);
 
     let fbo = create_framebuffer(
       device,

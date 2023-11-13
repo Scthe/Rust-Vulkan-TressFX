@@ -206,15 +206,7 @@ impl ShadowMapPass {
       height: size_px,
     };
 
-    let depth_tex = vk_app.create_texture_empty(
-      format!("ShadowMapPass.depth#{}", frame_id),
-      size,
-      DEPTH_TEXTURE_FORMAT,
-      vk::ImageTiling::OPTIMAL,
-      vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT | vk::ImageUsageFlags::SAMPLED,
-      vk::MemoryPropertyFlags::DEVICE_LOCAL,
-      vk::ImageLayout::DEPTH_READ_ONLY_OPTIMAL,
-    );
+    let depth_tex = vk_app.create_attachment::<Self>("depth", frame_id, DEPTH_TEXTURE_FORMAT, size);
 
     let fbo = create_framebuffer(device, self.render_pass, &[depth_tex.image_view()], &size);
 

@@ -379,16 +379,14 @@ impl RenderGraph {
         let ssao_result_size = config.get_ssao_viewport_size();
 
         // textures
-        let sss_ping_result_tex = ForwardPass::create_diffuse_attachment_tex(
+        let sss_ping_result_tex = ForwardPass::create_diffuse_attachment_tex::<SSSBlurPass>(
           vk_app,
+          "sss_blur_tmp",
+          frame_id,
           window_size,
-          format!("SSSBlurPass.pingResult#{}", frame_id),
         );
-        let ssao_ping_result_tex = SSAOPass::create_result_texture(
-          vk_app,
-          &ssao_result_size,
-          format!("SSSBlurPass.pingResult#{}", frame_id),
-        );
+        let ssao_ping_result_tex =
+          SSAOPass::create_result_texture(vk_app, &ssao_result_size, frame_id, true);
 
         // fbos
         let shadow_map_pass =

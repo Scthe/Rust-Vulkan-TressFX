@@ -109,15 +109,8 @@ impl TonemappingPass {
   ) -> TonemappingPassFramebuffer {
     let device = vk_app.vk_device();
 
-    let tonemapped_tex = vk_app.create_texture_empty(
-      format!("TonemappingPass.tonemapped#{}", frame_id),
-      *size,
-      RESULT_TEXTURE_FORMAT,
-      vk::ImageTiling::OPTIMAL,
-      vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED,
-      vk::MemoryPropertyFlags::DEVICE_LOCAL,
-      vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
-    );
+    let tonemapped_tex =
+      vk_app.create_attachment::<Self>("tonemapped", frame_id, RESULT_TEXTURE_FORMAT, *size);
 
     let fbo = create_framebuffer(
       device,
