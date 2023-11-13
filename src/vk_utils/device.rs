@@ -177,6 +177,7 @@ pub fn pick_device_and_queue(
     .enabled_features(&vk::PhysicalDeviceFeatures {
       sampler_anisotropy: vk::TRUE,
       fragment_stores_and_atomics: vk::TRUE,
+      independent_blend: vk::TRUE,
       ..Default::default()
     })
     .push_next(&mut separate_depth_stencil)

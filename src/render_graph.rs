@@ -350,7 +350,7 @@ impl RenderGraph {
     unsafe {
       device
         .queue_submit(queue, &[submit_info], frame_sync.draw_command_fence)
-        .expect("Failed queue_submit()"); // TODO sometimes causes DEVICE_LOST in RenderDoc/Nsight?
+        .expect("Failed queue_submit()");
     }
 
     // present queue result
@@ -414,6 +414,7 @@ impl RenderGraph {
           vk_app,
           &forward_pass.depth_stencil_tex,
           &forward_pass.diffuse_tex,
+          &forward_pass.normals_tex,
         );
         let sss_blur_fbo0 = self.sss_blur_pass.create_framebuffer(
           vk_app,

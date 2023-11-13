@@ -24,8 +24,6 @@ pub struct TfxPpllResolvePass {
 }
 
 impl TfxPpllResolvePass {
-  const COLOR_ATTACHMENT_COUNT: usize = 1;
-
   const BINDING_INDEX_CONFIG_UBO: u32 = 0;
   const BINDING_INDEX_HEAD_POINTERS_IMAGE: u32 = 1; // Must match shader
   const BINDING_INDEX_DATA_BUFFER: u32 = 2; // Must match shader
@@ -36,7 +34,7 @@ impl TfxPpllResolvePass {
     let device = vk_app.vk_device();
     let pipeline_cache = &vk_app.pipeline_cache;
 
-    let render_pass = Self::create_render_pass(device);
+    let render_pass = ForwardPass::create_render_pass(device, vk::AttachmentLoadOp::LOAD);
     let uniforms_desc = Self::get_uniforms_layout();
     let uniforms_layout = create_push_descriptor_layout(device, uniforms_desc);
     let pipeline_layout = create_pipeline_layout(device, &[uniforms_layout], &[]);
@@ -56,29 +54,6 @@ impl TfxPpllResolvePass {
     device.destroy_descriptor_set_layout(self.uniforms_layout, None);
     device.destroy_pipeline_layout(self.pipeline_layout, None);
     device.destroy_pipeline(self.pipeline, None);
-  }
-
-  fn create_render_pass(device: &ash::Device) -> vk::RenderPass {
-    let depth_attachment = create_depth_stencil_attachment(
-      0,
-      ForwardPass::DEPTH_TEXTURE_FORMAT,
-      vk::AttachmentLoadOp::LOAD,   // depth_load_op
-      vk::AttachmentStoreOp::STORE, // depth_store_op
-      vk::AttachmentLoadOp::LOAD,   // stencil_load_op
-      vk::AttachmentStoreOp::STORE, // stencil_store_op
-      vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-    );
-    let color_attachment = create_color_attachment(
-      1,
-      ForwardPass::DIFFUSE_TEXTURE_FORMAT,
-      vk::AttachmentLoadOp::LOAD,
-      vk::AttachmentStoreOp::STORE,
-      false,
-    );
-
-    unsafe {
-      create_render_pass_from_attachments(device, Some(depth_attachment), &[color_attachment])
-    }
   }
 
   fn get_uniforms_layout() -> Vec<vk::DescriptorSetLayoutBinding> {
@@ -117,7 +92,7 @@ impl TfxPpllResolvePass {
       pipeline_layout,
       SHADER_PATHS,
       vertex_desc,
-      Self::COLOR_ATTACHMENT_COUNT,
+      ForwardPass::COLOR_ATTACHMENT_COUNT,
       |builder| {
         // depth (ignored) + stencil (only hair)
         let stencil_only_hair = ps_stencil_compare_equal(Config::STENCIL_BIT_HAIR);
@@ -141,8 +116,11 @@ impl TfxPpllResolvePass {
           .src_alpha_blend_factor(vk::BlendFactor::ZERO) // shader output
           .dst_alpha_blend_factor(vk::BlendFactor::ONE) // existing value on destination attachment
           .build();
+        let blend_normal_color_attachment =
+          ps_color_attachment_override(vk::ColorComponentFlags::RGBA);
+
         let color_blend_state = vk::PipelineColorBlendStateCreateInfo::builder()
-          .attachments(&[blend_hair_color_attachment])
+          .attachments(&[blend_hair_color_attachment, blend_normal_color_attachment])
           .build();
 
         // finish
@@ -160,6 +138,7 @@ impl TfxPpllResolvePass {
     vk_app: &VkCtx,
     depth_stencil_tex: &VkTexture,
     forward_color_tex: &VkTexture,
+    forward_normal_tex: &VkTexture,
   ) -> TfxPpllResolvePassFramebuffer {
     let device = vk_app.vk_device();
 
@@ -169,6 +148,7 @@ impl TfxPpllResolvePass {
       &[
         depth_stencil_tex.image_view(),
         forward_color_tex.image_view(),
+        forward_normal_tex.image_view(),
       ],
       &depth_stencil_tex.size(),
     );

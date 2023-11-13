@@ -56,7 +56,8 @@ int FindFurthestKBufferEl (inout PPLLFragmentData kBuffer[KBUFFER_SIZE], inout f
 }
 
 
-vec4 GatherLinkedList(vec2 vfScreenAddress) {
+// https://github.com/GPUOpen-Effects/TressFX/blob/ba0bdacdfb964e38522fda812bf23169bc5fa603/src/Shaders/TressFXPPLL.hlsl#L252
+vec4 GatherLinkedList(vec2 vfScreenAddress, inout PPLLFragmentData closestFragment) {
   uint pointer = getListHeadPointer(vfScreenAddress).r;
   if (pointer == FRAGMENT_LIST_NULL) {
     discard;
@@ -111,6 +112,7 @@ vec4 GatherLinkedList(vec2 vfScreenAddress) {
 
     // Use high quality shading for the nearest k fragments
     vec4 fragmentColor = TFX_SHADING_CLOSE_FN(vfScreenAddress, kBuffer[kBufferFurthestIdx]);
+    closestFragment = kBuffer[kBufferFurthestIdx];
 
     // Blend in the fragment color
     float alpha = fragmentColor.a;

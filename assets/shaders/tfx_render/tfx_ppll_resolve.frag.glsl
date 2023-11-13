@@ -7,6 +7,8 @@
 const int PPLL_DISPLAY_MODE_FINAL = 0;
 const int PPLL_DISPLAY_MODE_FLAT = 1;
 const int PPLL_DISPLAY_MODE_OVERLAP = 2;
+const int PPLL_DISPLAY_MODE_TANGENTS = 3;
+const int PPLL_DISPLAY_MODE_COVERAGE = 4;
 
 
 // includes
@@ -20,7 +22,8 @@ const int PPLL_DISPLAY_MODE_OVERLAP = 2;
 #pragma include ../materials/_hair;
 
 // intra-shader stuff
-layout(location = 0) out vec4 outColor;
+layout(location = 0) out vec4 outColor1;
+layout(location = 1) out uvec4 outColor2;
 
 layout(early_fragment_tests) in; // [earlydepthstencil]
 
@@ -37,7 +40,10 @@ struct PPLLFragmentData {
 
 vec4 tfxCalculateFarFragmentsColor(vec2 pixelCoord, inout PPLLFragmentData frag) {
   // return vec4(0,0,1, PPLL_DBG_COVERAGE);
-  // float coverage = frag.tangentAndCoverage.w; // TODO use alpha? Send coverage in PPLL
+  float coverage = frag.tangentAndCoverage.w; // TODO use alpha? Send coverage in PPLL
+  if (u_tfxDisplayMode == PPLL_DISPLAY_MODE_COVERAGE) {
+    return vec4(coverage,coverage,coverage, 1);
+  }
   return vec4(TfxParamsUbo.u_albedo.rgb, PPLL_DBG_COVERAGE);
 }
 
@@ -45,8 +51,12 @@ vec4 tfxCalculateCloseFragmentsColor(vec2 pixelCoord, inout PPLLFragmentData fra
   // return vec4(1,0,0, PPLL_DBG_COVERAGE);
   vec3 positionWorld = frag.positionWorldSpace;
   float coverage = frag.tangentAndCoverage.w; // TODO use alpha? Send coverage in PPLL
-  vec3 tangent = normalize(frag.tangentAndCoverage.xyz);
-  vec3 normal = normalize(positionWorld.xyz - TfxParamsUbo.u_centerOfGravity.xyz);
+  vec3 tangent = frag.tangentAndCoverage.xyz;
+  vec3 normal = calculateHairNormal(positionWorld.xyz);
+
+  if (u_tfxDisplayMode == PPLL_DISPLAY_MODE_COVERAGE) {
+    return vec4(coverage,coverage,coverage, 1);
+  }
 
   Light lights[3]; // makes you wonder how much registers this uses. Better not to dwell!
   lights[0] = unpackLight(u_light0_Position, u_light0_Color);
@@ -61,10 +71,9 @@ vec4 tfxCalculateCloseFragmentsColor(vec2 pixelCoord, inout PPLLFragmentData fra
   );
 
   // TODO support debug modes. Maybe inout last `PPLLFragmentData` from `GatherLinkedList`?
-  //      The we could try depth write from frag. shader (gl_FragDepth) maybe.. (prob not working)
+  //      The we could try depth write from frag. shader (gl_FragDepth) maybe.. (prob not working - ATM early_fragment_tests)
+  //      LinearDepth | SSAO | Shadows
   return vec4(result, PPLL_DBG_COVERAGE);
-  // return vec4(abs(normal), 1.0);
-  // return vec4(abs(tangent), 1.0);
 }
 
 #define TFX_SHADING_FAR_FN tfxCalculateFarFragmentsColor
@@ -77,24 +86,24 @@ vec4 tfxCalculateCloseFragmentsColor(vec2 pixelCoord, inout PPLLFragmentData fra
 ///////////////////////
 // fwd decl.
 vec3 getDebugColorForPpllDepth();
-vec4 debugModeOverride(vec3 shadingResult);
+vec4 debugModeOverride(vec3 shadingResult, inout PPLLFragmentData closestFragment);
 
 
-// TODO maybe just run full shading in build? In resolve we just blend.
-//      Then detect hair display modes, so _build pass is cheaper.
-//      Expensive..
 void main () {
-  vec4 result = GatherLinkedList(gl_FragCoord.xy);
+  PPLLFragmentData closestFragment;
+  vec4 result = GatherLinkedList(gl_FragCoord.xy, closestFragment);
   
-  // WARNING: Blend mode means `outColor.a==0` will render nothing!
+  // WARNING: Blend mode means `outColor.a==0` may render nothing!
   
-  vec4 colorDebug = debugModeOverride(result.rgb);
+  vec4 colorDebug = debugModeOverride(result.rgb, closestFragment);
   result.rgb = mix(result.rgb, colorDebug.rgb, colorDebug.a);
   // TODO alpha for blending? `mix(originalResult.w, 1.0, colorDebug.a);`, unless debug mode also has alpha? (e.g. coverage. tho coverage just black-white..)
-  outColor = vec4(result.rgb, result.a);
+  outColor1 = vec4(result.rgb, result.a);
+  vec3 normal = calculateHairNormal(closestFragment.positionWorldSpace.xyz);
+  outColor2 = uvec4(packNormal(normal), 255);
 }
 
-vec4 debugModeOverride(vec3 shadingResult){
+vec4 debugModeOverride(vec3 shadingResult, inout PPLLFragmentData closestFragment){
   vec3 result = vec3(0);
   float mixFac = 1;
 
@@ -104,8 +113,15 @@ vec4 debugModeOverride(vec3 shadingResult){
       break;
     }
     case PPLL_DISPLAY_MODE_FLAT: {
-      result = vec3(0.8); // TODO use debugHairFlatColor()
+      result = debugHairFlatColor();
       break;
+    }
+    case PPLL_DISPLAY_MODE_TANGENTS: {
+      result = abs(closestFragment.tangentAndCoverage.xyz);
+      break;
+    }
+    case PPLL_DISPLAY_MODE_COVERAGE: {
+      result = shadingResult;
     }
     default: {
       mixFac = 0;

@@ -36,6 +36,8 @@ pub enum HairPPLLDisplayMode {
   Final = 0,
   Flat = 1,
   PpllOverlap = 2,
+  Tangents = 3,
+  Coverage = 4,
 }
 
 /// Must match consts in `tfx_forward.frag.glsl`.

@@ -33,3 +33,8 @@ uniform TfxParamsUniformBuffer {
 #define u_numVerticesPerStrand (readConfigUint(TfxParamsUbo.u_generalSettings.y))
 #define u_tfxAoStrength (TfxParamsUbo.u_generalSettings.z)
 #define u_tfxAoExp (TfxParamsUbo.u_generalSettings.w)
+
+
+vec3 calculateHairNormal(vec3 positionWorldSpace) {
+  return normalize(positionWorldSpace - TfxParamsUbo.u_centerOfGravity.xyz);
+}
