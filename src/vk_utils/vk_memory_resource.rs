@@ -19,6 +19,7 @@ impl Clone for MemoryMapPointer {
 
 pub trait VkMemoryResource {
   fn get_name(&self) -> &String;
+  fn get_long_name(&self) -> &String;
   fn get_allocation(&mut self) -> &mut vma::Allocation;
   fn get_mapped_pointer(&self) -> Option<MemoryMapPointer>;
   fn set_mapped_pointer(&mut self, next_ptr: Option<MemoryMapPointer>);
@@ -34,7 +35,7 @@ pub trait VkMemoryResource {
         let allocation = self.get_allocation();
         allocator
           .map_memory(allocation)
-          .expect(&format!("Failed mapping: {}", self.get_name()))
+          .expect(&format!("Failed mapping: {}", self.get_long_name()))
       };
       self.set_mapped_pointer(Some(MemoryMapPointer(pointer)));
       pointer
@@ -59,7 +60,7 @@ pub trait VkMemoryResource {
       let slice = unsafe { std::slice::from_raw_parts_mut(pointer.0, size) };
       slice.copy_from_slice(bytes);
     } else {
-      let name = self.get_name();
+      let name = self.get_long_name();
       panic!("Tried to write {} bytes to unmapped '{}'", size, name)
     }
   }

@@ -82,7 +82,7 @@ impl VkTexture {
         vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_READ | vk::AccessFlags::SHADER_READ, // our op
       )
     } else {
-      panic!("Tried to transition texture {} for shader read, but it's neither color or depth-stencil texture.", self.get_name());
+      panic!("Tried to transition texture {} for shader read, but it's neither color or depth-stencil texture.", self.get_long_name());
     }
   }
 
@@ -111,7 +111,7 @@ impl VkTexture {
           | vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE,
       )
     } else {
-      panic!("Tried to transition texture {} for shader write, but it's neither color or depth-stencil texture.", self.get_name());
+      panic!("Tried to transition texture {} for shader write, but it's neither color or depth-stencil texture.", self.get_long_name());
     }
   }
 
@@ -120,7 +120,7 @@ impl VkTexture {
       trace!(
         "VkTexture::LayoutTransition {} '{}' ({:?} -> {:?})",
         tag,
-        self.get_name(),
+        self.get_long_name(),
         self.layout,
         new_layout
       );

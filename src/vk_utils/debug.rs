@@ -1,8 +1,8 @@
 use log::{debug, error, info, warn};
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
 
 use ash::extensions::ext::DebugUtils;
-use ash::vk;
+use ash::vk::{self, Handle, ObjectType};
 
 // called on validation layer message
 extern "system" fn vulkan_debug_callback(
@@ -62,4 +62,72 @@ pub fn setup_debug_reporting(
   };
 
   (debug_utils_loader, debug_messenger)
+}
+
+////////////
+// Debug names
+// - https://renderdoc.org/docs/how/how_annotate_capture.html
+// - https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_EXT_debug_utils.html
+
+/// Used with RenderDoc to have readable names instead of generic 'Pass with 1 depth target'
+pub unsafe fn add_render_pass_debug_label(
+  debug_utils: &DebugUtils,
+  command_buffer: vk::CommandBuffer,
+  name: &str,
+) {
+  let name_c = CString::new(name).unwrap();
+  let marker = vk::DebugUtilsLabelEXT::builder()
+    .label_name(&name_c)
+    .build();
+  debug_utils.cmd_begin_debug_utils_label(command_buffer, &marker);
+}
+
+unsafe fn set_object_debug_label(
+  debug_utils: &DebugUtils,
+  device: &vk::Device,
+  object_type: ObjectType,
+  object_handle: u64,
+  name: &str,
+) {
+  let name_c = CString::new(name).unwrap();
+  let name_info = vk::DebugUtilsObjectNameInfoEXT::builder()
+    .object_type(object_type)
+    .object_handle(object_handle)
+    .object_name(&name_c)
+    .build();
+  debug_utils
+    .set_debug_utils_object_name(*device, &name_info)
+    .expect(&format!("Could not set name '{}'", name));
+}
+
+/// Add name in RenderDoc
+pub unsafe fn set_texture_debug_label(
+  debug_utils: &DebugUtils,
+  device: &vk::Device,
+  object_handle: vk::Image,
+  name: &str,
+) {
+  set_object_debug_label(
+    debug_utils,
+    device,
+    ObjectType::IMAGE,
+    object_handle.as_raw(),
+    name,
+  );
+}
+
+/// Add name in RenderDoc
+pub unsafe fn set_buffer_debug_label(
+  debug_utils: &DebugUtils,
+  device: &vk::Device,
+  object_handle: vk::Buffer,
+  name: &str,
+) {
+  set_object_debug_label(
+    debug_utils,
+    device,
+    ObjectType::BUFFER,
+    object_handle.as_raw(),
+    name,
+  );
 }

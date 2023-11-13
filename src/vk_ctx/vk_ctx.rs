@@ -21,6 +21,8 @@ fn get_resource_at_idx<T: std::marker::Copy>(res_name: &str, arr: &Vec<T>, idx: 
   obj.unwrap().clone()
 }
 
+// TODO [CRITICAL] Check Vulkan validation layers: best practices, synchronization, portability, nsight-gpu-trace log
+
 /** Kitchen sink for Vulkan stuff */
 pub struct VkCtx {
   // do not move these fields around, order matters for `Drop` trait
@@ -80,29 +82,6 @@ impl VkCtx {
       ),
     }
   }
-
-  /*
-  /// https://renderdoc.org/docs/how/how_annotate_capture.html
-  /// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_EXT_debug_utils.html
-  /// Usage: `vk_app.dbg_label_render_pass::<Self>(command_buffer);`
-  /// TODO [LOW] label the passess and objects (buffers, textures etc.)?
-  pub unsafe fn dbg_label_render_pass<T>(&self, command_buffer: vk::CommandBuffer) {
-    // let name = std::any::type_name::<T>();
-    // let name_c = CString::new(name).unwrap();
-    // let marker = vk::DebugUtilsLabelEXT::builder()
-    // .label_name(&name_c)
-    // .build();
-    // self
-    // .debug_utils_loader
-    // .cmd_begin_debug_utils_label(command_buffer, &marker);
-  }
-
-  // use Drop to auto close this?
-  pub unsafe fn dbg_label_render_pass_end(&self, command_buffer: vk::CommandBuffer) {
-    // self
-    // .debug_utils_loader
-    // .cmd_end_debug_utils_label(command_buffer);
-  }*/
 
   pub unsafe fn destroy(&mut self) {
     let device = &self.device.device;

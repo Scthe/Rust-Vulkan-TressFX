@@ -2,11 +2,16 @@ use ash;
 use ash::vk;
 
 /*
+https://github.com/KhronosGroup/Vulkan-Docs/wiki/Synchronization-Examples
 https://docs.vulkan.org/spec/latest/chapters/synchronization.html#synchronization-global-memory-barriers
 https://docs.vulkan.org/spec/latest/chapters/synchronization.html#synchronization-pipeline-stages-order - pipeline stages implicit order
 https://www.reddit.com/r/vulkan/comments/8y5g6g/usage_of_vkevents/
 https://github.com/SaschaWillems/Vulkan/blob/master/examples/deferred/deferred.cpp#L447
 https://gpuopen.com/learn/vulkan-barriers-explained/
+
+libs
+  - https://github.com/Tobski/simple_vulkan_synchronization/blob/main/thsvs_simpler_vulkan_synchronization.h
+  - https://github.com/h3r2tic/vk-sync-rs/blob/master/src/lib.rs
 */
 
 #[allow(dead_code)]
@@ -39,7 +44,7 @@ pub unsafe fn execute_full_pipeline_barrier(
 
 /// Barrier for all types of resources (both buffer and image)
 /// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkMemoryBarrier.html
-/// TODO is global barrier optimal? Or maybe use fine grained buffer/image barriers instead?
+/// TODO [HIGH] is global barrier optimal? Or maybe use fine grained buffer/image barriers instead?
 pub fn create_global_barrier(
   src_access_mask: vk::AccessFlags,
   dst_access_mask: vk::AccessFlags,

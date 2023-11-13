@@ -12,11 +12,17 @@ If you want to create a buffer or an image, allocate memory for it and bind them
 
 vkcmdupdatebuffer - update small non-mappable memory region?
 https://stackoverflow.com/questions/54673223/a-rarely-mentioned-vulkan-function-vkcmdupdatebuffer-what-is-it-used-for
+
+Similar small reference implementation:
+- https://github.com/EmbarkStudios/kajiya/blob/main/crates/lib/kajiya-backend/src/vulkan/buffer.rs
+- https://github.com/adrien-ben/gltf-viewer-rs/blob/12054a20e39ba12c8b30c46bc83da55a8021f695/crates/libs/vulkan/src/buffer.rs
 */
 
 pub struct VkBuffer {
-  // For debugging
-  pub name: String,
+  /// For debugging. User-set name
+  name: String,
+  /// For debugging. Includes size etc.
+  long_name: String,
   /// Size in bytes
   pub size: usize,
   /// Native Vulkan buffer
@@ -56,14 +62,16 @@ impl VkBuffer {
         vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT;
     }
 
+    let long_name = get_buffer_long_name(&name, size);
     let (buffer, allocation) = unsafe {
       allocator
         .create_buffer(&buffer_info, &alloc_info)
-        .expect(&format!("Failed allocating: {}", fmt_buf_name(&name, size)))
+        .expect(&format!("Failed allocating: {}", long_name))
     };
 
     let mut buffer = Self {
-      name,
+      name: name.clone(),
+      long_name,
       size,
       buffer,
       allocation,
@@ -135,6 +143,10 @@ impl VkMemoryResource for VkBuffer {
     &self.name
   }
 
+  fn get_long_name(&self) -> &String {
+    &self.long_name
+  }
+
   fn get_allocation(&mut self) -> &mut vma::Allocation {
     &mut self.allocation
   }
@@ -147,6 +159,6 @@ impl VkMemoryResource for VkBuffer {
   }
 }
 
-fn fmt_buf_name(name: &String, size: usize) -> String {
-  format!("Buffer '{}' ({} bytes)", name, size)
+fn get_buffer_long_name(name: &String, size: usize) -> String {
+  format!("VkBuffer '{}' ({} bytes)", name, size)
 }

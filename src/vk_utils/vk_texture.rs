@@ -14,8 +14,10 @@ use crate::vk_utils::create_image_view;
 use super::{MemoryMapPointer, VkMemoryResource, WithSetupCmdBuffer};
 
 pub struct VkTexture {
-  // For debugging
+  /// For debugging. User-set name
   name: String,
+  /// For debugging. Includes size etc.
+  long_name: String,
   pub width: u32,
   pub height: u32,
   /// Native Vulkan image
@@ -87,7 +89,8 @@ impl VkTexture {
     let aspect = get_image_aspect_from_format(format);
     let image_view = create_image_view(device, image, create_info.format, aspect);
     let mut texture = Self {
-      name: create_texture_name(name, size.width, size.height),
+      name: name.clone(),
+      long_name: get_texture_long_name(name, size.width, size.height),
       width: size.width,
       height: size.height,
       image,
@@ -206,7 +209,7 @@ impl VkTexture {
       device,
       allocator,
       with_setup_cb,
-      format!("{}-scratch-texture", dst_texture.name),
+      format!("{}-scratch-texture", dst_texture.long_name),
       dst_texture.size(),
       dst_texture.format,
       vk::ImageTiling::LINEAR,
@@ -383,6 +386,10 @@ impl VkMemoryResource for VkTexture {
     &self.name
   }
 
+  fn get_long_name(&self) -> &String {
+    &self.long_name
+  }
+
   fn get_allocation(&mut self) -> &mut vma::Allocation {
     &mut self.allocation
   }
@@ -395,6 +402,6 @@ impl VkMemoryResource for VkTexture {
   }
 }
 
-fn create_texture_name(name: String, width: u32, height: u32) -> String {
+fn get_texture_long_name(name: String, width: u32, height: u32) -> String {
   format!("VkTexture({}, {}x{})", name, width, height)
 }

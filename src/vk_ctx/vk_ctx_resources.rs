@@ -1,7 +1,8 @@
 use ash::vk;
 use ash::{self};
 
-use crate::vk_utils::{VkBuffer, VkTexture};
+use crate::vk_utils::debug::{set_buffer_debug_label, set_texture_debug_label};
+use crate::vk_utils::{VkBuffer, VkMemoryResource, VkTexture};
 
 use super::*;
 
@@ -14,14 +15,16 @@ impl VkCtx {
     usage: vk::BufferUsageFlags,
     mappable: bool,
   ) -> VkBuffer {
-    VkBuffer::empty(
+    let buffer = VkBuffer::empty(
       &self.allocator,
       self.device.queue_family_index,
       name,
       size,
       usage,
       mappable,
-    )
+    );
+    self.assign_buffer_debug_label(&buffer);
+    buffer
   }
 
   pub fn create_buffer_from_data(
@@ -30,14 +33,27 @@ impl VkCtx {
     bytes: &[u8],
     usage: vk::BufferUsageFlags,
   ) -> VkBuffer {
-    VkBuffer::from_data(
+    let buffer = VkBuffer::from_data(
       &self.allocator,
       self.device.queue_family_index,
       self,
       name,
       bytes,
       usage,
-    )
+    );
+    self.assign_buffer_debug_label(&buffer);
+    buffer
+  }
+
+  fn assign_buffer_debug_label(&self, buffer: &VkBuffer) {
+    unsafe {
+      set_buffer_debug_label(
+        &self.debug_utils_loader,
+        &self.device.device.handle(),
+        buffer.buffer,
+        &buffer.get_name(),
+      )
+    };
   }
 
   // textures
@@ -51,7 +67,7 @@ impl VkCtx {
     allocation_flags: vk::MemoryPropertyFlags,
     initial_layout: vk::ImageLayout,
   ) -> VkTexture {
-    VkTexture::empty(
+    let tex = VkTexture::empty(
       &self.vk_device(),
       &self.allocator,
       self,
@@ -62,11 +78,15 @@ impl VkCtx {
       usage,
       allocation_flags,
       initial_layout,
-    )
+    );
+    self.assign_texture_debug_label(&tex);
+    tex
   }
 
   pub fn create_texture_from_file(&self, path: &std::path::Path, format: vk::Format) -> VkTexture {
-    VkTexture::from_file(&self.vk_device(), &self.allocator, self, path, format)
+    let tex = VkTexture::from_file(&self.vk_device(), &self.allocator, self, path, format);
+    self.assign_texture_debug_label(&tex);
+    tex
   }
 
   pub fn create_texture_from_data(
@@ -76,7 +96,7 @@ impl VkCtx {
     format: vk::Format,
     data_bytes: &Vec<u8>,
   ) -> VkTexture {
-    VkTexture::from_data(
+    let tex = VkTexture::from_data(
       &self.vk_device(),
       &self.allocator,
       self,
@@ -84,6 +104,19 @@ impl VkCtx {
       size,
       format,
       data_bytes,
-    )
+    );
+    self.assign_texture_debug_label(&tex);
+    tex
+  }
+
+  fn assign_texture_debug_label(&self, tex: &VkTexture) {
+    unsafe {
+      set_texture_debug_label(
+        &self.debug_utils_loader,
+        &self.device.device.handle(),
+        tex.image,
+        &tex.get_name(),
+      )
+    };
   }
 }
