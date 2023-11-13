@@ -34,10 +34,11 @@ layout(binding = 6) buffer LinkedListNextHeadCounter {
   uint u_linkedListNextHeadCounter;
 };
 
+
 // Allocate a new fragment location in fragment color, depth, and link buffers
 uint allocateFragment(ivec2 vScreenAddress) {
   uint newAddress = atomicAdd(u_linkedListNextHeadCounter, 1); //LinkedListUAV.IncrementCounter();
-  if (newAddress < 0 || newAddress >= u_linkedListPoolSize){
+  if (newAddress < 0 || newAddress >= u_tfxLinkedListPoolSize){
     newAddress = FRAGMENT_LIST_NULL;
   }
   return newAddress;

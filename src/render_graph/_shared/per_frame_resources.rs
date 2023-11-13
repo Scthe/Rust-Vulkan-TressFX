@@ -28,6 +28,7 @@ pub struct PerFrameResources {
   pub forward_pass: ForwardPassFramebuffer,
   pub tfx_ppll_build_pass: TfxPpllBuildPassFramebuffer,
   pub tfx_ppll_resolve_pass: TfxPpllResolvePassFramebuffer,
+  pub tfx_depth_only_pass: vk::Framebuffer,
   pub linear_depth_pass: LinearDepthPassFramebuffer,
   pub ssao_pass: SSAOPassFramebuffer,
   pub tonemapping_pass: TonemappingPassFramebuffer,
@@ -57,6 +58,7 @@ impl PerFrameResources {
     self.ssao_blur_fbo0.destroy(vk_app);
     self.ssao_blur_fbo1.destroy(vk_app);
     self.forward_pass.destroy(vk_app);
+    device.destroy_framebuffer(self.tfx_depth_only_pass, None);
     self.tfx_ppll_build_pass.destroy(vk_app);
     self.tfx_ppll_resolve_pass.destroy(vk_app);
     self.linear_depth_pass.destroy(vk_app);

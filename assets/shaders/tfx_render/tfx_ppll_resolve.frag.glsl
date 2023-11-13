@@ -25,16 +25,36 @@ const int PPLL_DISPLAY_MODE_COVERAGE = 4;
 layout(location = 0) out vec4 outColor1;
 layout(location = 1) out uvec4 outColor2;
 
+layout(binding = 4) uniform sampler2D u_aoTex;
+layout(binding = 5) uniform sampler2D u_directionalShadowDepthTex;
+
+
 layout(early_fragment_tests) in; // [earlydepthstencil]
+
 
 
 ///////////////////////
 // TressFX Shading
+#pragma include ../materials/_material; // for light struct
+
+float PrecalcAmbientOcclusion;
+Light GlobalLightsArray[3];
+
 struct PPLLFragmentData {
   vec4 tangentAndCoverage;
   vec3 positionWorldSpace;
   float depth;
 };
+
+float calculateShadowForPPLLFragment(inout PPLLFragmentData frag, vec3 normal) {
+  vec4 positionShadowProjected = u_directionalShadowMatrix_VP * vec4(frag.positionWorldSpace, 1);
+  return calculateHairShadow (
+    u_directionalShadowDepthTex,
+    frag.positionWorldSpace,
+    normal,
+    positionShadowProjected
+  );
+}
 
 vec4 tfxCalculateFarFragmentsColor(vec2 pixelCoord, inout PPLLFragmentData frag) {
   float coverage = frag.tangentAndCoverage.w;
@@ -54,21 +74,13 @@ vec4 tfxCalculateCloseFragmentsColor(vec2 pixelCoord, inout PPLLFragmentData fra
     return vec4(coverage,coverage,coverage, 1);
   }
 
-  Light lights[3]; // makes you wonder how much registers this uses. Better not to dwell!
-  lights[0] = unpackLight(u_light0_Position, u_light0_Color);
-  lights[1] = unpackLight(u_light1_Position, u_light1_Color);
-  lights[2] = unpackLight(u_light2_Position, u_light2_Color);
-
-  float ao = 1.0; // TODO Hide both AO and shadow under UI flag
-  float shadow = 0.0; // TODO
+  float ao = PrecalcAmbientOcclusion;
+  float shadow = calculateShadowForPPLLFragment(frag, normal); // TODO [LOW] can be expensive, though only for `KBUFFER_SIZE`, so not *that* bad?
   vec3 result = doHairShading(
-    lights, ao, shadow,
+    GlobalLightsArray, ao, shadow,
     positionWorld, normal, tangent
   );
 
-  // TODO support debug modes. Maybe inout last `PPLLFragmentData` from `GatherLinkedList`?
-  //      The we could try depth write from frag. shader (gl_FragDepth) maybe.. (prob not working - ATM early_fragment_tests)
-  //      LinearDepth | SSAO | Shadows
   return vec4(result, u_tfxOpacity);
 }
 
@@ -82,27 +94,45 @@ vec4 tfxCalculateCloseFragmentsColor(vec2 pixelCoord, inout PPLLFragmentData fra
 ///////////////////////
 // fwd decl.
 vec3 getDebugColorForPpllDepth();
-vec4 debugModeOverride(vec3 shadingResult, inout PPLLFragmentData closestFragment);
+vec4 debugModeOverride(vec3 shadingResult, inout PPLLFragmentData closestFragment, vec3 normal);
 
 
 void main () {
+  GlobalLightsArray[0] = unpackLight(u_light0_Position, u_light0_Color);
+  GlobalLightsArray[1] = unpackLight(u_light1_Position, u_light1_Color);
+  GlobalLightsArray[2] = unpackLight(u_light2_Position, u_light2_Color);
+  // shared value based on last-frame's closes fragment
+  PrecalcAmbientOcclusion = calculateHairAO(u_aoTex);
+
   PPLLFragmentData closestFragment;
   vec4 result = GatherLinkedList(gl_FragCoord.xy, closestFragment);
   
-  // WARNING: Blend mode means `outColor.a==0` may render nothing!
   
-  vec4 colorDebug = debugModeOverride(result.rgb, closestFragment);
-  result.rgb = mix(result.rgb, colorDebug.rgb, colorDebug.a);
-  // TODO alpha for blending? `mix(originalResult.w, 1.0, colorDebug.a);`, unless debug mode also has alpha? (e.g. coverage. tho coverage just black-white..)
-  outColor1 = vec4(result.rgb, result.a);
+  // gather debug output
   vec3 normal = calculateHairNormal(closestFragment.positionWorldSpace.xyz);
+  vec4 colorDebug = debugModeOverride(result.rgb, closestFragment, normal);
+  result.rgb = mix(result.rgb, colorDebug.rgb, colorDebug.a);
+
+  // write color + normals
+  // WARNING: Blend mode means `outColor1.a==0` may render nothing!
+  // Normals have blend=OFF, so no worry there, only color can be a problem.
+  outColor1 = vec4(result.rgb, result.a);
   outColor2 = uvec4(packNormal(normal), 255);
 }
 
-vec4 debugModeOverride(vec3 shadingResult, inout PPLLFragmentData closestFragment){
+vec4 debugModeOverride(vec3 shadingResult, inout PPLLFragmentData closestFragment, vec3 normal){
   vec3 result = vec3(0);
   float mixFac = 1;
 
+  // global debug mode
+  switch (u_displayMode) {
+    case DISPLAY_MODE_SHADOW_MAP: {
+      float shadow = 1 - calculateShadowForPPLLFragment(closestFragment, normal);
+      return vec4(shadow,shadow,shadow, 1);
+    }
+  }
+
+  // hair debug mode
   switch (u_tfxDisplayMode) {
     case PPLL_DISPLAY_MODE_OVERLAP: {
       result = getDebugColorForPpllDepth();

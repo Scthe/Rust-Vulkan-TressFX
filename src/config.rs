@@ -47,8 +47,6 @@ pub enum HairSolidDisplayMode {
   FollowGroups = 2,
   Strands = 3,
   RootTipPercentage = 4,
-  // non-user selectable modes, accessed from `Config.display_mode`
-  ShadowMap = 5,
 }
 
 /// https://github.com/Scthe/WebFX/blob/master/src/Config.ts
@@ -138,6 +136,13 @@ impl Config {
     }
   }
 
+  pub fn get_viewport_size(&self) -> vk::Extent2D {
+    vk::Extent2D {
+      width: self.window_width as u32,
+      height: self.window_height as u32,
+    }
+  }
+
   pub fn get_ssao_viewport_size(&self) -> vk::Extent2D {
     vk::Extent2D {
       width: (self.window_width as u32) / self.ssao.texture_size_div,
@@ -196,5 +201,24 @@ impl Config {
 
   pub fn is_hair_using_ppll(&self) -> bool {
     self.hair_technique != (HairTechnique::Solid as _)
+  }
+
+  pub fn get_hair_display_mode(&self) -> usize {
+    let allow_debug_mode = self.display_mode == (DisplayMode::Final as _);
+    if allow_debug_mode {
+      if self.is_hair_using_ppll() {
+        return self.hair_ppll_display_mode;
+      } else {
+        return self.hair_solid_display_mode;
+      }
+    }
+
+    // Force render final pixel value, so 'general' debug modes can use it.
+    // This includes e.g. luma (takes render final output and greyscales it) etc.
+    if self.is_hair_using_ppll() {
+      return HairPPLLDisplayMode::Final as _;
+    } else {
+      return HairSolidDisplayMode::Final as _;
+    }
   }
 }

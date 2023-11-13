@@ -142,8 +142,6 @@ impl TfxPpllBuildPass {
         let stencil_write_hair = ps_stencil_write_if_depth_passed(Config::STENCIL_BIT_HAIR, true);
         let depth_stencil = vk::PipelineDepthStencilStateCreateInfo::builder()
           .depth_test_enable(true)
-          // TODO [CRITICAL] what about later passes that use depth? Same with normals
-          // `Write depth` here cannot be `true` as we would have skipped fragments due to self-'shadowing' (self-compare after this pass has self-written)
           .depth_write_enable(false)
           .depth_compare_op(vk::CompareOp::LESS)
           .depth_bounds_test_enable(false)
@@ -166,6 +164,13 @@ impl TfxPpllBuildPass {
         create_pipeline(device, pipeline_cache, pipeline_create_info)
       },
     )
+  }
+
+  /// How many elements can be allocated in `u_linkedListDataBuffer`.
+  /// Size of the allocated PPLL fragment data buffer (in elements).
+  /// @return width * height * AVG_FRAGS_PER_PIXEL(4)
+  pub fn get_ppll_data_nodes_count(size: vk::Extent2D) -> u32 {
+    size.width * size.height * Self::PPLL_AVG_NODES_PER_PIXEL
   }
 
   pub fn create_framebuffer(
@@ -198,8 +203,7 @@ impl TfxPpllBuildPass {
 
     // ppll data
     // https://github.com/SaschaWillems/Vulkan/blob/master/examples/oit/oit.cpp#L281
-    let ppll_size =
-      size.width * size.height * Self::PPLL_AVG_NODES_PER_PIXEL * Self::PPLL_NODE_BYTES;
+    let ppll_size = Self::get_ppll_data_nodes_count(size) * Self::PPLL_NODE_BYTES;
     let ppll_data = vk_app.create_buffer_empty(
       format!("TfxPpllBuildPass.ppll_data#{}", frame_id),
       ppll_size as _,

@@ -106,7 +106,7 @@ vec4 GatherLinkedList(vec2 vfScreenAddress, inout PPLLFragmentData closestFragme
 
   // Blend the k nearest layers of fragments from back to front, where k = KBUFFER_SIZE
   for (int j = 0; j < KBUFFER_SIZE; j++) {
-    // TODO what when we have less than `KBUFFER_SIZE` fragments? Do we use the values from `ClearKBuffer` then?
+    // TODO [MEDIUM] what when we have less than `KBUFFER_SIZE` fragments? Do we use the values from `ClearKBuffer` then?
     float kbufferFurthestDepth = DEPTH_RESET_TO_CLOSE;
     int kBufferFurthestIdx = FindFurthestKBufferEl(kBuffer, kbufferFurthestDepth);
 

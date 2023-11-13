@@ -213,49 +213,59 @@ impl AppUI {
       "PPLL - Order-Independent Transparency using Per-Pixel Linked List (TressFX)\nSolid - closest fragment wins, no alpha"
     );
 
-    if config.hair_technique == HairTechnique::PPLL as _ {
-      next_widget_small(ui);
-      ui.combo(
-        "Hair display mode##ppll",
-        &mut config.hair_ppll_display_mode,
-        &[
-          HairPPLLDisplayMode::Final,
-          HairPPLLDisplayMode::Flat,
-          HairPPLLDisplayMode::PpllOverlap,
-          HairPPLLDisplayMode::Tangents,
-          HairPPLLDisplayMode::Coverage,
-        ],
-        |idx| match *idx {
-          HairPPLLDisplayMode::Flat => Cow::Borrowed("Flat"),
-          HairPPLLDisplayMode::PpllOverlap => Cow::Borrowed("PPLL overlap"),
-          HairPPLLDisplayMode::Tangents => Cow::Borrowed("Tangents"),
-          HairPPLLDisplayMode::Coverage => Cow::Borrowed("Coverage"),
-          _ => Cow::Borrowed("Final"),
-        },
-      );
-    } else {
-      next_widget_small(ui);
-      ui.combo(
-        "Hair display mode##solid",
-        &mut config.hair_solid_display_mode,
-        &[
-          HairSolidDisplayMode::Final,
-          HairSolidDisplayMode::Flat,
-          HairSolidDisplayMode::FollowGroups,
-          HairSolidDisplayMode::Strands,
-          HairSolidDisplayMode::RootTipPercentage,
-        ],
-        |idx| match *idx {
-          HairSolidDisplayMode::Flat => Cow::Borrowed("Flat"),
-          HairSolidDisplayMode::FollowGroups => Cow::Borrowed("Follow gr."),
-          HairSolidDisplayMode::Strands => Cow::Borrowed("Strands"),
-          HairSolidDisplayMode::RootTipPercentage => Cow::Borrowed("Root-tip %"),
-          _ => Cow::Borrowed("Final"),
-        },
-      );
+    if config.display_mode == (DisplayMode::Final as _) {
+      if config.hair_technique == HairTechnique::PPLL as _ {
+        Self::draw_hair_settings_ppll(ui, config);
+      } else {
+        Self::draw_hair_settings_solid(ui, config);
+      }
     }
 
     push_token.end();
+  }
+
+  fn draw_hair_settings_ppll(ui: &Ui, config: &mut Config) {
+    next_widget_small(ui);
+    ui.combo(
+      "Hair display mode##ppll",
+      &mut config.hair_ppll_display_mode,
+      &[
+        HairPPLLDisplayMode::Final,
+        HairPPLLDisplayMode::Flat,
+        HairPPLLDisplayMode::PpllOverlap,
+        HairPPLLDisplayMode::Tangents,
+        HairPPLLDisplayMode::Coverage,
+      ],
+      |idx| match *idx {
+        HairPPLLDisplayMode::Flat => Cow::Borrowed("Flat"),
+        HairPPLLDisplayMode::PpllOverlap => Cow::Borrowed("PPLL overlap"),
+        HairPPLLDisplayMode::Tangents => Cow::Borrowed("Tangents"),
+        HairPPLLDisplayMode::Coverage => Cow::Borrowed("Coverage"),
+        _ => Cow::Borrowed("Final"),
+      },
+    );
+  }
+
+  fn draw_hair_settings_solid(ui: &Ui, config: &mut Config) {
+    next_widget_small(ui);
+    ui.combo(
+      "Hair display mode##solid",
+      &mut config.hair_solid_display_mode,
+      &[
+        HairSolidDisplayMode::Final,
+        HairSolidDisplayMode::Flat,
+        HairSolidDisplayMode::FollowGroups,
+        HairSolidDisplayMode::Strands,
+        HairSolidDisplayMode::RootTipPercentage,
+      ],
+      |idx| match *idx {
+        HairSolidDisplayMode::Flat => Cow::Borrowed("Flat"),
+        HairSolidDisplayMode::FollowGroups => Cow::Borrowed("Follow gr."),
+        HairSolidDisplayMode::Strands => Cow::Borrowed("Strands"),
+        HairSolidDisplayMode::RootTipPercentage => Cow::Borrowed("Root-tip %"),
+        _ => Cow::Borrowed("Final"),
+      },
+    );
   }
 
   fn draw_entity(ui: &Ui, entity: &mut WorldEntity) {

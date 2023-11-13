@@ -28,6 +28,8 @@ impl TfxPpllResolvePass {
   const BINDING_INDEX_HEAD_POINTERS_IMAGE: u32 = 1; // Must match shader
   const BINDING_INDEX_DATA_BUFFER: u32 = 2; // Must match shader
   const BINDING_INDEX_TFX_PARAMS_UBO: u32 = 3;
+  const BINDING_INDEX_AO_TEX: u32 = 4;
+  const BINDING_INDEX_SHADOW_MAP: u32 = 5;
 
   pub fn new(vk_app: &VkCtx) -> Self {
     info!("Creating TfxPpllResolvePass");
@@ -72,6 +74,11 @@ impl TfxPpllResolvePass {
       ),
       create_ubo_binding(
         Self::BINDING_INDEX_TFX_PARAMS_UBO,
+        vk::ShaderStageFlags::FRAGMENT,
+      ),
+      create_texture_binding(Self::BINDING_INDEX_AO_TEX, vk::ShaderStageFlags::FRAGMENT),
+      create_texture_binding(
+        Self::BINDING_INDEX_SHADOW_MAP,
         vk::ShaderStageFlags::FRAGMENT,
       ),
     ]
@@ -165,6 +172,8 @@ impl TfxPpllResolvePass {
     forward_color_tex: &mut VkTexture,
     ppll_head_pointers_image: &mut VkTexture,
     ppll_data_buffer: &mut VkBuffer,
+    ao_texture: &mut VkTexture,
+    shadow_map_texture: &mut VkTexture,
     entity: &TfxObject,
   ) -> () {
     let vk_app = exec_ctx.vk_app;
@@ -177,6 +186,8 @@ impl TfxPpllResolvePass {
         &command_buffer,
         depth_stencil_tex,
         forward_color_tex,
+        ao_texture,
+        shadow_map_texture,
       );
 
       // start render pass
@@ -195,7 +206,14 @@ impl TfxPpllResolvePass {
       );
 
       // bind uniforms (do not move this)
-      self.bind_uniforms(exec_ctx, ppll_head_pointers_image, ppll_data_buffer, entity);
+      self.bind_uniforms(
+        exec_ctx,
+        ppll_head_pointers_image,
+        ppll_data_buffer,
+        ao_texture,
+        shadow_map_texture,
+        entity,
+      );
 
       // draw calls
       cmd_draw_fullscreen_triangle(device, &command_buffer);
@@ -211,6 +229,8 @@ impl TfxPpllResolvePass {
     command_buffer: &vk::CommandBuffer,
     depth_stencil_tex: &mut VkTexture,
     forward_color_tex: &mut VkTexture,
+    ao_texture: &mut VkTexture,
+    shadow_map_texture: &mut VkTexture,
   ) {
     execute_full_pipeline_barrier(device, *command_buffer); // TODO [PPLL_sync] remove
 
@@ -231,6 +251,12 @@ impl TfxPpllResolvePass {
       &[],
     );
 
+    VkTexture::cmd_transition_attachments_for_read_barrier(
+      device,
+      *command_buffer,
+      &mut [ao_texture, shadow_map_texture],
+    );
+
     VkTexture::cmd_transition_attachments_for_write_barrier(
       device,
       *command_buffer,
@@ -243,6 +269,8 @@ impl TfxPpllResolvePass {
     exec_ctx: &PassExecContext,
     ppll_head_pointers_image: &mut VkTexture,
     ppll_data_buffer: &mut VkBuffer,
+    ao_texture: &mut VkTexture,
+    shadow_map_texture: &mut VkTexture,
     entity: &TfxObject,
   ) {
     let vk_app = exec_ctx.vk_app;
@@ -270,6 +298,18 @@ impl TfxPpllResolvePass {
         usage: BindableBufferUsage::UBO,
         binding: Self::BINDING_INDEX_TFX_PARAMS_UBO,
         buffer: &entity.get_tfx_params_ubo_buffer(frame_id),
+      },
+      BindableResource::Texture {
+        binding: Self::BINDING_INDEX_AO_TEX,
+        texture: &ao_texture,
+        image_view: None,
+        sampler: vk_app.default_texture_sampler_linear,
+      },
+      BindableResource::Texture {
+        binding: Self::BINDING_INDEX_SHADOW_MAP,
+        texture: &shadow_map_texture,
+        image_view: None,
+        sampler: vk_app.default_texture_sampler_nearest,
       },
     ];
     bind_resources_to_descriptors(&resouce_binder, 0, &uniform_resouces);

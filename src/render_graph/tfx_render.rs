@@ -1,9 +1,14 @@
+use ash;
+use ash::vk;
+
+mod tfx_depth_only_pass;
 mod tfx_forward_pass;
 mod tfx_ppll_build_pass;
 mod tfx_ppll_resolve_pass;
 
 use crate::vk_utils::VkTexture;
 
+pub use self::tfx_depth_only_pass::*;
 pub use self::tfx_forward_pass::*;
 pub use self::tfx_ppll_build_pass::*;
 pub use self::tfx_ppll_resolve_pass::*;
@@ -26,11 +31,15 @@ use super::PassExecContext;
 pub fn execute_tfx_ppll(
   tfx_ppll_build_pass: &TfxPpllBuildPass,
   tfx_ppll_resolve_pass: &TfxPpllResolvePass,
+  tfx_depth_only_pass: &TfxDepthOnlyPass,
   pass_ctx: &PassExecContext,
   fbo_build: &mut TfxPpllBuildPassFramebuffer,
   fbo_resolve: &mut TfxPpllResolvePassFramebuffer,
+  fbo_depth_only: vk::Framebuffer,
   depth_stencil_tex: &mut VkTexture,
   forward_color_tex: &mut VkTexture,
+  ao_texture: &mut VkTexture,
+  shadow_map_texture: &mut VkTexture,
 ) {
   let scene = &*pass_ctx.scene;
   for entity in &scene.tressfx_objects {
@@ -45,7 +54,18 @@ pub fn execute_tfx_ppll(
       forward_color_tex,
       &mut fbo_build.head_pointers_image,
       &mut fbo_build.ppll_data,
+      ao_texture,
+      shadow_map_texture,
       entity,
     );
+
+    // Both build and resolve passess use early depth stencil tests
+    // - build pass - requires to test depth before fragment shader starts writing to SSBO.
+    //     Depth write disabled as it would self-occlude and we want to process all fragments,
+    //     regardless of their depth.
+    // - resolve pass - discard pixels that do not pass stencil test (huge optimization)
+    // This means that depth buffer is never written to. Fix this mistake here.
+    pass_ctx.debug_start_pass(&format!("tfx_depth_only_pass.{}", entity.name));
+    tfx_depth_only_pass.execute(&pass_ctx, fbo_depth_only, depth_stencil_tex, entity);
   }
 }

@@ -102,7 +102,7 @@ impl TfxForwardPass {
       vertex_desc,
       ForwardPass::COLOR_ATTACHMENT_COUNT,
       |builder| {
-        // TODO [???] write hair stencil bit
+        // TODO [IGNORE] write hair stencil bit
         let depth_stencil = ps_depth_less_stencil_always();
 
         let pipeline_create_info = builder.depth_stencil_state(&depth_stencil).build();

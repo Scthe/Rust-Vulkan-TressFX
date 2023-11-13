@@ -5,10 +5,10 @@
 float calculateHairShadow (
   sampler2D directionalShadowDepthTex,
   vec3 positionWorld,
-  vec3 positionShadowCaster,
   vec3 normal,
   vec4 positionShadowProjected
 ) {
+  vec3 positionShadowCaster = u_directionalShadowCasterPosition.xyz;
   vec3 toCaster = normalize(positionShadowCaster - positionWorld);
   vec3 normal2 = normalize(normal); // TODO use tangent per http://developer.amd.com/wordpress/media/2012/10/Scheuermann_HairRendering.pdf s7?
   return 1.0 - calculateDirectionalShadow(

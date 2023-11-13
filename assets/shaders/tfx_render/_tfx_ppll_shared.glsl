@@ -44,10 +44,6 @@ buffer LinkedListDataBuffer {
   PerPixelListEntryData u_linkedListDataBuffer[];
 };
 
-// size of `u_linkedListDataBuffer`
-// value: width * height * AVG_FRAGS_PER_PIXEL(4)
-// uniform int u_linkedListPoolSize; // TODO hardcoded
-#define u_linkedListPoolSize (800*600*4)
 
 
 ////////////////// 

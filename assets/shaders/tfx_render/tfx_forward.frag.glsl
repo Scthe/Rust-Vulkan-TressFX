@@ -31,7 +31,6 @@ const int TFX_DISPLAY_MODE_FLAT = 1;
 const int TFX_DISPLAY_MODE_FOLLOW_GROUPS = 2;
 const int TFX_DISPLAY_MODE_STRANDS = 3;
 const int TFX_DISPLAY_MODE_ROOT_TIP_PERCENTAGE = 4;
-const int TFX_DISPLAY_MODE_SHADOW = 5;
 
 
 vec3 getColorFromInstance (int instanceId) {
@@ -61,6 +60,15 @@ vec4 debugModeOverride(vec3 shadingResult, float shadow){
   vec3 result = vec3(0);
   float mixFac = 1;
 
+  // global debug mode
+  switch (u_displayMode) {
+    case DISPLAY_MODE_SHADOW_MAP: {
+      float shadow2 = 1.0 - shadow;
+      return vec4(shadow2,shadow2,shadow2, 1);
+    }
+  }
+
+  // hair debug mode
   switch (u_tfxDisplayMode) {
     case TFX_DISPLAY_MODE_FOLLOW_GROUPS: {
       result = getColorFromInstance(v_hairInstanceId);
@@ -72,10 +80,6 @@ vec4 debugModeOverride(vec3 shadingResult, float shadow){
     }
     case TFX_DISPLAY_MODE_ROOT_TIP_PERCENTAGE: {
       result = vec3(v_vertexRootToTipFactor);
-      break;
-    }
-    case TFX_DISPLAY_MODE_SHADOW: {
-      result = vec3(1.0 - shadow);
       break;
     }
     case TFX_DISPLAY_MODE_FLAT: {
@@ -101,7 +105,6 @@ void main() {
   float shadow = calculateHairShadow(
     u_directionalShadowDepthTex,
     v_position.xyz,
-    u_directionalShadowCasterPosition.xyz,
     normalize(v_normal),
     v_positionLightShadowSpace
   );

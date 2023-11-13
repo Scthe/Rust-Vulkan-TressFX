@@ -3,7 +3,7 @@ import os
 import sys
 import subprocess
 from os import listdir
-from os.path import isfile, isdir, join, basename, dirname
+from os.path import isfile, isdir, join, basename, dirname, abspath
 
 SHADER_SRC_DIR = "./assets/shaders"
 # SHADER_SRC_DIR = "./assets/shaders/tfx_render"
@@ -11,6 +11,7 @@ SHADER_OUT_DIR = "./assets/shaders-compiled"
 SHADER_IMPORT = "#pragma include"
 COMPILER_ERROR_REGEX = "^.*?:(.*?):\W*(.*?):(.*)$"
 PRINT_VERBOSE = False
+# printf on GPU? https://github.com/hoj-senna/ashen-aetna/blob/master/text/041_DebugPrintf.md
 ADD_DEBUG_DATA = True
 
 class Colors:
@@ -65,10 +66,10 @@ def get_path_of_imported_file(current_file, import_line, import_stack):
 	
 	return imported_filepath
 
-def process_shader_file(path, import_stack=[]):
+def process_shader_file(path, import_stack, already_processed_files):
 	buffer = []
-	if path in import_stack:
-		return buffer # already processed
+	if abspath(path) in already_processed_files:
+		return buffer
 
 	import_stack = import_stack + [path]
 	if len(import_stack) == 4:
@@ -84,12 +85,14 @@ def process_shader_file(path, import_stack=[]):
 			if is_include_line:
 				trace(f"\tFound import '{line}'")
 				imported_filepath = get_path_of_imported_file(path, line.lstrip(), import_stack)
-				imported_file_content = process_shader_file(imported_filepath, import_stack)
+				imported_file_content = process_shader_file(imported_filepath, import_stack, already_processed_files)
 				buffer.extend([f"// START IMPORT: '{imported_filepath}'", ""])
 				buffer.extend(imported_file_content)
 				buffer.extend(["", f"// END IMPORT: '{imported_filepath}'", ""])
 			else:
 				buffer.append(line)
+	
+	already_processed_files.append(abspath(path))
 	return buffer
 
 def write_processed_shader_file(path, lines):
@@ -181,6 +184,6 @@ shader_files = list_shader_files(SHADER_SRC_DIR)
 # shader_files = ["./assets/shaders/forward.vert.glsl"]
 for shader_file in shader_files:
 	print(f"Processing '{shader_file}'")
-	lines = process_shader_file(shader_file)
+	lines = process_shader_file(shader_file, [], [])
 	processed_shader_path = write_processed_shader_file(shader_file, lines)
 	compile_shader(processed_shader_path, lines)

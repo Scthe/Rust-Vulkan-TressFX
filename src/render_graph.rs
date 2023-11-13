@@ -30,7 +30,9 @@ use self::shadow_map_pass::ShadowMapPass;
 use self::ssao_pass::SSAOPass;
 use self::sss_blur_pass::SSSBlurPass;
 use self::sss_depth_pass::SSSDepthPass;
-use self::tfx_render::{execute_tfx_ppll, TfxForwardPass, TfxPpllBuildPass, TfxPpllResolvePass};
+use self::tfx_render::{
+  execute_tfx_ppll, TfxDepthOnlyPass, TfxForwardPass, TfxPpllBuildPass, TfxPpllResolvePass,
+};
 use self::tonemapping_pass::TonemappingPass;
 use self::{_shared::GlobalConfigUBO, present_pass::PresentPass};
 
@@ -48,6 +50,7 @@ pub struct RenderGraph {
   tfx_forward_pass: TfxForwardPass,
   tfx_ppll_build_pass: TfxPpllBuildPass,
   tfx_ppll_resolve_pass: TfxPpllResolvePass,
+  tfx_depth_only_pass: TfxDepthOnlyPass,
   linear_depth_pass: LinearDepthPass,
   ssao_pass: SSAOPass,
   ssao_blur_pass: BlurPass,
@@ -71,6 +74,7 @@ impl RenderGraph {
     let tfx_forward_pass = TfxForwardPass::new(vk_app);
     let tfx_ppll_build_pass = TfxPpllBuildPass::new(vk_app);
     let tfx_ppll_resolve_pass = TfxPpllResolvePass::new(vk_app);
+    let tfx_depth_only_pass = TfxDepthOnlyPass::new(vk_app);
     let tonemapping_pass = TonemappingPass::new(vk_app);
     let present_pass = PresentPass::new(vk_app, image_format);
 
@@ -83,6 +87,7 @@ impl RenderGraph {
       tfx_forward_pass,
       tfx_ppll_build_pass,
       tfx_ppll_resolve_pass,
+      tfx_depth_only_pass,
       linear_depth_pass,
       ssao_pass,
       ssao_blur_pass,
@@ -106,6 +111,7 @@ impl RenderGraph {
     self.tfx_forward_pass.destroy(vk_app);
     self.tfx_ppll_build_pass.destroy(vk_app);
     self.tfx_ppll_resolve_pass.destroy(vk_app);
+    self.tfx_depth_only_pass.destroy(device);
     self.forward_pass.destroy(vk_app);
     self.sss_depth_pass.destroy();
     self.sss_blur_pass.destroy(device);
@@ -258,11 +264,15 @@ impl RenderGraph {
       execute_tfx_ppll(
         &self.tfx_ppll_build_pass,
         &self.tfx_ppll_resolve_pass,
+        &self.tfx_depth_only_pass,
         &pass_ctx,
         &mut frame_resources.tfx_ppll_build_pass,
         &mut frame_resources.tfx_ppll_resolve_pass,
+        frame_resources.tfx_depth_only_pass,
         &mut frame_resources.forward_pass.depth_stencil_tex,
         &mut frame_resources.forward_pass.diffuse_tex,
+        &mut frame_resources.ssao_pass.ssao_tex,
+        &mut frame_resources.shadow_map_pass.depth_tex,
       );
     } else {
       pass_ctx.debug_start_pass("tfx_forward_pass");
@@ -416,6 +426,9 @@ impl RenderGraph {
           &forward_pass.diffuse_tex,
           &forward_pass.normals_tex,
         );
+        let tfx_depth_only_pass = self
+          .tfx_depth_only_pass
+          .create_framebuffer(vk_app, &forward_pass.depth_stencil_tex);
         let sss_blur_fbo0 = self.sss_blur_pass.create_framebuffer(
           vk_app,
           &forward_pass.depth_stencil_tex,
@@ -460,6 +473,7 @@ impl RenderGraph {
           forward_pass,
           tfx_ppll_build_pass,
           tfx_ppll_resolve_pass,
+          tfx_depth_only_pass,
           linear_depth_pass,
           ssao_pass,
           ssao_blur_fbo0,
