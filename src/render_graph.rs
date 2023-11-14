@@ -4,6 +4,7 @@ use ash;
 use ash::vk;
 use bytemuck;
 
+use crate::app_timer::AppTimer;
 use crate::app_ui::AppUI;
 use crate::config::Config;
 use crate::scene::World;
@@ -125,12 +126,13 @@ impl RenderGraph {
 
   pub fn execute_render_graph(
     &mut self,
+    window: &winit::window::Window,
     vk_app: &VkCtx,
+    frame_idx: usize,
     config: &mut Config,
     scene: &mut World,
-    frame_idx: usize,
     app_ui: &mut AppUI,
-    window: &winit::window::Window,
+    timer: &AppTimer,
   ) {
     // 'heavy' ash's objects
     let device = vk_app.vk_device();
@@ -188,6 +190,7 @@ impl RenderGraph {
       size: vk_app.window_size(),
       config_buffer: config_vk_buffer,
       window,
+      timer,
     };
 
     //

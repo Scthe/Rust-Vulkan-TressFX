@@ -125,13 +125,13 @@ impl VkTexture {
     let metadata = decoder.info().unwrap();
     trace!("File meta: {:?}", metadata);
 
-    if metadata.pixel_format != PixelFormat::RGB24 {
-      panic!(
-        "Texture '{}' has pixel format {:?}, expected PixelFormat::RGB24",
-        path.display(),
-        metadata.pixel_format
-      );
-    }
+    assert!(
+      metadata.pixel_format == PixelFormat::RGB24,
+      "Texture '{}' has pixel format {:?}, expected PixelFormat::RGB24",
+      path.display(),
+      metadata.pixel_format
+    );
+
     let pixel_bytes = covert_rgb_to_rgba(&pixel_bytes_rgb);
     let size = vk::Extent2D {
       width: metadata.width as _,

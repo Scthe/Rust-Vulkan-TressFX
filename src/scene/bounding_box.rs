@@ -14,9 +14,7 @@ pub struct BoundingBox {
 
 impl BoundingBox {
   pub fn from_vertices(vertices: &Vec<RenderableVertex>, model_matrix: Mat4) -> Self {
-    if vertices.len() <= 0 {
-      panic!("Mesh does not contain vertices");
-    }
+    assert!(vertices.len() > 0, "Mesh does not contain vertices");
 
     let mut bb_min = vertices[0].position.clone();
     let mut bb_max = vertices[0].position.clone();

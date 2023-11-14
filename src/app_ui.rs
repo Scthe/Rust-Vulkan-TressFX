@@ -8,6 +8,7 @@ use std::borrow::Cow;
 use winit::event::Event;
 
 use crate::{
+  app_timer::AppTimer,
   config::{
     ColorGradingPerRangeSettings, ColorGradingProp, Config, DisplayMode, HairPPLLDisplayMode,
     HairSolidDisplayMode, HairTechnique, LightAmbient, LightCfg, PostFxCfg, SSAOConfig,
@@ -85,6 +86,7 @@ impl AppUI {
     window: &winit::window::Window,
     command_buffer: vk::CommandBuffer,
     config: &mut Config,
+    timer: &AppTimer,
     scene: &mut World,
   ) {
     self
@@ -101,7 +103,7 @@ impl AppUI {
         .size([300.0, 500.0], Condition::Always)
         .resizable(false)
         .build(|| {
-          Self::draw_general_ui(ui, config);
+          Self::draw_general_ui(ui, config, timer);
           Self::draw_hair_settings(ui, config);
           ui.spacing();
 
@@ -146,8 +148,11 @@ impl AppUI {
       .expect("Failed to render ui");
   }
 
-  fn draw_general_ui(ui: &Ui, config: &mut Config) {
+  fn draw_general_ui(ui: &Ui, config: &mut Config, timer: &AppTimer) {
     let push_token = ui.push_id("GeneralUI");
+
+    let dt = timer.delta_time_ms();
+    ui.text_disabled(format!("Timer: {:.2}ms ({:.0} FPS)", dt, 1000.0 / dt));
 
     next_widget_small(ui);
     ui.combo(

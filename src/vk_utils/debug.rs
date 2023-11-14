@@ -18,7 +18,7 @@ Only used during init, so no runtime cost
 
 (PERFORMANCE, "BestPractices-AllocateMemory-SetPriority")
 [NVIDIA] debug layer. We use https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator
-to not have to bother with this
+to not have to bother with this. TODO `AllocationCreateInfo.priority: f32`?
 
 (PERFORMANCE, "UNASSIGNED-BestPractices-CreateImage-Depth32Format")
 [NVIDIA] TODO [LOW] We could just swap `vk::Format::D32_SFLOAT` to `vk::Format::D16_UNORM`

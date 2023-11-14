@@ -7,11 +7,12 @@ use winit::{
 };
 
 use crate::{
-  app_input::AppInput, app_ui::AppUI, config::Config, render_graph::RenderGraph, scene::load_scene,
-  vk_ctx::vk_ctx_initialize,
+  app_input::AppInput, app_timer::AppTimer, app_ui::AppUI, config::Config,
+  render_graph::RenderGraph, scene::load_scene, vk_ctx::vk_ctx_initialize,
 };
 
 mod app_input;
+mod app_timer;
 mod app_ui;
 mod config;
 mod render_graph;
@@ -30,6 +31,7 @@ fn main() {
 
   // config
   let mut config = Config::new();
+  let mut timer = AppTimer::new();
 
   // init window
   let event_loop = EventLoop::new();
@@ -88,16 +90,19 @@ fn main() {
       }
       // redraw
       Event::MainEventsCleared => {
+        timer.mark_start_frame();
+
         // apply events since last frame. "Game logic" in render loop.
         app_input.update_camera_position(&mut scene.camera);
 
         render_graph.execute_render_graph(
+          &window,
           &vk_app,
+          current_frame_in_flight_idx,
           &mut config,
           &mut scene,
-          current_frame_in_flight_idx,
           &mut app_ui,
-          &window,
+          &timer,
         );
         current_frame_in_flight_idx = (current_frame_in_flight_idx + 1) % vk_app.frames_in_flight();
 

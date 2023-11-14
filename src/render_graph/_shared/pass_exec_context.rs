@@ -2,6 +2,7 @@ use ash::vk;
 use log::info;
 
 use crate::{
+  app_timer::AppTimer,
   config::Config,
   scene::World,
   vk_ctx::VkCtx,
@@ -23,6 +24,7 @@ pub struct PassExecContext<'a> {
   pub size: vk::Extent2D,
   pub config_buffer: &'a VkBuffer,
   pub window: &'a winit::window::Window,
+  pub timer: &'a AppTimer,
 }
 
 impl PassExecContext<'_> {

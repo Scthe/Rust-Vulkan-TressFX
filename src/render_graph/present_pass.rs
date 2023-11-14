@@ -190,6 +190,7 @@ impl PresentPass {
         exec_ctx.window,
         command_buffer,
         exec_ctx.config,
+        exec_ctx.timer,
         &mut exec_ctx.scene,
       );
 
