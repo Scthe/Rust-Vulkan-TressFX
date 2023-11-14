@@ -4,6 +4,36 @@ use std::ffi::{CStr, CString};
 use ash::extensions::ext::DebugUtils;
 use ash::vk::{self, Handle, ObjectType};
 
+/*
+Recommended silenced messages (https://www.reddit.com/r/vulkan/comments/k5zqpp/did_you_know_muting_vulkan_validation_layer/):
+
+(PERFORMANCE, "UNASSIGNED-BestPractices-vkImage-AvoidImageToImageCopy")
+Only used during init, so no runtime cost
+
+(PERFORMANCE, "UNASSIGNED-BestPractices-CreatePipelinesLayout-KeepLayoutSmall")
+[AMD] debug layer. Nope!
+
+(PERFORMANCE, "UNASSIGNED-BestPractices-CreateImage-TilingLinear")
+[AMD] debug layer. Linear only used when we copy data to VK_IMAGE_TILING_OPTIMAL
+
+(PERFORMANCE, "BestPractices-AllocateMemory-SetPriority")
+[NVIDIA] debug layer. We use https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator
+to not have to bother with this
+
+(PERFORMANCE, "UNASSIGNED-BestPractices-CreateImage-Depth32Format")
+[NVIDIA] TODO [LOW] We could just swap `vk::Format::D32_SFLOAT` to `vk::Format::D16_UNORM`
+
+
+(PERFORMANCE, "UNASSIGNED-BestPractices-vkBindMemory-small-dedicated-allocation")
+(PERFORMANCE, "UNASSIGNED-BestPractices-vkAllocateMemory-small-allocation")
+TODO [LOW] Investigate spliting 1 big allocation for better memory alloc.
+VulkanMemoryAllocator does not do this already??
+
+(PERFORMANCE, "UNASSIGNED-BestPractices-ClearAttachment-ClearImage")
+[AMD] TressFX PPLL heads image is cleared with `vkCmdClearColorImage`. Not a bug.
+
+*/
+
 // called on validation layer message
 extern "system" fn vulkan_debug_callback(
   message_severity: vk::DebugUtilsMessageSeverityFlagsEXT,

@@ -66,8 +66,8 @@ impl VkTexture {
       self.barrier_prepare_for_layout_transition(
         vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
         vk::AccessFlags::COLOR_ATTACHMENT_WRITE, // prev op
-        vk::AccessFlags::COLOR_ATTACHMENT_READ  // our op
-          | vk::AccessFlags::SHADER_READ, // | vk::AccessFlags::INPUT_ATTACHMENT_READ (subpass only?),
+        vk::AccessFlags::INPUT_ATTACHMENT_READ  // our op
+          | vk::AccessFlags::SHADER_READ, // | vk::AccessFlags::COLOR_ATTACHMENT_READ, but validation layers say no?
       )
     } else if self.is_depth_stencil() {
       self.barrier_prepare_for_layout_transition(

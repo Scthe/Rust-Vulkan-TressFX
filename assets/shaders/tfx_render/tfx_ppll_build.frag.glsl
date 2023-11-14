@@ -16,8 +16,6 @@ layout(location = 3) in vec3 v_normal;
 layout(location = 4) in vec3 v_tangent;
 layout(location = 5) in vec4 v_p0p1;
 
-layout(location = 0) out vec4 outColor1;
-
 // NOTE: very important
 // Force early depth tests
 //

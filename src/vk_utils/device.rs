@@ -156,14 +156,8 @@ pub fn pick_device_and_queue(
 
   // Arseny:
   // https://github.com/zeux/niagara/blob/master/src/device.cpp#L181
-  let shader_non_semantic_info_ext = unsafe {
-    ::std::ffi::CStr::from_bytes_with_nul_unchecked(b"VK_KHR_shader_non_semantic_info\0")
-  };
-  let device_extension_names_raw = [
-    Swapchain::name().as_ptr(),
-    PushDescriptor::name().as_ptr(),
-    shader_non_semantic_info_ext.as_ptr(),
-  ];
+  // `VK_KHR_shader_non_semantic_info` was promoted to Vulkan 1.3 and is no longer needed!
+  let device_extension_names_raw = [Swapchain::name().as_ptr(), PushDescriptor::name().as_ptr()];
 
   let mut separate_depth_stencil = vk::PhysicalDeviceSeparateDepthStencilLayoutsFeatures::builder()
     .separate_depth_stencil_layouts(true)

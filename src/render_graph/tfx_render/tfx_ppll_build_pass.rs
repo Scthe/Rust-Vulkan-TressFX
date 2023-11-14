@@ -290,6 +290,8 @@ impl TfxPpllBuildPass {
 
     // reset heads texture
     // https://github.com/SaschaWillems/Vulkan/blob/master/examples/oit/oit.cpp#L554
+    // Triggers [UNASSIGNED-BestPractices-ClearColor-NotCompressed] in validation layers,
+    // but that's ok - we have our own special value to clear with.
     let clear_color_value = vk::ClearColorValue {
       uint32: [
         Self::PPLL_FRAGMENT_LIST_NULL,

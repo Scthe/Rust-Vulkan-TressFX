@@ -323,7 +323,6 @@ impl ShadowMapPass {
     // push constants
     let push_constants = ShadowMapPassPushConstants {
       mvp: Self::get_light_shadow_mvp(source, *model_matrix),
-      model_matrix: *model_matrix,
       camera_position: vec4(
         camera_position.x,
         camera_position.y,
@@ -405,7 +404,6 @@ impl ShadowMapPassFramebuffer {
 #[repr(C)]
 struct ShadowMapPassPushConstants {
   mvp: Mat4,
-  model_matrix: Mat4,
   camera_position: Vec4,
   viewport: Vec4,
 }
