@@ -18,6 +18,13 @@ Similar small reference implementation:
 - https://github.com/adrien-ben/gltf-viewer-rs/blob/12054a20e39ba12c8b30c46bc83da55a8021f695/crates/libs/vulkan/src/buffer.rs
 */
 
+#[derive(PartialEq)]
+pub enum VkBufferMemoryPreference {
+  GpuOnly,
+  /// Optimize for CPU mapping to copy CPU->GPU data
+  Mappable,
+}
+
 pub struct VkBuffer {
   /// For debugging. User-set name
   name: String,
@@ -36,14 +43,13 @@ pub struct VkBuffer {
 
 impl VkBuffer {
   /// Allocate empty vulkan buffer
-  /// * `mappable` - optimize for CPU mapping to copy CPU->GPU data
   pub fn empty(
     allocator: &vma::Allocator,
     queue_family: u32,
     name: String,
     size: usize,
     usage: vk::BufferUsageFlags,
-    mappable: bool,
+    memory_pref: VkBufferMemoryPreference,
   ) -> Self {
     let queue_family_indices = [queue_family];
     let buffer_info = vk::BufferCreateInfo::builder()
@@ -57,9 +63,14 @@ impl VkBuffer {
       usage: vma::MemoryUsage::GpuOnly,
       ..Default::default()
     };
-    if mappable {
-      alloc_info.required_flags =
-        vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT;
+
+    #[allow(deprecated)]
+    match memory_pref {
+      VkBufferMemoryPreference::Mappable => {
+        alloc_info.required_flags =
+          vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT;
+      }
+      _ => (),
     }
 
     let long_name = get_buffer_long_name(&name, size);
@@ -77,7 +88,9 @@ impl VkBuffer {
       allocation,
       mapped_pointer: None,
     };
-    if mappable {
+
+    // map if needed
+    if memory_pref == VkBufferMemoryPreference::Mappable {
       buffer.map_memory(allocator);
     }
 
@@ -103,7 +116,7 @@ impl VkBuffer {
       format!("{}-scratch-buffer", name),
       size,
       vk::BufferUsageFlags::TRANSFER_SRC,
-      true,
+      VkBufferMemoryPreference::Mappable,
     );
     // map buffer and copy content
     scratch_buffer.map_memory(allocator);
@@ -117,7 +130,7 @@ impl VkBuffer {
       name,
       size,
       usage | vk::BufferUsageFlags::TRANSFER_DST,
-      false,
+      VkBufferMemoryPreference::GpuOnly,
     );
     with_setup_cb.with_setup_cb(|device, cb| unsafe {
       let mem_region = ash::vk::BufferCopy::builder()

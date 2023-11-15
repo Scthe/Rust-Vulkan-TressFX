@@ -209,7 +209,7 @@ impl TfxPpllBuildPass {
       format!("TfxPpllBuildPass.ppll_data#{}", frame_id),
       ppll_size as _,
       vk::BufferUsageFlags::STORAGE_BUFFER,
-      false,
+      VkBufferMemoryPreference::GpuOnly,
     );
 
     // single atomic uint
@@ -218,7 +218,7 @@ impl TfxPpllBuildPass {
       Self::PPLL_ATOMIC_COUNTER_BYTES,
       // will be cleared every frame:
       vk::BufferUsageFlags::STORAGE_BUFFER | vk::BufferUsageFlags::TRANSFER_DST,
-      false,
+      VkBufferMemoryPreference::GpuOnly,
     );
 
     TfxPpllBuildPassFramebuffer {

@@ -497,7 +497,7 @@ fn allocate_config_uniform_buffer(vk_app: &VkCtx, frame_id: usize) -> VkBuffer {
     format!("scene_uniform_buffers_{}", frame_id),
     size,
     vk::BufferUsageFlags::UNIFORM_BUFFER,
-    true,
+    VkBufferMemoryPreference::Mappable,
   )
 }
 

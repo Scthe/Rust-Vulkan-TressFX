@@ -3,7 +3,9 @@ use ash::{self};
 
 use crate::utils::get_attachment_name;
 use crate::vk_utils::debug::{set_buffer_debug_label, set_texture_debug_label};
-use crate::vk_utils::{get_image_aspect_from_format, VkBuffer, VkMemoryResource, VkTexture};
+use crate::vk_utils::{
+  get_image_aspect_from_format, VkBuffer, VkBufferMemoryPreference, VkMemoryResource, VkTexture,
+};
 
 use super::*;
 
@@ -14,7 +16,7 @@ impl VkCtx {
     name: String,
     size: usize,
     usage: vk::BufferUsageFlags,
-    mappable: bool,
+    memory_pref: VkBufferMemoryPreference,
   ) -> VkBuffer {
     let buffer = VkBuffer::empty(
       &self.allocator,
@@ -22,7 +24,7 @@ impl VkCtx {
       name,
       size,
       usage,
-      mappable,
+      memory_pref,
     );
     self.assign_buffer_debug_label(&buffer);
     buffer
@@ -107,13 +109,13 @@ impl VkCtx {
       usage_flags |= vk::ImageUsageFlags::COLOR_ATTACHMENT;
       initial_layout = vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL;
     }
-    if initial_layout == vk::ImageLayout::PREINITIALIZED {
+    assert!(
       // we have not changed from defaults - invalid!
-      panic!(
-        "Could not determine create_attachment properties for {:?} ({:?})",
-        format, aspect
-      );
-    }
+      initial_layout != vk::ImageLayout::PREINITIALIZED,
+      "Could not determine create_attachment properties for {:?} ({:?})",
+      format,
+      aspect
+    );
 
     self.create_texture_empty(
       get_attachment_name::<PassType>(name, frame_id),
