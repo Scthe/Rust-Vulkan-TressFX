@@ -100,6 +100,10 @@ pub fn get_attachment_name<PassType>(name: &str, frame_id: usize) -> String {
   format!("{}.{}#{}", pass_name, name, frame_id)
 }
 
+pub fn first_letters(value: &str, letter_count: usize) -> String {
+  value.chars().into_iter().take(letter_count).collect()
+}
+
 /// Macro to pick from 2 values based on conditional
 /// `either!(foo == bar; println!("it is true"); println!("it is false"));`
 #[macro_export]

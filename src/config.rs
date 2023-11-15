@@ -147,6 +147,11 @@ impl Config {
     }
   }
 
+  // TODO implement vsync off?
+  pub fn vsync(&self) -> bool {
+    true
+  }
+
   pub fn get_ssao_viewport_size(&self) -> vk::Extent2D {
     vk::Extent2D {
       width: (self.window_width as u32) / self.ssao.texture_size_div,

@@ -3,6 +3,7 @@ use ash::vk;
 use log::info;
 
 use crate::app_ui::AppUI;
+use crate::gpu_profiler::GpuProfiler;
 use crate::utils::get_simple_type_name;
 use crate::vk_ctx::VkCtx;
 use crate::vk_utils::*;
@@ -182,11 +183,13 @@ impl PresentPass {
       cmd_draw_fullscreen_triangle(device, &command_buffer);
 
       // ui
+      let profiler: &GpuProfiler = &exec_ctx.profiler.borrow();
       app_ui.render_ui(
         exec_ctx.window,
         command_buffer,
         exec_ctx.config,
         exec_ctx.timer,
+        profiler,
         &mut exec_ctx.scene,
       );
 

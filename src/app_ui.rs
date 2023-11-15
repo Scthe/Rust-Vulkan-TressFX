@@ -14,8 +14,10 @@ use crate::{
     HairSolidDisplayMode, HairTechnique, LightAmbient, LightCfg, PostFxCfg, SSAOConfig,
     SSSBlurPassCfg, SSSForwardScatterPassCfg, ShadowTechnique, ShadowsConfig, TonemappingMode,
   },
+  either,
+  gpu_profiler::{GpuProfiler, GpuProfilerReport},
   scene::{TfxObject, World, WorldEntity},
-  utils::vec3_to_pretty_str,
+  utils::{first_letters, vec3_to_pretty_str},
   vk_ctx::VkCtx,
 };
 
@@ -87,6 +89,7 @@ impl AppUI {
     command_buffer: vk::CommandBuffer,
     config: &mut Config,
     timer: &AppTimer,
+    profiler: &GpuProfiler,
     scene: &mut World,
   ) {
     self
@@ -135,6 +138,7 @@ impl AppUI {
             Self::draw_color_grading(ui, "highlights", &mut cg.highlights, hl);
           }
           Self::draw_fxaa_ui(ui, config);
+          Self::draw_gpu_profiler(ui, config, profiler);
         });
       // UI END
 
@@ -152,7 +156,13 @@ impl AppUI {
     let push_token = ui.push_id("GeneralUI");
 
     let dt = timer.delta_time_ms();
-    ui.text_disabled(format!("Timer: {:.2}ms ({:.0} FPS)", dt, 1000.0 / dt));
+    let vsync = either!(config.vsync(), "ON", "OFF");
+    ui.text_disabled(format!(
+      "Timer: {:.2}ms ({:.0} FPS), vsync: {}",
+      dt,
+      1000.0 / dt,
+      vsync
+    ));
 
     next_widget_small(ui);
     ui.combo(
@@ -199,6 +209,42 @@ impl AppUI {
     add_tooltip_to_previous_widget(ui, "Show positions of lights and shadow source");
 
     push_token.end();
+  }
+
+  fn draw_gpu_profiler(ui: &Ui, config: &mut Config, profiler: &GpuProfiler) {
+    let push_token = ui.push_id("gpu_profiler");
+
+    if ui.collapsing_header("GPU profiler", *HEADER_FLAGS) {
+      if ui.button("Profile") {
+        config.profile_next_frame = true;
+      }
+
+      match profiler.get_last_report() {
+        None => ui.text_disabled("No results yet"),
+        Some(report) => Self::draw_profiler_report(ui, &report),
+      }
+    }
+
+    push_token.end();
+  }
+
+  fn draw_profiler_report(ui: &Ui, report: &GpuProfilerReport) {
+    let name_letters = 17;
+    let total_ms = report
+      .iter()
+      .fold(0f32, |acc, (_, duration_ms)| acc + duration_ms);
+
+    report.iter().for_each(|(name, duration_ms)| {
+      let perc = duration_ms / total_ms * 100.0;
+      // let name2 = &name[..name_letters];
+      let name2 = first_letters(name, name_letters);
+      ui.text_disabled(format!(
+        "{:<name_letters$}: {:>4.2}ms ({:>6.2}%)",
+        name2, duration_ms, perc
+      ));
+    });
+
+    ui.text_disabled(format!("Total: {:.2}ms", total_ms));
   }
 
   fn draw_hair_settings(ui: &Ui, config: &mut Config) {

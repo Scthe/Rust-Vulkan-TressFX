@@ -34,7 +34,7 @@ pub struct GpuProfiler {
   enabled: bool,
   query_pool: vk::QueryPool,
   scopes: Vec<ProfilerScope>,
-  pub last_report: Option<GpuProfilerReport>,
+  last_report: Option<GpuProfilerReport>,
 }
 
 impl GpuProfiler {
@@ -63,6 +63,10 @@ impl GpuProfiler {
 
   pub fn set_enabled(&mut self, enabled: bool) {
     self.enabled = enabled
+  }
+
+  pub fn get_last_report(&self) -> &Option<GpuProfilerReport> {
+    &self.last_report
   }
 
   /// Start profiling - will be very slow as we wait after each frame to readback the results
@@ -163,7 +167,7 @@ impl GpuProfiler {
         let time_end = durations[base_query + 1];
         let duration_nano = time_end - time_start;
         let duration_ms = (duration_nano as f32) * 0.000001;
-        trace!("'{}' took {:.2}ms", scope.name, duration_ms);
+        // trace!("'{}' took {:.2}ms", scope.name, duration_ms);
         (scope.name.clone(), duration_ms)
       })
       .collect();
