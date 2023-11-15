@@ -53,6 +53,8 @@ pub enum HairSolidDisplayMode {
 pub struct Config {
   /// crash program after first frame to read init errors
   pub only_first_frame: bool,
+  /// run profiler
+  pub profile_next_frame: bool,
   /// show spheres where lights/shadows are
   pub show_debug_positions: bool,
   /// debug display mode
@@ -94,6 +96,7 @@ pub struct Config {
 
 impl Config {
   const ONLY_FIRST_FRAME: bool = false;
+  const PROFILE_FIRST_FRAME: bool = false;
   pub const DEBUG_LAYOUT_TRANSITIONS: bool = false;
 
   pub const STENCIL_BIT_SKIN: u32 = 1 << 0;
@@ -104,6 +107,7 @@ impl Config {
 
     Config {
       only_first_frame: Self::ONLY_FIRST_FRAME,
+      profile_next_frame: Self::PROFILE_FIRST_FRAME,
       show_debug_positions: false,
       display_mode: DisplayMode::Final as _,
       linear_depth_preview_range: vec2(-2.0, -15.0),

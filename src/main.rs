@@ -8,13 +8,15 @@ use winit::{
 
 use crate::{
   app_input::AppInput, app_timer::AppTimer, app_ui::AppUI, config::Config,
-  render_graph::RenderGraph, scene::load_scene, vk_ctx::vk_ctx_initialize,
+  gpu_profiler::GpuProfiler, render_graph::RenderGraph, scene::load_scene,
+  vk_ctx::vk_ctx_initialize,
 };
 
 mod app_input;
 mod app_timer;
 mod app_ui;
 mod config;
+mod gpu_profiler;
 mod render_graph;
 mod scene;
 mod utils;
@@ -47,6 +49,7 @@ fn main() {
   // init vulkan: create device, init structures etc.
   let mut vk_app = vk_ctx_initialize(&window);
   info!("Vulkan init: OK!");
+  let mut profiler = GpuProfiler::new(&vk_app);
 
   // scene
   let mut scene = load_scene(&vk_app, &config);
@@ -91,6 +94,8 @@ fn main() {
       // redraw
       Event::MainEventsCleared => {
         timer.mark_start_frame();
+        profiler.set_enabled(config.profile_next_frame);
+        config.profile_next_frame = false;
 
         // apply events since last frame. "Game logic" in render loop.
         app_input.update_camera_position(&mut scene.camera);
@@ -103,6 +108,7 @@ fn main() {
           &mut scene,
           &mut app_ui,
           &timer,
+          &mut profiler,
         );
         current_frame_in_flight_idx = (current_frame_in_flight_idx + 1) % vk_app.frames_in_flight();
 
@@ -129,6 +135,7 @@ fn main() {
           scene.destroy(vk_app.vk_device(), &vk_app.allocator);
           trace!("Destroying render graph objects");
           render_graph.destroy(&vk_app);
+          profiler.destroy(vk_app.vk_device());
           trace!("Destroying vulkan objects");
           vk_app.destroy();
         }
