@@ -7,7 +7,7 @@ use log::info;
 
 use crate::utils::get_simple_type_name;
 use crate::vk_ctx::VkCtx;
-use crate::vk_utils::*;
+use crate::{either, vk_utils::*};
 
 use super::PassExecContext;
 
@@ -130,6 +130,7 @@ impl BlurPass {
   fn execute_blur_single_direction(
     &self,
     exec_ctx: &PassExecContext,
+    extra_name: &str,
     framebuffer: &mut BlurFramebuffer,
     size: vk::Extent2D,
     result_tex: &mut VkTexture,       // write
@@ -140,7 +141,13 @@ impl BlurPass {
     let vk_app = exec_ctx.vk_app;
     let command_buffer = exec_ctx.command_buffer;
     let device = vk_app.vk_device();
-    let pass_name = &get_simple_type_name::<Self>();
+    let is_horizontal = params.blur_direction == Self::BLUR_DIRECTION_PASS0;
+    let pass_name = &format!(
+      "{}{}.{}",
+      extra_name,
+      get_simple_type_name::<Self>(),
+      either!(is_horizontal, "hor", "vert")
+    );
 
     unsafe {
       self.cmd_resource_barriers(
@@ -243,6 +250,7 @@ impl BlurPass {
   pub fn execute(
     &self,
     exec_ctx: &PassExecContext,
+    extra_name: &str,
     framebuffer0: &mut BlurFramebuffer,
     framebuffer1: &mut BlurFramebuffer,
     color_source_tex: &mut VkTexture,
@@ -255,6 +263,7 @@ impl BlurPass {
   ) -> () {
     self.execute_blur_single_direction(
       exec_ctx,
+      extra_name,
       framebuffer0,
       size,
       tmp_ping_pong_tex,
@@ -269,6 +278,7 @@ impl BlurPass {
     );
     self.execute_blur_single_direction(
       exec_ctx,
+      extra_name,
       framebuffer1,
       size,
       color_source_tex,

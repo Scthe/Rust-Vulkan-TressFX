@@ -19,8 +19,6 @@ pub struct AppTimer {
   delta_time: f32,
   /// Circular buffer for delta times
   dt_queue: VecDeque<f32>,
-  // TODO Time spend on CPU (so not counting waiting on semaphors). In seconds.
-  // cpu_draw_calls_duration: f32,
 }
 
 impl AppTimer {

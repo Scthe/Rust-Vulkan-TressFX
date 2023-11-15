@@ -9,7 +9,7 @@ use crate::config::Config;
 use crate::render_graph::forward_pass::ForwardPass;
 use crate::utils::get_simple_type_name;
 use crate::vk_ctx::VkCtx;
-use crate::vk_utils::*;
+use crate::{either, vk_utils::*};
 
 use super::PassExecContext;
 
@@ -166,7 +166,12 @@ impl SSSBlurPass {
     let command_buffer = exec_ctx.command_buffer;
     let device = vk_app.vk_device();
     let size = exec_ctx.size;
-    let pass_name = &get_simple_type_name::<Self>();
+    let is_horizontal = blur_direction == Self::BLUR_DIRECTION_PASS0;
+    let pass_name = &format!(
+      "{}.{}",
+      get_simple_type_name::<Self>(),
+      either!(is_horizontal, "hor", "vert")
+    );
 
     unsafe {
       self.cmd_resource_barriers(

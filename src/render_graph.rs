@@ -213,7 +213,7 @@ impl RenderGraph {
     };
 
     // shadow map generate pass
-    self.shadow_map_pass.execute(
+    self.shadow_map_pass.execute::<ShadowMapPass>(
       &pass_ctx,
       &mut frame_resources.shadow_map_pass,
       &pass_ctx.config.shadows.shadow_source,
@@ -306,6 +306,7 @@ impl RenderGraph {
     // ssao blur
     self.ssao_blur_pass.execute(
       &pass_ctx,
+      "SSAO",
       &mut frame_resources.ssao_blur_fbo0,
       &mut frame_resources.ssao_blur_fbo1,
       &mut frame_resources.ssao_pass.ssao_tex,
@@ -399,10 +400,11 @@ impl RenderGraph {
           SSAOPass::create_result_texture(vk_app, &ssao_result_size, frame_id, true);
 
         // fbos
-        let shadow_map_pass =
-          self
-            .shadow_map_pass
-            .create_framebuffer(vk_app, frame_id, config.shadows.shadowmap_size);
+        let shadow_map_pass = self.shadow_map_pass.create_framebuffer::<ShadowMapPass>(
+          vk_app,
+          frame_id,
+          config.shadows.shadowmap_size,
+        );
         let sss_depth_pass = self.sss_depth_pass.create_framebuffer(
           vk_app,
           frame_id,

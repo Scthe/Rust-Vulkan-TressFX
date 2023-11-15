@@ -147,7 +147,7 @@ impl Config {
     }
   }
 
-  // TODO implement vsync off?
+  // TODO [MEDIUM] implement vsync off?
   pub fn vsync(&self) -> bool {
     true
   }

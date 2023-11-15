@@ -239,7 +239,7 @@ impl AppUI {
       // let name2 = &name[..name_letters];
       let name2 = first_letters(name, name_letters);
       ui.text_disabled(format!(
-        "{:<name_letters$}: {:>4.2}ms ({:>6.2}%)",
+        "{:<name_letters$}: {:>4.2}ms ({:>5.2}%)",
         name2, duration_ms, perc
       ));
     });

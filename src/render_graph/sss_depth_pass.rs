@@ -7,6 +7,8 @@ use crate::vk_ctx::VkCtx;
 use super::shadow_map_pass::{ShadowMapPass, ShadowMapPassFramebuffer};
 use super::PassExecContext;
 
+pub type SSSDepthPassFramebuffer = ShadowMapPassFramebuffer;
+
 pub struct SSSDepthPass {}
 
 /// Forward scatter: generate depth from point of view of SSS light.
@@ -28,21 +30,18 @@ impl SSSDepthPass {
     frame_id: usize,
     shadow_pass: &ShadowMapPass,
     size_px: u32,
-  ) -> ShadowMapPassFramebuffer {
-    // TODO [CRITICAL] The texture will have name `ShadowMapPass.depth#0` instead of `SSSDepthPass.depth#0`
-    //      Maybe create ShadowPass inside this class and assign diff name?
-    //      Is the name used during create or can we reassign later? Or ShadowPass::new_named(name, ...)
-    shadow_pass.create_framebuffer(vk_app, frame_id, size_px)
+  ) -> SSSDepthPassFramebuffer {
+    shadow_pass.create_framebuffer::<Self>(vk_app, frame_id, size_px)
   }
 
   pub fn execute(
     &self,
     exec_ctx: &PassExecContext,
-    framebuffer: &mut ShadowMapPassFramebuffer,
+    framebuffer: &mut SSSDepthPassFramebuffer,
     shadow_pass: &ShadowMapPass,
     source: &ShadowSourceCfg,
   ) -> () {
-    shadow_pass.execute(exec_ctx, framebuffer, source, false);
+    shadow_pass.execute::<Self>(exec_ctx, framebuffer, source, false);
   }
 
   pub fn get_sss_forward_mvp(source: &ShadowSourceCfg, model_matrix: Mat4) -> Mat4 {

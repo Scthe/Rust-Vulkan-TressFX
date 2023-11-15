@@ -194,7 +194,8 @@ impl ShadowMapPass {
     )
   }
 
-  pub fn create_framebuffer(
+  /// - @param `PassType` - use when using ShadowPass as impl. detail of other passes. Unfortunately, we cannot default to `Self`
+  pub fn create_framebuffer<PassType>(
     &self,
     vk_app: &VkCtx,
     frame_id: usize,
@@ -206,14 +207,16 @@ impl ShadowMapPass {
       height: size_px,
     };
 
-    let depth_tex = vk_app.create_attachment::<Self>("depth", frame_id, DEPTH_TEXTURE_FORMAT, size);
+    let depth_tex =
+      vk_app.create_attachment::<PassType>("depth", frame_id, DEPTH_TEXTURE_FORMAT, size);
 
     let fbo = create_framebuffer(device, self.render_pass, &[depth_tex.image_view()], &size);
 
     ShadowMapPassFramebuffer { depth_tex, fbo }
   }
 
-  pub fn execute(
+  /// - @param `PassType` - use when using ShadowPass as impl. detail of other passes. Unfortunately, we cannot default to `Self`
+  pub fn execute<PassType>(
     &self,
     exec_ctx: &PassExecContext,
     framebuffer: &mut ShadowMapPassFramebuffer,
@@ -223,7 +226,7 @@ impl ShadowMapPass {
     let vk_app = exec_ctx.vk_app;
     let command_buffer = exec_ctx.command_buffer;
     let device = vk_app.vk_device();
-    let pass_name = &get_simple_type_name::<Self>();
+    let pass_name = &get_simple_type_name::<PassType>();
 
     let clear_depth = vk::ClearValue {
       depth_stencil: vk::ClearDepthStencilValue {

@@ -7,6 +7,7 @@ use crate::render_graph::linear_depth_pass::LinearDepthPassFramebuffer;
 use crate::render_graph::shadow_map_pass::ShadowMapPassFramebuffer;
 use crate::render_graph::ssao_pass::SSAOPassFramebuffer;
 use crate::render_graph::sss_blur_pass::SSSBlurFramebuffer;
+use crate::render_graph::sss_depth_pass::SSSDepthPassFramebuffer;
 use crate::render_graph::tfx_render::{TfxPpllBuildPassFramebuffer, TfxPpllResolvePassFramebuffer};
 use crate::render_graph::tonemapping_pass::TonemappingPassFramebuffer;
 use crate::vk_ctx::VkCtx;
@@ -20,7 +21,7 @@ pub struct PerFrameResources {
 
   // framebuffers
   pub shadow_map_pass: ShadowMapPassFramebuffer,
-  pub sss_depth_pass: ShadowMapPassFramebuffer,
+  pub sss_depth_pass: SSSDepthPassFramebuffer,
   pub sss_blur_fbo0: SSSBlurFramebuffer,
   pub sss_blur_fbo1: SSSBlurFramebuffer,
   pub ssao_blur_fbo0: BlurFramebuffer,
