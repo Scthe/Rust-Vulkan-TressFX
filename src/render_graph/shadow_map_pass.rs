@@ -221,7 +221,6 @@ impl ShadowMapPass {
     render_hair: bool,
   ) -> () {
     let vk_app = exec_ctx.vk_app;
-    let scene = &*exec_ctx.scene;
     let command_buffer = exec_ctx.command_buffer;
     let device = vk_app.vk_device();
     let pass_name = &get_simple_type_name::<Self>();
@@ -241,7 +240,7 @@ impl ShadowMapPass {
       self.cmd_resource_barriers(device, &command_buffer, framebuffer);
 
       // start render pass
-      exec_ctx.cmd_start_render_pass(
+      let scope_id = exec_ctx.cmd_start_render_pass(
         pass_name,
         &self.render_pass,
         &framebuffer.fbo,
@@ -255,6 +254,7 @@ impl ShadowMapPass {
         vk::PipelineBindPoint::GRAPHICS,
         self.pipeline_meshes,
       );
+      let scene = &*exec_ctx.scene;
       for entity in &scene.entities {
         self.bind_push_constants(
           exec_ctx,
@@ -290,7 +290,7 @@ impl ShadowMapPass {
       }
 
       // end
-      exec_ctx.cmd_end_render_pass();
+      exec_ctx.cmd_end_render_pass(scope_id);
     }
   }
 

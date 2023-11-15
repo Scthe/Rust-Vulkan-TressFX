@@ -181,6 +181,7 @@ impl TfxPpllResolvePass {
     let command_buffer = exec_ctx.command_buffer;
     let device = vk_app.vk_device();
     let pass_type_name = get_simple_type_name::<Self>();
+    let size = exec_ctx.size;
     let pass_name = format!("{}.{}", pass_type_name, entity.name);
 
     unsafe {
@@ -194,13 +195,8 @@ impl TfxPpllResolvePass {
       );
 
       // start render pass
-      exec_ctx.cmd_start_render_pass(
-        &pass_name,
-        &self.render_pass,
-        &framebuffer.fbo,
-        &exec_ctx.size,
-        &[],
-      );
+      let scope_id =
+        exec_ctx.cmd_start_render_pass(&pass_name, &self.render_pass, &framebuffer.fbo, &size, &[]);
       device.cmd_bind_pipeline(
         command_buffer,
         vk::PipelineBindPoint::GRAPHICS,
@@ -221,7 +217,7 @@ impl TfxPpllResolvePass {
       cmd_draw_fullscreen_triangle(device, &command_buffer);
 
       // end
-      exec_ctx.cmd_end_render_pass();
+      exec_ctx.cmd_end_render_pass(scope_id);
     }
   }
 

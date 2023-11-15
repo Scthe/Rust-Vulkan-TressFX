@@ -134,20 +134,15 @@ impl TonemappingPass {
     let vk_app = exec_ctx.vk_app;
     let command_buffer = exec_ctx.command_buffer;
     let device = vk_app.vk_device();
+    let size = exec_ctx.size;
     let pass_name = &get_simple_type_name::<Self>();
 
     unsafe {
       self.cmd_resource_barriers(device, &command_buffer, framebuffer, previous_result);
 
       // start render pass
-
-      exec_ctx.cmd_start_render_pass(
-        pass_name,
-        &self.render_pass,
-        &framebuffer.fbo,
-        &exec_ctx.size,
-        &[],
-      );
+      let scope_id =
+        exec_ctx.cmd_start_render_pass(pass_name, &self.render_pass, &framebuffer.fbo, &size, &[]);
       device.cmd_bind_pipeline(
         command_buffer,
         vk::PipelineBindPoint::GRAPHICS,
@@ -161,7 +156,7 @@ impl TonemappingPass {
       cmd_draw_fullscreen_triangle(device, &command_buffer);
 
       // end
-      exec_ctx.cmd_end_render_pass();
+      exec_ctx.cmd_end_render_pass(scope_id);
     }
   }
 

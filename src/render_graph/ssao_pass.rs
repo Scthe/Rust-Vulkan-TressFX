@@ -170,7 +170,8 @@ impl SSAOPass {
       );
 
       // start render pass
-      exec_ctx.cmd_start_render_pass(pass_name, &self.render_pass, &framebuffer.fbo, &size, &[]);
+      let scope_id =
+        exec_ctx.cmd_start_render_pass(pass_name, &self.render_pass, &framebuffer.fbo, &size, &[]);
       device.cmd_bind_pipeline(
         command_buffer,
         vk::PipelineBindPoint::GRAPHICS,
@@ -189,7 +190,7 @@ impl SSAOPass {
       cmd_draw_fullscreen_triangle(device, &command_buffer);
 
       // end
-      exec_ctx.cmd_end_render_pass();
+      exec_ctx.cmd_end_render_pass(scope_id);
     }
   }
 

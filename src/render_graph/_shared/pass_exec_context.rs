@@ -1,9 +1,12 @@
+use std::cell::RefCell;
+
 use ash::vk;
 use log::info;
 
 use crate::{
   app_timer::AppTimer,
   config::Config,
+  gpu_profiler::{GpuProfiler, ScopeId},
   scene::World,
   vk_ctx::VkCtx,
   vk_utils::{
@@ -25,6 +28,8 @@ pub struct PassExecContext<'a> {
   pub config_buffer: &'a VkBuffer,
   pub window: &'a winit::window::Window,
   pub timer: &'a AppTimer,
+  /// Use `RefCell` to allow both mutable and const borrow regardles if `self` is mutable.
+  pub profiler: RefCell<&'a mut GpuProfiler>,
 }
 
 impl PassExecContext<'_> {
@@ -43,7 +48,7 @@ impl PassExecContext<'_> {
     framebuffer: &vk::Framebuffer,
     viewport_size: &vk::Extent2D,
     clear_values: &[vk::ClearValue],
-  ) {
+  ) -> ScopeId {
     if self.config.only_first_frame {
       info!("Start {}", name);
     }
@@ -58,9 +63,14 @@ impl PassExecContext<'_> {
       &viewport_size,
       clear_values,
     );
+
+    self
+      .profiler
+      .borrow_mut()
+      .begin_scope(device, self.command_buffer, name)
   }
 
-  pub unsafe fn cmd_end_render_pass(&self) {
+  pub unsafe fn cmd_end_render_pass(&self, scope_id: ScopeId) {
     let device = self.vk_app.vk_device();
     device.cmd_end_render_pass(self.command_buffer);
 
@@ -68,5 +78,10 @@ impl PassExecContext<'_> {
       .vk_app
       .debug_utils_loader
       .cmd_end_debug_utils_label(self.command_buffer);
+
+    self
+      .profiler
+      .borrow()
+      .end_scope(device, self.command_buffer, scope_id);
   }
 }

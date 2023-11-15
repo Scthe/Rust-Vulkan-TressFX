@@ -120,8 +120,8 @@ impl TfxForwardPass {
     ao_texture: &mut VkTexture,
   ) -> () {
     let vk_app = exec_ctx.vk_app;
-    let scene = &*exec_ctx.scene;
     let command_buffer = exec_ctx.command_buffer;
+    let size = exec_ctx.size;
     let device = vk_app.vk_device();
     let pass_name = &get_simple_type_name::<Self>();
 
@@ -135,13 +135,8 @@ impl TfxForwardPass {
       );
 
       // start render pass
-      exec_ctx.cmd_start_render_pass(
-        pass_name,
-        &self.render_pass,
-        &framebuffer.fbo,
-        &exec_ctx.size,
-        &[],
-      );
+      let scope_id =
+        exec_ctx.cmd_start_render_pass(pass_name, &self.render_pass, &framebuffer.fbo, &size, &[]);
       device.cmd_bind_pipeline(
         command_buffer,
         vk::PipelineBindPoint::GRAPHICS,
@@ -149,13 +144,14 @@ impl TfxForwardPass {
       );
 
       // draw calls
+      let scene = &*exec_ctx.scene;
       for entity in &scene.tressfx_objects {
         self.bind_entity_ubos(exec_ctx, entity, shadow_map_texture, ao_texture);
         entity.cmd_draw_mesh(device, command_buffer);
       }
 
       // end
-      exec_ctx.cmd_end_render_pass();
+      exec_ctx.cmd_end_render_pass(scope_id);
     }
   }
 

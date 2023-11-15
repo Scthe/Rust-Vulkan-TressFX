@@ -43,10 +43,10 @@ pub fn execute_tfx_ppll(
 ) {
   let scene = &*pass_ctx.scene;
   for entity in &scene.tressfx_objects {
-    tfx_ppll_build_pass.execute(&pass_ctx, fbo_build, depth_stencil_tex, entity);
+    tfx_ppll_build_pass.execute(pass_ctx, fbo_build, depth_stencil_tex, entity);
 
     tfx_ppll_resolve_pass.execute(
-      &pass_ctx,
+      pass_ctx,
       fbo_resolve,
       depth_stencil_tex,
       forward_color_tex,
@@ -63,6 +63,6 @@ pub fn execute_tfx_ppll(
     //     regardless of their depth.
     // - resolve pass - discard pixels that do not pass stencil test (huge optimization)
     // This means that depth buffer is never written to. Fix this mistake here.
-    tfx_depth_only_pass.execute(&pass_ctx, fbo_depth_only, depth_stencil_tex, entity);
+    tfx_depth_only_pass.execute(pass_ctx, fbo_depth_only, depth_stencil_tex, entity);
   }
 }

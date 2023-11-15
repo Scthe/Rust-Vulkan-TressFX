@@ -165,6 +165,7 @@ impl SSSBlurPass {
     let vk_app = exec_ctx.vk_app;
     let command_buffer = exec_ctx.command_buffer;
     let device = vk_app.vk_device();
+    let size = exec_ctx.size;
     let pass_name = &get_simple_type_name::<Self>();
 
     unsafe {
@@ -178,11 +179,11 @@ impl SSSBlurPass {
       );
 
       // start render pass
-      exec_ctx.cmd_start_render_pass(
+      let scope_id = exec_ctx.cmd_start_render_pass(
         pass_name,
         &self.render_pass,
         &framebuffer.fbo,
-        &exec_ctx.size,
+        &size,
         // TODO [LOW] clear https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkAttachmentLoadOp.html
         &[],
       );
@@ -199,7 +200,7 @@ impl SSSBlurPass {
       cmd_draw_fullscreen_triangle(device, &command_buffer);
 
       // end
-      exec_ctx.cmd_end_render_pass();
+      exec_ctx.cmd_end_render_pass(scope_id);
     }
   }
 
@@ -288,7 +289,7 @@ impl SSSBlurPass {
     linear_depth_tex: &mut VkTexture,
   ) -> () {
     self.execute_blur_single_direction(
-      &exec_ctx,
+      exec_ctx,
       framebuffer0,
       Self::BLUR_DIRECTION_PASS0,
       tmp_ping_pong_tex, // write
@@ -300,7 +301,7 @@ impl SSSBlurPass {
     // TODO [LOW] this rebinds same render pass/pipeline as the pass above (same for normal blur). But what about the barriers?
     //      Optimize: BARRIER_1 -> START_RENDER_PASS -> RENDER_1 -> BARRIER_2 -> RENDER_2 -> END_RENDER_PASS
     self.execute_blur_single_direction(
-      &exec_ctx,
+      exec_ctx,
       framebuffer1,
       Self::BLUR_DIRECTION_PASS1,
       color_source_tex,  // write

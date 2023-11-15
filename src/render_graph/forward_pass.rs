@@ -238,9 +238,9 @@ impl ForwardPass {
     ao_texture: &mut VkTexture,
   ) -> () {
     let vk_app = exec_ctx.vk_app;
-    let scene = &*exec_ctx.scene;
     let config = &exec_ctx.config;
     let command_buffer = exec_ctx.command_buffer;
+    let size = exec_ctx.size;
     let device = vk_app.vk_device();
     let pass_name = &get_simple_type_name::<Self>();
 
@@ -262,11 +262,11 @@ impl ForwardPass {
       );
 
       // start render pass
-      exec_ctx.cmd_start_render_pass(
+      let scope_id = exec_ctx.cmd_start_render_pass(
         pass_name,
         &self.render_pass,
         &framebuffer.fbo,
-        &exec_ctx.size,
+        &size,
         &clear_values,
       );
       device.cmd_bind_pipeline(
@@ -276,6 +276,7 @@ impl ForwardPass {
       );
 
       // draw calls
+      let scene = &*exec_ctx.scene;
       for entity in &scene.entities {
         self.bind_entity_ubos(
           exec_ctx,
@@ -289,7 +290,7 @@ impl ForwardPass {
       }
 
       // end
-      exec_ctx.cmd_end_render_pass();
+      exec_ctx.cmd_end_render_pass(scope_id);
     }
   }
 

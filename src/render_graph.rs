@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::mem::size_of;
 
 use ash;
@@ -7,6 +8,7 @@ use bytemuck;
 use crate::app_timer::AppTimer;
 use crate::app_ui::AppUI;
 use crate::config::Config;
+use crate::gpu_profiler::GpuProfiler;
 use crate::scene::World;
 use crate::vk_ctx::VkCtx;
 use crate::vk_utils::*;
@@ -133,6 +135,7 @@ impl RenderGraph {
     scene: &mut World,
     app_ui: &mut AppUI,
     timer: &AppTimer,
+    profiler: &mut GpuProfiler,
   ) {
     // 'heavy' ash's objects
     let device = vk_app.vk_device();
@@ -180,19 +183,6 @@ impl RenderGraph {
         .expect("vkResetFences at frame start failed");
     }
 
-    // pass ctx
-    let mut pass_ctx = PassExecContext {
-      swapchain_image_idx: swapchain_image_index,
-      vk_app,
-      config,
-      scene,
-      command_buffer: cmd_buf,
-      size: vk_app.window_size(),
-      config_buffer: config_vk_buffer,
-      window,
-      timer,
-    };
-
     //
     // start record command buffer
     let cmd_buf_begin_info = vk::CommandBufferBeginInfo::builder()
@@ -206,6 +196,21 @@ impl RenderGraph {
     }
 
     // execute render graph passes
+    profiler.begin_frame(device, cmd_buf);
+
+    // pass ctx
+    let mut pass_ctx = PassExecContext {
+      swapchain_image_idx: swapchain_image_index,
+      vk_app,
+      config,
+      scene,
+      command_buffer: cmd_buf,
+      size: vk_app.window_size(),
+      config_buffer: config_vk_buffer,
+      window,
+      timer,
+      profiler: RefCell::new(profiler),
+    };
 
     // shadow map generate pass
     self.shadow_map_pass.execute(
@@ -369,6 +374,8 @@ impl RenderGraph {
         .queue_present(queue, &present_info)
         .expect("Failed queue_present()");
     }
+
+    profiler.end_frame(device);
   }
 
   fn initialize_per_frame_resources(&mut self, vk_app: &VkCtx, config: &Config) {

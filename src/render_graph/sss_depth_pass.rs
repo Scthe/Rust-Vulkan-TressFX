@@ -29,7 +29,9 @@ impl SSSDepthPass {
     shadow_pass: &ShadowMapPass,
     size_px: u32,
   ) -> ShadowMapPassFramebuffer {
-    // TODO [LOW] The texture will have name `ShadowMapPass.depth#0` instead of `SSSDepthPass.depth#0`
+    // TODO [CRITICAL] The texture will have name `ShadowMapPass.depth#0` instead of `SSSDepthPass.depth#0`
+    //      Maybe create ShadowPass inside this class and assign diff name?
+    //      Is the name used during create or can we reassign later? Or ShadowPass::new_named(name, ...)
     shadow_pass.create_framebuffer(vk_app, frame_id, size_px)
   }
 
