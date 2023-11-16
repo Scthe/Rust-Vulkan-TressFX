@@ -255,7 +255,7 @@ impl SSAOPass {
         buffer: &self.rng_sample_directions_kernel,
       },
     ];
-    bind_resources_to_descriptors(&resouce_binder, 0, &uniform_resouces);
+    bind_resources_to_descriptors_graphic(&resouce_binder, 0, &uniform_resouces);
   }
 }
 

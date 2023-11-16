@@ -227,6 +227,6 @@ impl TfxForwardPass {
     ];
 
     let resouce_binder = exec_ctx.create_resouce_binder(self.pipeline_layout);
-    bind_resources_to_descriptors(&resouce_binder, 0, &uniform_resouces);
+    bind_resources_to_descriptors_graphic(&resouce_binder, 0, &uniform_resouces);
   }
 }

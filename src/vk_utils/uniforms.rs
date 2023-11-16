@@ -158,10 +158,11 @@ pub enum BindableResource<'a> {
   },
 }
 
-pub unsafe fn bind_resources_to_descriptors(
+unsafe fn bind_resources_to_descriptors(
   binder: &ResouceBinder,
   descriptor_set: u32,
   resources_to_bind: &[BindableResource],
+  bind_point: vk::PipelineBindPoint,
 ) {
   // Used to ensure lifetime of these vk::* objects till the end of this fn ().
   // Since vk::WriteDescriptorSet has POINTERS to data, we need to have these pointers
@@ -235,9 +236,22 @@ pub unsafe fn bind_resources_to_descriptors(
 
   binder.push_descriptor.cmd_push_descriptor_set(
     binder.command_buffer,
-    vk::PipelineBindPoint::GRAPHICS,
+    bind_point,
     binder.pipeline_layout,
     descriptor_set,
     next_descriptors.as_slice(),
+  );
+}
+
+pub unsafe fn bind_resources_to_descriptors_graphic(
+  binder: &ResouceBinder,
+  descriptor_set: u32,
+  resources_to_bind: &[BindableResource],
+) {
+  bind_resources_to_descriptors(
+    binder,
+    descriptor_set,
+    resources_to_bind,
+    vk::PipelineBindPoint::GRAPHICS,
   );
 }

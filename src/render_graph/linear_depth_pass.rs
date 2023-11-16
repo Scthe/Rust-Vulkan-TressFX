@@ -201,7 +201,7 @@ impl LinearDepthPass {
         sampler: vk_app.default_texture_sampler_nearest,
       },
     ];
-    bind_resources_to_descriptors(&resouce_binder, 0, &uniform_resouces);
+    bind_resources_to_descriptors_graphic(&resouce_binder, 0, &uniform_resouces);
   }
 }
 
