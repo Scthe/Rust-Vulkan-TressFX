@@ -255,3 +255,16 @@ pub unsafe fn bind_resources_to_descriptors_graphic(
     vk::PipelineBindPoint::GRAPHICS,
   );
 }
+
+pub unsafe fn bind_resources_to_descriptors_compute(
+  binder: &ResouceBinder,
+  descriptor_set: u32,
+  resources_to_bind: &[BindableResource],
+) {
+  bind_resources_to_descriptors(
+    binder,
+    descriptor_set,
+    resources_to_bind,
+    vk::PipelineBindPoint::COMPUTE,
+  );
+}

@@ -23,6 +23,13 @@ pub fn load_tressfx_file<'a>(path: &std::path::Path) -> TfxFileData {
   let total_vertices = num_vertices_per_strand * num_hair_strands;
   let position_float_cnt = (total_vertices * 4) as usize;
 
+  assert!(
+    num_vertices_per_strand == 32,
+    "When loading TressFX asset '{}' the number of vertices per each strand was {}, expected 32. This is required to have optimal simulation work scheduling.",
+    path.to_string_lossy(),
+    num_vertices_per_strand
+  );
+
   let mut tfx_data = TfxFileData {
     version,
     num_hair_strands,

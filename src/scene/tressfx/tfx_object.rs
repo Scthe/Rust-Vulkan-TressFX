@@ -4,6 +4,7 @@ use ash::vk;
 use glam::{vec3, Mat4, Vec3};
 
 use crate::{
+  app_timer::FrameIdx,
   config::Config,
   render_graph::TfxParamsUBO,
   vk_ctx::VkCtx,
@@ -43,13 +44,20 @@ pub struct TfxObject {
   /// **Sintel:** 32
   pub num_vertices_per_strand: u32,
 
-  pub positions_buffer: VkBuffer,
+  pub initial_positions_buffer: VkBuffer,
   pub tangents_buffer: VkBuffer,
   pub index_buffer: VkBuffer,
   pub triangle_count: u32,
 
   /// Tfx params uploaded to GPU. Refreshed every frame (cause changes from ui etc.)
   pub tfx_params_ubo: Vec<VkBuffer>,
+
+  /// e.g. current positions - used in simulation. Rotates with other `positions_X` buffers.
+  pub positions_0_buffer: VkBuffer,
+  /// e.g. positions from last frame - used in simulation. Rotates with other `positions_X` buffers.
+  pub positions_1_buffer: VkBuffer,
+  /// e.g. positions from before last frame - used in simulation. Rotates with other `positions_X` buffers.
+  pub positions_2_buffer: VkBuffer,
 }
 
 impl TfxObject {
@@ -62,11 +70,18 @@ impl TfxObject {
     model_matrix: Mat4,
     data: &TfxFileData,
   ) -> Self {
-    let positions_buffer = create_positions_buffer(vk_ctx, &name, data);
+    let initial_positions_buffer = create_positions_buffer(vk_ctx, &name, data);
     let tangents_buffer = create_tangents_buffer(vk_ctx, &name, data);
     let (index_buffer, triangle_count) = create_index_buffer(vk_ctx, &name, data);
 
     let tfx_params_ubo = allocate_params_ubo_vec(vk_ctx, name);
+
+    let positions_0_buffer =
+      create_simulation_positions_buffer(vk_ctx, &format!("{}.tfx_positions_0", name), data);
+    let positions_1_buffer =
+      create_simulation_positions_buffer(vk_ctx, &format!("{}.tfx_positions_1", name), data);
+    let positions_2_buffer =
+      create_simulation_positions_buffer(vk_ctx, &format!("{}.tfx_positions_2", name), data);
 
     let tfx_obj = Self {
       name: name.to_string(),
@@ -82,11 +97,14 @@ impl TfxObject {
       num_hair_strands: data.num_hair_strands,
       num_vertices_per_strand: data.num_vertices_per_strand,
       // buffers:
-      positions_buffer,
+      initial_positions_buffer,
       tangents_buffer,
       index_buffer,
       triangle_count, // closely related to `indices_buffer`
       tfx_params_ubo,
+      positions_0_buffer,
+      positions_1_buffer,
+      positions_2_buffer,
     };
 
     // write initial value to each buffer. Used if we rely on data from previous frame
@@ -98,13 +116,17 @@ impl TfxObject {
   }
 
   pub unsafe fn destroy(&mut self, allocator: &vma::Allocator) {
-    self.positions_buffer.delete(allocator);
+    self.initial_positions_buffer.delete(allocator);
     self.tangents_buffer.delete(allocator);
     self.index_buffer.delete(allocator);
     self.tfx_params_ubo.iter_mut().for_each(|buffer| {
       buffer.unmap_memory(allocator);
       buffer.delete(allocator);
-    })
+    });
+
+    self.positions_0_buffer.delete(allocator);
+    self.positions_1_buffer.delete(allocator);
+    self.positions_2_buffer.delete(allocator);
   }
 
   pub fn get_tfx_params_ubo_buffer(&self, frame_id: usize) -> &VkBuffer {
@@ -130,14 +152,50 @@ impl TfxObject {
     let buffer = self.get_tfx_params_ubo_buffer(frame_id);
     buffer.write_to_mapped(data_bytes);
   }
+
+  /// @return [positions_current, positions_prev, positions_prev_prev]
+  pub fn get_position_buffers(&self, frame_idx: FrameIdx) -> [&VkBuffer; 3] {
+    let mod_ = frame_idx % 3;
+    if mod_ == 0 {
+      return [
+        &self.positions_0_buffer, // now
+        &self.positions_1_buffer, // prev
+        &self.positions_2_buffer, // prev prev
+      ];
+    }
+    if mod_ == 1 {
+      return [
+        &self.positions_2_buffer, // now
+        &self.positions_0_buffer, // prev
+        &self.positions_1_buffer, // prev prev
+      ];
+    }
+    return [
+      &self.positions_1_buffer, // now
+      &self.positions_2_buffer, // prev
+      &self.positions_0_buffer, // prev prev
+    ];
+  }
+
+  pub fn get_current_position_buffer(&self, frame_idx: FrameIdx) -> &VkBuffer {
+    self.get_position_buffers(frame_idx)[0]
+  }
+
+  pub fn vertex_count(&self) -> u32 {
+    self.num_hair_strands * self.num_vertices_per_strand
+  }
 }
 
 fn create_positions_buffer(vk_ctx: &VkCtx, name: &str, data: &TfxFileData) -> VkBuffer {
   create_buffer_from_float_vec(
     vk_ctx,
-    format!("{}.tfx_positions", name),
+    format!("{}.tfx_initial_positions", name),
     &data.raw_vertex_positions,
   )
+}
+
+fn create_simulation_positions_buffer(vk_ctx: &VkCtx, name: &str, data: &TfxFileData) -> VkBuffer {
+  create_buffer_from_float_vec(vk_ctx, name.to_string(), &data.raw_vertex_positions)
 }
 
 fn create_tangents_buffer(vk_ctx: &VkCtx, name: &str, data: &TfxFileData) -> VkBuffer {

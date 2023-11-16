@@ -362,7 +362,7 @@ impl ShadowMapPass {
       BindableResource::Buffer {
         usage: BindableBufferUsage::SSBO,
         binding: TfxForwardPass::BINDING_INDEX_POSITIONS_SSBO,
-        buffer: &entity.positions_buffer,
+        buffer: &entity.get_current_position_buffer(exec_ctx.timer.frame_idx()),
       },
       BindableResource::Buffer {
         usage: BindableBufferUsage::SSBO,

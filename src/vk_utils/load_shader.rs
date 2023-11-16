@@ -76,6 +76,19 @@ pub fn load_render_shaders(
   (module_vs, stage_vs, module_fs, stage_fs)
 }
 
+/// Quick util to load compute shader
+pub fn load_compute_shader(
+  device: &ash::Device,
+  shader_path: &str,
+) -> (vk::ShaderModule, vk::PipelineShaderStageCreateInfo) {
+  let (module_cs, stage_cs) = load_shader(
+    device,
+    vk::ShaderStageFlags::COMPUTE,
+    std::path::Path::new(shader_path),
+  );
+  (module_cs, stage_cs)
+}
+
 fn check_extension(path: &std::path::Path) {
   match path.extension() {
     Some(e) if e == EXPECTED_EXTENSION => (),

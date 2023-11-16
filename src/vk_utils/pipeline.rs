@@ -2,7 +2,7 @@
 use ash;
 use ash::vk;
 
-use super::{create_viewport, load_render_shaders, size_to_rect_vk};
+use super::{create_viewport, load_compute_shader, load_render_shaders, size_to_rect_vk};
 
 pub fn create_pipeline_cache(device: &ash::Device) -> vk::PipelineCache {
   let create_info = vk::PipelineCacheCreateInfo::builder().build();
@@ -99,6 +99,36 @@ pub fn create_pipeline_with_defaults(
   unsafe {
     device.destroy_shader_module(module_vs, None);
     device.destroy_shader_module(module_fs, None);
+  }
+
+  pipeline
+}
+
+pub fn create_compute_pipeline(
+  device: &ash::Device,
+  pipeline_cache: &vk::PipelineCache,
+  pipeline_layout: &vk::PipelineLayout,
+  shader_path: &str,
+) -> vk::Pipeline {
+  let (module_cs, stage_cs) = load_compute_shader(device, shader_path);
+
+  let create_info = vk::ComputePipelineCreateInfo::builder()
+    .stage(stage_cs)
+    .layout(*pipeline_layout)
+    .build();
+
+  let pipelines = unsafe {
+    device
+      .create_compute_pipelines(*pipeline_cache, &[create_info], None)
+      .ok()
+  };
+  let pipeline = match pipelines {
+    Some(ps) if ps.len() > 0 => *ps.first().unwrap(),
+    _ => panic!("Failed to create compute pipeline"),
+  };
+
+  unsafe {
+    device.destroy_shader_module(module_cs, None);
   }
 
   pipeline

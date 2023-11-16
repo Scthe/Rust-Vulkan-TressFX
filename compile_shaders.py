@@ -149,6 +149,8 @@ def compile_shader(path, shader_lines):
 		shader_stage = "vert"
 	if path.endswith(".frag.glsl"):
 		shader_stage = "frag"
+	if path.endswith(".comp.glsl"):
+		shader_stage = "comp"
 	if shader_stage is None:
 		print(f"Unable to guess shader type from filepath '{path}'")
 		sys.exit(1)
