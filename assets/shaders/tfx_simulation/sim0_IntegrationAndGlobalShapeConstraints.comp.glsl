@@ -35,6 +35,10 @@ void UpdateFinalVertexPositions(
   g_HairVertexPositions[globalVertexIndex] = newPosition;
 }
 
+// TODO [LOW] why does AMD store this in shared memory? Macro to make the code more readable.
+#define nextPosition sharedPos[vertData.localId]
+
+
 // Compute shader to simulate the gravitational force with integration
 // and to maintain the global shape constraints.
 //   1) Apply skinning
@@ -52,49 +56,52 @@ void main() {
     gl_WorkGroupID.x, // if of the workgroup, [0, SCHEDULED_JOBS / THREAD_GROUP_SIZE)
     numVerticesInTheStrand
   );
+
+  // Apply bone skinning to initial position.
+  // TODO [LOW] add Model matrix here. Gravity should point global down.
+  // vec4 bone_quat;
   vec4 initialPos = g_InitialHairPositions[vertData.vertexId_global]; // rest position
+  // initialPos.xyz = ApplyVertexBoneSkinning(initialPos.xyz, /*skinningData,*/ bone_quat);
+  // we temporarily use g_HairVertexTangents to hold bone quaternion data compute in ApplyVertexBoneSkinning.
+  // g_HairVertexTangents[vertData.strandId_global] = bone_quat; // TODO needed?
 
   // position when this step starts. In other words, a position from the last step.
-  // vec4 currentPos = sharedPos[vertData.localId] = g_HairVertexPositions[vertData.vertexId_global];
-  vec4 currentPos = g_HairVertexPositions[vertData.vertexId_global];
+  vec4 currentPos = nextPosition = g_HairVertexPositions[vertData.vertexId_global];
 
-  // GroupMemoryBarrierWithGroupSync();
+  GroupMemoryBarrierWithGroupSync();
 
 
   // Integrate
   vec4 oldPos = g_HairVertexPositionsPrev[vertData.vertexId_global];
-  /*
   vec4 force = vec4(0, 0, 0, 0);
-  if (IsMovable(vertData)){
+  bool isMoveable = IsMovable(vertData);
+  if (isMoveable){
     float damping = GetDamping(); // 1.0f;
-    sharedPos[vertData.localId] = Integrate(
+    nextPosition = Integrate(
       currentPos, oldPos, force, damping
     );
   } else {
-    sharedPos[vertData.localId] = initialPos;
+    nextPosition = initialPos;
   }
 
   
   // Global Shape Constraints
-  // (Calc delta to initial position and move in that direction)
-  float stiffnessForGlobalShapeMatching = GetGlobalStiffness(vertData.strandType);
-  float globalShapeMatchingEffectiveRange = GetGlobalRange(vertData.strandType);
+  float stiffnessForGlobalShapeMatching = GetGlobalStiffness();
   bool hasStiffness = stiffnessForGlobalShapeMatching > 0;// && globalShapeMatchingEffectiveRange;
-  bool isMovable_tmp = IsMovable(sharedPos[vertData.localId]);
+  // 
+  float globalShapeMatchingEffectiveRange = GetGlobalRange();
   bool closeEnoughToRoot = float(vertData.vertexId) < globalShapeMatchingEffectiveRange * float(numVerticesInTheStrand);
 
-  if (hasStiffness && isMovable_tmp && closeEnoughToRoot) {
-    float factor = stiffnessForGlobalShapeMatching;
-    vec3 del = factor * (initialPos - sharedPos[vertData.localId]).xyz;
-    sharedPos[vertData.localId].xyz += del;
+  if (hasStiffness && isMoveable && closeEnoughToRoot) {
+    // (Calc delta to initial position and move in that direction)
+    vec3 delta = (initialPos - nextPosition).xyz;
+    nextPosition.xyz += stiffnessForGlobalShapeMatching * delta;
   }
-  */
 
   // update global position buffers
-  vec4 newPosition = currentPos + vec4(0, 0.01, 0, 0); // Test: hair flies up!
+  // vec4 newPosition = currentPos + vec4(0, 0.01, 0, 0); // Test: hair flies up!
   UpdateFinalVertexPositions(
-    // currentPos, sharedPos[vertData.localId], vertData.vertexId_global
-    currentPos, newPosition, vertData.vertexId_global
+    currentPos, nextPosition, vertData.vertexId_global
   );
 }
 
