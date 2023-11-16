@@ -35,7 +35,7 @@ impl BlurPass {
   pub const BLUR_DIRECTION_PASS1: Vec2 = vec2(0.0, 1.0);
 
   pub fn new(vk_app: &VkCtx, format: vk::Format) -> Self {
-    info!("Creating BlurPass");
+    info!("Creating {}", get_simple_type_name::<Self>());
     let device = vk_app.vk_device();
     let pipeline_cache = &vk_app.pipeline_cache;
 

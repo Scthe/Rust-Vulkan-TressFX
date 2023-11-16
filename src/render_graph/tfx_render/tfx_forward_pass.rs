@@ -35,7 +35,7 @@ impl TfxForwardPass {
   pub const BINDING_INDEX_AO_TEX: u32 = 5;
 
   pub fn new(vk_app: &VkCtx) -> Self {
-    info!("Creating TfxForwardPass");
+    info!("Creating {}", get_simple_type_name::<Self>());
     let device = vk_app.vk_device();
     let pipeline_cache = &vk_app.pipeline_cache;
 

@@ -36,7 +36,7 @@ pub struct PresentPass {
 /// Can shows debug positions of lights, shadow and SSS sources.
 impl PresentPass {
   pub fn new(vk_app: &VkCtx, image_format: vk::Format) -> Self {
-    info!("Creating PresentPass");
+    info!("Creating {}", get_simple_type_name::<Self>());
     let device = vk_app.vk_device();
     let pipeline_cache = &vk_app.pipeline_cache;
 

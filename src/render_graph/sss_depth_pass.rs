@@ -2,6 +2,7 @@ use glam::Mat4;
 use log::info;
 
 use crate::config::ShadowSourceCfg;
+use crate::utils::get_simple_type_name;
 use crate::vk_ctx::VkCtx;
 
 use super::shadow_map_pass::{ShadowMapPass, ShadowMapPassFramebuffer};
@@ -18,7 +19,7 @@ pub struct SSSDepthPass {}
 /// behind and the camera en face). Light shines through thin objects.
 impl SSSDepthPass {
   pub fn new() -> Self {
-    info!("Creating SSSDepthPass");
+    info!("Creating {}", get_simple_type_name::<Self>());
     Self {}
   }
 

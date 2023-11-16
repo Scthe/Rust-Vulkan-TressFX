@@ -2,12 +2,12 @@ use ash;
 use ash::vk;
 use log::info;
 
-use crate::scene::TfxObject;
 use crate::utils::get_simple_type_name;
 use crate::vk_ctx::VkCtx;
 use crate::vk_utils::*;
+use crate::{scene::TfxObject, utils::create_per_object_pass_name};
 
-use super::PassExecContext;
+use super::{group_count_x_per_vertex, PassExecContext};
 
 const SHADER_PATH: &str =
   "./assets/shaders-compiled/sim0_IntegrationAndGlobalShapeConstraints.comp.spv";
@@ -74,12 +74,10 @@ impl TfxSim0Pass {
     let vk_app = exec_ctx.vk_app;
     let command_buffer = exec_ctx.command_buffer;
     let device = vk_app.vk_device();
-    // let pass_name = &get_simple_type_name::<Self>();
+    let pass_name = &create_per_object_pass_name::<Self>(&entity.name);
 
     unsafe {
-      execute_full_pipeline_barrier(device, command_buffer); // TODO better barriers! https://vulkan-tutorial.com/Compute_Shader#page_Synchronizing-graphics-and-compute
-
-      // TODO add to exec_ctx, just like `exec_ctx.cmd_start_render_pass` to add profiling etc.
+      let scope_id = exec_ctx.cmd_start_compute_pass(pass_name);
       device.cmd_bind_pipeline(
         command_buffer,
         vk::PipelineBindPoint::COMPUTE,
@@ -90,11 +88,11 @@ impl TfxSim0Pass {
       self.bind_uniforms(exec_ctx, entity);
 
       // execute
-      // https://github.com/Scthe/TressFX-OpenGL/blob/master/libs/amd_tressfx/src/TressFXSimulation.cpp#L51
-      let group_count_x = entity.vertex_count() / Self::THREAD_GROUP_SIZE;
+      let group_count_x = group_count_x_per_vertex(entity, Self::THREAD_GROUP_SIZE);
       device.cmd_dispatch(command_buffer, group_count_x, 1, 1);
 
-      execute_full_pipeline_barrier(device, command_buffer); // TODO better barriers! https://vulkan-tutorial.com/Compute_Shader#page_Synchronizing-graphics-and-compute
+      // end
+      exec_ctx.cmd_end_compute_pass(scope_id);
     }
   }
 

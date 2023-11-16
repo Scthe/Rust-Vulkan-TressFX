@@ -5,7 +5,7 @@ use log::info;
 use crate::render_graph::forward_pass::ForwardPass;
 use crate::render_graph::tfx_render::TfxForwardPass;
 use crate::scene::TfxObject;
-use crate::utils::get_simple_type_name;
+use crate::utils::create_per_object_pass_name;
 use crate::vk_ctx::VkCtx;
 use crate::vk_utils::*;
 
@@ -152,8 +152,7 @@ impl TfxDepthOnlyPass {
     let vk_app = exec_ctx.vk_app;
     let command_buffer = exec_ctx.command_buffer;
     let device = vk_app.vk_device();
-    let pass_type_name = get_simple_type_name::<Self>();
-    let pass_name = format!("{}.{}", pass_type_name, entity.name);
+    let pass_name = &create_per_object_pass_name::<Self>(&entity.name);
 
     unsafe {
       self.cmd_resource_barriers(device, &command_buffer, depth_tex);

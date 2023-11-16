@@ -51,7 +51,7 @@ impl ForwardPass {
   pub const COLOR_ATTACHMENT_COUNT: usize = 2;
 
   pub fn new(vk_app: &VkCtx) -> Self {
-    info!("Creating ForwardPass");
+    info!("Creating {}", get_simple_type_name::<Self>());
     let device = vk_app.vk_device();
     let pipeline_cache = &vk_app.pipeline_cache;
 

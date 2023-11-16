@@ -38,7 +38,7 @@ pub struct ShadowMapPass {
 
 impl ShadowMapPass {
   pub fn new(vk_app: &VkCtx) -> Self {
-    info!("Creating ShadowMapPass");
+    info!("Creating {}", get_simple_type_name::<Self>());
     let device = vk_app.vk_device();
     let pipeline_cache = &vk_app.pipeline_cache;
 

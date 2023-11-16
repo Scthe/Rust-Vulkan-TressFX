@@ -41,7 +41,7 @@ impl SSAOPass {
   pub const RESULT_TEXTURE_FORMAT: vk::Format = vk::Format::R32_SFLOAT;
 
   pub fn new(vk_app: &VkCtx) -> Self {
-    info!("Creating SSAOPass");
+    info!("Creating {}", get_simple_type_name::<Self>());
     let device = vk_app.vk_device();
     let pipeline_cache = &vk_app.pipeline_cache;
 

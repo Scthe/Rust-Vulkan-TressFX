@@ -99,8 +99,9 @@ pub fn setup_debug_reporting(
 // - https://renderdoc.org/docs/how/how_annotate_capture.html
 // - https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_EXT_debug_utils.html
 
-/// Used with RenderDoc to have readable names instead of generic 'Pass with 1 depth target'
-pub unsafe fn add_render_pass_debug_label(
+/// Used with RenderDoc to have readable names instead of generic 'Pass with 1 depth target'.
+/// Works for both compute and graphic passess.
+pub unsafe fn add_pass_debug_label(
   debug_utils: &DebugUtils,
   command_buffer: vk::CommandBuffer,
   name: &str,

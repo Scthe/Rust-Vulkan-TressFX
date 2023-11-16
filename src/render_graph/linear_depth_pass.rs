@@ -33,7 +33,7 @@ pub struct LinearDepthPass {
 
 impl LinearDepthPass {
   pub fn new(vk_app: &VkCtx) -> Self {
-    info!("Creating LinearDepthPass");
+    info!("Creating {}", get_simple_type_name::<Self>());
     let device = vk_app.vk_device();
     let pipeline_cache = &vk_app.pipeline_cache;
 

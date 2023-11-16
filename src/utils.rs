@@ -100,6 +100,11 @@ pub fn get_attachment_name<PassType>(name: &str, frame_id: usize) -> String {
   format!("{}.{}#{}", pass_name, name, frame_id)
 }
 
+pub fn create_per_object_pass_name<PassType>(entity_name: &str) -> String {
+  let pass_type_name = get_simple_type_name::<PassType>();
+  format!("{}.{}", pass_type_name, entity_name)
+}
+
 pub fn first_letters(value: &str, letter_count: usize) -> String {
   value.chars().into_iter().take(letter_count).collect()
 }

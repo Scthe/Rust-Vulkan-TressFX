@@ -32,7 +32,7 @@ pub struct TonemappingPass {
 
 impl TonemappingPass {
   pub fn new(vk_app: &VkCtx) -> Self {
-    info!("Creating TonemappingPass");
+    info!("Creating {}", get_simple_type_name::<Self>());
     let device = vk_app.vk_device();
     let pipeline_cache = &vk_app.pipeline_cache;
 
