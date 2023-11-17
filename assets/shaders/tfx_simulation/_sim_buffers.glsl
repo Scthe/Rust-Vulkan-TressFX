@@ -2,20 +2,26 @@
 // UAVs (read-write resources)
 //
 
-layout(std430, binding=0)
+#ifdef BINDING_INDEX_POSITIONS
+layout(std430, binding=BINDING_INDEX_POSITIONS)
 buffer g_HairVertexPositionsBuffer { // RWStructuredBuffer<vec4> g_HairVertexPositions;
   vec4 g_HairVertexPositions[];
 };
+#endif
 
-layout(std430, binding=1)
+#ifdef BINDING_INDEX_POSITIONS_PREV
+layout(std430, binding=BINDING_INDEX_POSITIONS_PREV)
 buffer g_HairVertexPositionsPrevBuffer { // RWStructuredBuffer<vec4> g_HairVertexPositionsPrev;
   vec4 g_HairVertexPositionsPrev[];
 };
+#endif
 
-layout(std430, binding=2)
+#ifdef BINDING_INDEX_POSITIONS_PREV_PREV
+layout(std430, binding=BINDING_INDEX_POSITIONS_PREV_PREV)
 buffer g_HairVertexPositionsPrevPrevBuffer { // RWStructuredBuffer<vec4> g_HairVertexPositionsPrevPrev;
   vec4 g_HairVertexPositionsPrevPrev[];
 };
+#endif
 
 
 
@@ -23,7 +29,9 @@ buffer g_HairVertexPositionsPrevPrevBuffer { // RWStructuredBuffer<vec4> g_HairV
 // SRVs (read resources)
 //
 
-layout(std430, binding=3)
+#ifdef BINDING_INDEX_POSITIONS_INITIAL
+layout(std430, binding=BINDING_INDEX_POSITIONS_INITIAL)
 readonly buffer g_InitialHairPositionsBuffer { // StructuredBuffer<vec4> g_InitialHairPositions;
   vec4 g_InitialHairPositions[];
 };
+#endif

@@ -43,3 +43,15 @@ float GetGlobalRange() {
   // return g_Shape.w; // 0.3;
   return 0.3;
 }
+
+
+
+//
+// Local Shape Constraints
+
+// * stiffness == 0, then no local shape preservation
+// * stiffness == 1, then ignore forces/gravity VSP etc.
+float GetLocalStiffness() {
+  // return g_Shape.y; // 0.9;
+  return 0.9;
+}

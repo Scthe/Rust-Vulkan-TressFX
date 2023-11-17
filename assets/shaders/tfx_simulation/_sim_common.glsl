@@ -36,23 +36,20 @@ PerVertexData GetPerVertexData(uint local_id, uint group_id, inout uint numVerti
   return d;
 }
 
-bool IsMovable(inout PerVertexData vertData) {
-  return vertData.vertexId > 1; // verts 0, 1 are not movable
+bool IsMovable(uint vertexInStrandId) {
+  return vertexInStrandId > 1; // verts 0, 1 are not movable
 }
 
-/*
 void CalcIndicesInStrandLevelMaster(
   uint local_id, uint group_id,
-  inout uint globalStrandIndex, inout uint numVerticesInTheStrand,
-  inout uint globalRootVertexIndex,
-  inout uint strandType)
-{
-  globalStrandIndex = THREAD_GROUP_SIZE*group_id + local_id;
+  inout uint globalStrandIndex,
+  inout uint numVerticesInTheStrand,
+  inout uint globalRootVertexIndex
+) {
+  globalStrandIndex = THREAD_GROUP_SIZE * group_id + local_id;
   numVerticesInTheStrand = (THREAD_GROUP_SIZE / g_NumOfStrandsPerThreadGroup);
-  strandType = GetStrandType(globalStrandIndex);
   globalRootVertexIndex = globalStrandIndex * numVerticesInTheStrand;
 }
-*/
 
 void GroupMemoryBarrierWithGroupSync () {
   memoryBarrierShared();

@@ -1,6 +1,11 @@
 #version 450
 // https://github.com/Scthe/TressFX-OpenGL/blob/master/src/shaders/gl-tfx/sim0_IntegrationAndGlobalShapeConstraints.comp.glsl
 
+#define BINDING_INDEX_POSITIONS 0
+#define BINDING_INDEX_POSITIONS_PREV 1
+#define BINDING_INDEX_POSITIONS_PREV_PREV 2
+#define BINDING_INDEX_POSITIONS_INITIAL 3
+
 #pragma include ./_sim_params;
 #pragma include ./_sim_common;
 #pragma include ./_sim_buffers;
@@ -44,7 +49,7 @@ void UpdateFinalVertexPositions(
 //   1) Apply skinning
 //   2) Integrate using forces (only gravity ATM)
 //   3) Try to go back to initial position (global shape constaint)
-//   4) Write to all g_HairVertexPositions*_ SSBOs
+//   4) Write to all g_HairVertexPositions* SSBOs
 //
 // One thread computes one vertex.
 //
@@ -74,7 +79,7 @@ void main() {
   // Integrate
   vec4 oldPos = g_HairVertexPositionsPrev[vertData.vertexId_global];
   vec4 force = vec4(0, 0, 0, 0);
-  bool isMoveable = IsMovable(vertData);
+  bool isMoveable = IsMovable(vertData.vertexId);
   if (isMoveable){
     float damping = GetDamping(); // 1.0f;
     nextPosition = Integrate(

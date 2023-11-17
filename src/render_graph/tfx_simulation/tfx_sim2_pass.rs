@@ -7,33 +7,30 @@ use crate::vk_ctx::VkCtx;
 use crate::vk_utils::*;
 use crate::{scene::TfxObject, utils::create_per_object_pass_name};
 
-use super::{group_count_x_per_vertex, PassExecContext};
+use super::{group_count_x_per_strand, PassExecContext, TfxSim0Pass};
 
-const SHADER_PATH: &str =
-  "./assets/shaders-compiled/sim0_IntegrationAndGlobalShapeConstraints.comp.spv";
+const SHADER_PATH: &str = "./assets/shaders-compiled/sim2_LocalShapeConstraints.comp.spv";
 
-/// Compute shader to simulate the gravitational force with Verlet integration
-/// for gravity/static forces (but not wind) and to maintain
-/// the global shape constraints.
+/// ### Compute shader to maintain the local shape constraints.
 ///
-///   1) Apply skinning
-///   2) Integrate using forces (only gravity ATM)
-///   3) Try to go back to initial position (global shape constaint)
-///   4) Write to all `g_HairVertexPositions*` SSBOs
-pub struct TfxSim0Pass {
+/// For each vertex in strand (excluding root vertex):
+///   1) get initial (frame 0) vector: (vertex -> next_vertex)
+///   2) calculate where, according to this vector, would next_vertex lie
+///   3) compare this with current next_vertex position after gravity, shock propagation etc.
+///   4) adjust `g_HairVertexPositions_[i]`, `g_HairVertexPositions_[i-1]` based on
+///      local shape constraint param
+pub struct TfxSim2Pass {
   pipeline: vk::Pipeline,
   pipeline_layout: vk::PipelineLayout,
   uniforms_layout: vk::DescriptorSetLayout,
 }
 
-impl TfxSim0Pass {
+impl TfxSim2Pass {
   /// Change this in `_sim_common.glsl` too
-  pub const THREAD_GROUP_SIZE: u32 = 64;
+  const THREAD_GROUP_SIZE: u32 = TfxSim0Pass::THREAD_GROUP_SIZE;
 
   const BINDING_INDEX_POSITIONS: u32 = 0;
-  const BINDING_INDEX_POSITIONS_PREV: u32 = 1;
-  const BINDING_INDEX_POSITIONS_PREV_PREV: u32 = 2;
-  const BINDING_INDEX_POSITIONS_INITIAL: u32 = 3;
+  const BINDING_INDEX_POSITIONS_INITIAL: u32 = 1;
 
   pub fn new(vk_app: &VkCtx) -> Self {
     info!("Creating {}", get_simple_type_name::<Self>());
@@ -62,14 +59,6 @@ impl TfxSim0Pass {
     vec![
       create_ssbo_binding(Self::BINDING_INDEX_POSITIONS, vk::ShaderStageFlags::COMPUTE),
       create_ssbo_binding(
-        Self::BINDING_INDEX_POSITIONS_PREV,
-        vk::ShaderStageFlags::COMPUTE,
-      ),
-      create_ssbo_binding(
-        Self::BINDING_INDEX_POSITIONS_PREV_PREV,
-        vk::ShaderStageFlags::COMPUTE,
-      ),
-      create_ssbo_binding(
         Self::BINDING_INDEX_POSITIONS_INITIAL,
         vk::ShaderStageFlags::COMPUTE,
       ),
@@ -94,7 +83,7 @@ impl TfxSim0Pass {
       self.bind_uniforms(exec_ctx, entity);
 
       // execute
-      let group_count_x = group_count_x_per_vertex(entity, Self::THREAD_GROUP_SIZE);
+      let group_count_x = group_count_x_per_strand(entity, Self::THREAD_GROUP_SIZE);
       device.cmd_dispatch(command_buffer, group_count_x, 1, 1);
 
       // end
@@ -105,24 +94,13 @@ impl TfxSim0Pass {
   unsafe fn bind_uniforms(&self, exec_ctx: &PassExecContext, entity: &TfxObject) {
     let frame_idx = exec_ctx.timer.frame_idx();
     let resouce_binder = exec_ctx.create_resouce_binder(self.pipeline_layout);
-    let [positions_current, positions_prev, positions_prev_prev] =
-      entity.get_position_buffers(frame_idx);
+    let positions_current = entity.get_current_position_buffer(frame_idx);
 
     let uniform_resouces = [
       BindableResource::Buffer {
         usage: BindableBufferUsage::SSBO,
         binding: Self::BINDING_INDEX_POSITIONS,
         buffer: positions_current,
-      },
-      BindableResource::Buffer {
-        usage: BindableBufferUsage::SSBO,
-        binding: Self::BINDING_INDEX_POSITIONS_PREV,
-        buffer: positions_prev,
-      },
-      BindableResource::Buffer {
-        usage: BindableBufferUsage::SSBO,
-        binding: Self::BINDING_INDEX_POSITIONS_PREV_PREV,
-        buffer: positions_prev_prev,
       },
       BindableResource::Buffer {
         usage: BindableBufferUsage::SSBO,
