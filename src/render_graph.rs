@@ -37,7 +37,7 @@ use self::sss_depth_pass::SSSDepthPass;
 use self::tfx_render::{
   execute_tfx_ppll, TfxDepthOnlyPass, TfxForwardPass, TfxPpllBuildPass, TfxPpllResolvePass,
 };
-use self::tfx_simulation::{execute_tfx_simulation, TfxSim0Pass, TfxSim2Pass};
+use self::tfx_simulation::{execute_tfx_simulation, TfxSim0Pass, TfxSim2Pass, TfxSim3Pass};
 use self::tonemapping_pass::TonemappingPass;
 use self::{_shared::GlobalConfigUBO, present_pass::PresentPass};
 
@@ -58,6 +58,7 @@ pub struct RenderGraph {
   tfx_depth_only_pass: TfxDepthOnlyPass,
   tfx_sim0: TfxSim0Pass,
   tfx_sim2: TfxSim2Pass,
+  tfx_sim3: TfxSim3Pass,
   linear_depth_pass: LinearDepthPass,
   ssao_pass: SSAOPass,
   ssao_blur_pass: BlurPass,
@@ -84,6 +85,7 @@ impl RenderGraph {
     let tfx_depth_only_pass = TfxDepthOnlyPass::new(vk_app);
     let tfx_sim0 = TfxSim0Pass::new(vk_app);
     let tfx_sim2 = TfxSim2Pass::new(vk_app);
+    let tfx_sim3 = TfxSim3Pass::new(vk_app);
     let tonemapping_pass = TonemappingPass::new(vk_app);
     let present_pass = PresentPass::new(vk_app, image_format);
 
@@ -99,6 +101,7 @@ impl RenderGraph {
       tfx_depth_only_pass,
       tfx_sim0,
       tfx_sim2,
+      tfx_sim3,
       linear_depth_pass,
       ssao_pass,
       ssao_blur_pass,
@@ -125,6 +128,7 @@ impl RenderGraph {
     self.tfx_depth_only_pass.destroy(device);
     self.tfx_sim0.destroy(device);
     self.tfx_sim2.destroy(device);
+    self.tfx_sim3.destroy(device);
     self.forward_pass.destroy(vk_app);
     self.sss_depth_pass.destroy();
     self.sss_blur_pass.destroy(device);
@@ -223,7 +227,7 @@ impl RenderGraph {
     };
 
     // simulate
-    execute_tfx_simulation(&pass_ctx, &self.tfx_sim0, &self.tfx_sim2);
+    execute_tfx_simulation(&pass_ctx, &self.tfx_sim0, &self.tfx_sim2, &self.tfx_sim3);
 
     // shadow map generate pass
     self.shadow_map_pass.execute::<ShadowMapPass>(

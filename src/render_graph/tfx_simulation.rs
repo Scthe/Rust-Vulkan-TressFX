@@ -1,5 +1,6 @@
 mod tfx_sim0_pass;
 mod tfx_sim2_pass;
+mod tfx_sim3_pass;
 
 use ash::vk;
 
@@ -7,6 +8,7 @@ use crate::{scene::TfxObject, vk_utils::execute_full_pipeline_barrier};
 
 pub use self::tfx_sim0_pass::*;
 pub use self::tfx_sim2_pass::*;
+pub use self::tfx_sim3_pass::*;
 
 use super::PassExecContext;
 
@@ -25,6 +27,7 @@ pub fn execute_tfx_simulation(
   pass_ctx: &PassExecContext,
   tfx_sim0: &TfxSim0Pass,
   tfx_sim2: &TfxSim2Pass,
+  tfx_sim3: &TfxSim3Pass,
 ) {
   let scene = &*pass_ctx.scene;
   for entity in &scene.tressfx_objects {
@@ -39,6 +42,8 @@ pub fn execute_tfx_simulation(
       tfx_sim2.execute(pass_ctx, entity);
       cmd_barrier_between_simulation_steps(pass_ctx.vk_app.vk_device(), pass_ctx.command_buffer);
     }
+
+    tfx_sim3.execute(pass_ctx, entity);
 
     cmd_barrier_prepare_for_render(pass_ctx.vk_app.vk_device(), pass_ctx.command_buffer);
   }

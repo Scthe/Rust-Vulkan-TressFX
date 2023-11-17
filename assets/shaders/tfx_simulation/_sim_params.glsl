@@ -1,6 +1,17 @@
 #define g_GravityMagnitude (0.0)
 #define g_TimeStep (1.0/60.0)
 #define g_NumOfStrandsPerThreadGroup (2) // TODO ?
+// TODO this is per model, not a global const. push consts?
+// And `g_NumOfStrandsPerThreadGroup` too, though loader already checks it's 32 verts/strand
+vec4 g_Capsules[4];
+#define g_Wind (vec4(-1,0,0, 10))
+const float LENGTH_STIFFNESS = 1.0;
+
+// No reason to make uniform tbh. Can just vec4(,,,0) to ignore
+// TODO debug view may not be accurate due to sim. not using model_matrix?
+//      so set model scale to 1.0, test-try-preview capsules, then revert scale?
+const int NUM_COLLISION_CAPSULES = 4;
+
 
 // Used durring Verlet integration. Can be though of as inertia.
 // We calculate `delta = position_now - position_prev` and then
@@ -54,4 +65,14 @@ float GetGlobalRange() {
 float GetLocalStiffness() {
   // return g_Shape.y; // 0.9;
   return 0.9;
+}
+
+
+
+//
+// Length Constraints
+
+int GetLengthConstraintIterations() {
+  // return int(g_SimInts.x); //1;
+  return 1;
 }

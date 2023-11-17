@@ -24,6 +24,14 @@ buffer g_HairVertexPositionsPrevPrevBuffer { // RWStructuredBuffer<vec4> g_HairV
 #endif
 
 
+#ifdef BINDING_INDEX_TANGENTS
+layout(std430, binding=BINDING_INDEX_TANGENTS)
+buffer g_HairVertexTangentsBuffer { // StructuredBuffer<vec4> g_HairVertexTangents;
+  vec4 g_HairVertexTangents[];
+};
+#endif
+
+
 
 //
 // SRVs (read resources)

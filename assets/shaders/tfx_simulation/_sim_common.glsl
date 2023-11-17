@@ -17,10 +17,10 @@
 #endif
 
 struct PerVertexData {
-  uint localId; // [0-64] unique indexForSharedMem
+  uint localId; // [0-64) unique indexForSharedMem
   uint strandId; // {0,1}, localStrandIndex (each workgroup operates on 2 strands)
   uint strandId_global; // globalStrandIndex
-  uint vertexId; // [0-32], localVertexIndex
+  uint vertexId; // [0-32), localVertexIndex
   uint vertexId_global; // globalVertexIndex
 };
 
