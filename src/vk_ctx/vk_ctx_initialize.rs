@@ -44,7 +44,7 @@ fn get_window_size(window: &winit::window::Window) -> vk::Extent2D {
 ///
 /// Reference:
 /// - https://github.com/MaikKlein/ash/blob/master/examples/src/lib.rs#L332
-pub fn vk_ctx_initialize(window: &winit::window::Window) -> VkCtx {
+pub fn vk_ctx_initialize(window: &winit::window::Window, vsync: bool) -> VkCtx {
   let (entry, instance) = create_instance();
   let (debug_utils_loader, debug_messenger) = setup_debug_reporting(&entry, &instance);
 
@@ -69,6 +69,7 @@ pub fn vk_ctx_initialize(window: &winit::window::Window) -> VkCtx {
 
   // swapchain
   let swapchain_loader = Swapchain::new(&instance, &device); // I guess some generic OS-independent thing?
+  let present_mode = get_present_mode(&surface_loader, surface_khr, phys_device, vsync);
   let swapchain = create_swapchain_khr(
     &swapchain_loader,
     surface_khr,
@@ -76,6 +77,7 @@ pub fn vk_ctx_initialize(window: &winit::window::Window) -> VkCtx {
     surface_capabilities,
     &window_size,
     queue_family_index,
+    present_mode,
   );
   let (swapchain_images, swapchain_image_views) = create_swapchain_images(
     &swapchain_loader,

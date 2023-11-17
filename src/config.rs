@@ -63,6 +63,7 @@ pub struct Config {
   // window
   pub window_width: f64,
   pub window_height: f64,
+  vsync: bool,
   // clear colors
   pub clear_color: Vec3,
   pub clear_normal: [u32; 4],
@@ -114,6 +115,7 @@ impl Config {
       // window
       window_width: 800f64,
       window_height: 600f64,
+      vsync: true,
       // clear colors
       clear_color: color_hex_to_vec(clear_col, clear_col, clear_col),
       clear_normal: [0, 0, 0, 0], // or [1,1,1,1] for performance reasons
@@ -147,9 +149,8 @@ impl Config {
     }
   }
 
-  // TODO [MEDIUM] implement vsync off?
   pub fn vsync(&self) -> bool {
-    true
+    self.vsync
   }
 
   pub fn get_ssao_viewport_size(&self) -> vk::Extent2D {

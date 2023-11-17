@@ -1,4 +1,3 @@
-mod create_barrier;
 mod create_command_buffers;
 mod create_command_pool;
 mod create_fences;
@@ -15,13 +14,13 @@ mod pipeline;
 mod render_pass;
 mod setup_cmd_buf;
 mod swapchain;
+mod synchronization;
 mod uniforms;
 mod vk_buffer;
 mod vk_memory_resource;
 mod vk_texture;
 mod vk_texture_sync;
 
-pub use create_barrier::*;
 pub use create_command_buffers::*;
 pub use create_command_pool::*;
 pub use create_fences::*;
@@ -37,6 +36,7 @@ pub use pipeline::*;
 pub use render_pass::*;
 pub use setup_cmd_buf::*;
 pub use swapchain::*;
+pub use synchronization::*;
 pub use uniforms::*;
 pub use vk_buffer::*;
 pub use vk_memory_resource::*;

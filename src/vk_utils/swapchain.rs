@@ -109,6 +109,31 @@ fn get_pre_transform(
   }
 }
 
+/// https://github.com/EmbarkStudios/kajiya/blob/main/crates/lib/kajiya-backend/src/vulkan/swapchain.rs#L85
+pub fn get_present_mode(
+  surface_loader: &Surface,
+  surface_khr: vk::SurfaceKHR,
+  phys_device: vk::PhysicalDevice,
+  vsync: bool,
+) -> vk::PresentModeKHR {
+  let present_mode_preference = if vsync {
+    vec![vk::PresentModeKHR::FIFO_RELAXED, vk::PresentModeKHR::FIFO]
+  } else {
+    vec![vk::PresentModeKHR::MAILBOX, vk::PresentModeKHR::IMMEDIATE]
+  };
+
+  let present_modes = unsafe {
+    surface_loader
+      .get_physical_device_surface_present_modes(phys_device, surface_khr)
+      .expect("Failed to get surface present modes")
+  };
+
+  present_mode_preference
+    .into_iter()
+    .find(|mode| present_modes.contains(mode))
+    .unwrap_or(vk::PresentModeKHR::FIFO) // FIFO is guaranteed
+}
+
 /// Creates OS-dependent swapchain
 pub fn create_swapchain_khr(
   swapchain_loader: &Swapchain,
@@ -117,6 +142,7 @@ pub fn create_swapchain_khr(
   surface_capabilites: vk::SurfaceCapabilitiesKHR,
   size: &vk::Extent2D,
   queue_familiy_idx: u32,
+  present_mode: vk::PresentModeKHR,
 ) -> vk::SwapchainKHR {
   let image_count = surface_capabilites
     .max_image_count
@@ -133,8 +159,7 @@ pub fn create_swapchain_khr(
     .image_usage(vk::ImageUsageFlags::COLOR_ATTACHMENT)
     .image_sharing_mode(vk::SharingMode::EXCLUSIVE)
     .queue_family_indices(&[queue_familiy_idx])
-    // TODO: [LOW] VSYNC ? VK_PRESENT_MODE_FIFO_KHR : VK_PRESENT_MODE_IMMEDIATE_KHR;
-    .present_mode(vk::PresentModeKHR::FIFO) // guaranteed!
+    .present_mode(present_mode)
     .composite_alpha(vk::CompositeAlphaFlagsKHR::OPAQUE)
     .pre_transform(get_pre_transform(surface_capabilites))
     .clipped(true)

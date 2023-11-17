@@ -8,6 +8,7 @@ https://docs.vulkan.org/spec/latest/chapters/synchronization.html#synchronizatio
 https://www.reddit.com/r/vulkan/comments/8y5g6g/usage_of_vkevents/
 https://github.com/SaschaWillems/Vulkan/blob/master/examples/deferred/deferred.cpp#L447
 https://gpuopen.com/learn/vulkan-barriers-explained/
+https://www.youtube.com/watch?v=JvAIdtAZnAw
 
 libs
   - https://github.com/Tobski/simple_vulkan_synchronization/blob/main/thsvs_simpler_vulkan_synchronization.h

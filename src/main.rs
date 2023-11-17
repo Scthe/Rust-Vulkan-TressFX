@@ -47,7 +47,7 @@ fn main() {
   info!("Window init: OK!");
 
   // init vulkan: create device, init structures etc.
-  let mut vk_app = vk_ctx_initialize(&window);
+  let mut vk_app = vk_ctx_initialize(&window, config.vsync());
   info!("Vulkan init: OK!");
   let mut profiler = GpuProfiler::new(&vk_app);
 
