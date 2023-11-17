@@ -34,7 +34,8 @@ VulkanMemoryAllocator does not do this already??
 
 */
 
-// called on validation layer message
+/// called on validation layer message
+/// https://github.com/EmbarkStudios/kajiya/blob/main/crates/lib/kajiya-backend/src/vulkan/instance.rs#L130
 extern "system" fn vulkan_debug_callback(
   message_severity: vk::DebugUtilsMessageSeverityFlagsEXT,
   message_type: vk::DebugUtilsMessageTypeFlagsEXT,
@@ -67,7 +68,12 @@ extern "system" fn vulkan_debug_callback(
 pub fn setup_debug_reporting(
   entry: &ash::Entry,
   instance: &ash::Instance,
-) -> (DebugUtils, vk::DebugUtilsMessengerEXT) {
+  graphics_debugging: bool,
+) -> Option<(DebugUtils, vk::DebugUtilsMessengerEXT)> {
+  if !graphics_debugging {
+    return None;
+  }
+
   let debug_info = vk::DebugUtilsMessengerCreateInfoEXT::builder()
     .message_severity(
       vk::DebugUtilsMessageSeverityFlagsEXT::ERROR
@@ -91,7 +97,7 @@ pub fn setup_debug_reporting(
       .unwrap()
   };
 
-  (debug_utils_loader, debug_messenger)
+  Some((debug_utils_loader, debug_messenger))
 }
 
 ////////////

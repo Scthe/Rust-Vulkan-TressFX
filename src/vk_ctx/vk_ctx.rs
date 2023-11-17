@@ -45,8 +45,7 @@ pub struct VkCtx {
   pub surface_khr: vk::SurfaceKHR,
 
   // debug
-  pub debug_utils_loader: DebugUtils,
-  pub debug_messenger: vk::DebugUtilsMessengerEXT,
+  pub debug_utils: Option<(DebugUtils, vk::DebugUtilsMessengerEXT)>,
 }
 
 impl VkCtx {
@@ -60,6 +59,10 @@ impl VkCtx {
 
   pub fn vk_device(&self) -> &ash::Device {
     &self.device.device
+  }
+
+  pub fn with_debug_loader(&self, callback: impl FnOnce(&DebugUtils)) {
+    self.debug_utils.as_ref().map(|dbg| callback(&dbg.0));
   }
 
   pub fn data_per_frame(&self, frame_idx: usize) -> VkCtxPerSwapchainImageData {
@@ -101,9 +104,12 @@ impl VkCtx {
 impl Drop for VkCtx {
   fn drop(&mut self) {
     unsafe {
-      self
-        .debug_utils_loader
-        .destroy_debug_utils_messenger(self.debug_messenger, None);
+      match &self.debug_utils {
+        Some((loader, messanger)) => {
+          loader.destroy_debug_utils_messenger(*messanger, None);
+        }
+        _ => (),
+      }
 
       // allocator and device are removed through `Drop` trait
       // self.instance.destroy_instance(None); // ?

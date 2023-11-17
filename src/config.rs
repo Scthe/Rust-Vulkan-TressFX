@@ -53,6 +53,8 @@ pub enum HairSolidDisplayMode {
 pub struct Config {
   /// crash program after first frame to read init errors
   pub only_first_frame: bool,
+  /// build type: debug or release
+  is_release: bool,
   /// run profiler
   pub profile_next_frame: bool,
   /// show spheres where lights/shadows are
@@ -108,6 +110,7 @@ impl Config {
 
     Config {
       only_first_frame: Self::ONLY_FIRST_FRAME,
+      is_release: false, // TODO [CRITICAL] from Cargo build type or cmd line args. Apply to `compile_shaders.py` too
       profile_next_frame: Self::PROFILE_FIRST_FRAME,
       show_debug_positions: false,
       display_mode: DisplayMode::Final as _,
@@ -151,6 +154,10 @@ impl Config {
 
   pub fn vsync(&self) -> bool {
     self.vsync
+  }
+
+  pub fn is_release(&self) -> bool {
+    self.is_release
   }
 
   pub fn get_ssao_viewport_size(&self) -> vk::Extent2D {

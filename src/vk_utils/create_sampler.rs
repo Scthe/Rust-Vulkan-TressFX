@@ -2,7 +2,7 @@ use ash;
 use ash::vk;
 
 /// OMG so much fluff for simple sampler.
-/// And filtering will be always vk::Filter::LINEAR anyway.
+/// And the only thing that changes 99% of time is filtering `LINEAR`/`NEAREST`
 pub fn create_sampler(
   device: &ash::Device,
   mag_filter: vk::Filter,

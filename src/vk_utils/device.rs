@@ -26,8 +26,24 @@ fn get_app_version() -> u32 {
   )
 }
 
+fn get_layer_names(graphics_debugging: bool) -> Vec<CString> {
+  let mut layer_names = Vec::new();
+  if graphics_debugging {
+    layer_names.push(CString::new("VK_LAYER_KHRONOS_validation").unwrap());
+  }
+  layer_names
+}
+
+fn get_extension_names(graphics_debugging: bool) -> Vec<*const i8> {
+  let mut names = vec![Surface::name().as_ptr(), Win32Surface::name().as_ptr()];
+  if graphics_debugging {
+    names.push(DebugUtils::name().as_ptr());
+  }
+  names
+}
+
 #[cfg(all(windows))]
-pub fn create_instance() -> (ash::Entry, ash::Instance) {
+pub fn create_instance(graphics_debugging: bool) -> (ash::Entry, ash::Instance) {
   let entry = unsafe { ash::Entry::load().expect("Failed to create ash::Entry") };
 
   let app_name = CString::new(env!("CARGO_PKG_NAME")).unwrap();
@@ -38,18 +54,14 @@ pub fn create_instance() -> (ash::Entry, ash::Instance) {
     .api_version(vk::make_api_version(0, 1, 3, 0))
     .build();
 
-  // TODO [CRITICAL] turn off debug/validation in prod
-  let layer_names = [CString::new("VK_LAYER_KHRONOS_validation").unwrap()];
+  // https://github.com/EmbarkStudios/kajiya/blob/main/crates/lib/kajiya-backend/src/vulkan/instance.rs#L52
+  let layer_names = get_layer_names(graphics_debugging);
   let layers_names_raw: Vec<*const i8> = layer_names
     .iter()
     .map(|raw_name| raw_name.as_ptr())
     .collect();
 
-  let extension_names = vec![
-    Surface::name().as_ptr(),
-    Win32Surface::name().as_ptr(),
-    DebugUtils::name().as_ptr(), // TODO [CRITICAL] turn for off debug/validation in prod
-  ];
+  let extension_names = get_extension_names(graphics_debugging);
   let extension_names_raw: Vec<*const i8> = extension_names.iter().copied().collect();
 
   let create_info = vk::InstanceCreateInfo::builder()
@@ -77,7 +89,7 @@ fn find_queue_family(
   let q_props = unsafe { instance.get_physical_device_queue_family_properties(phys_device) };
 
   let mut graphic_fam_q_idx = q_props.iter().enumerate().filter_map(|(index, &q)| {
-    trace!("Physical device :: queueFamily {:?}", q_props);
+    // trace!("Physical device :: queueFamily {:?}", q_props);
     let is_gfx = q.queue_flags.contains(vk::QueueFlags::GRAPHICS)
       && q.queue_flags.contains(vk::QueueFlags::COMPUTE)
       && q.queue_flags.contains(vk::QueueFlags::TRANSFER);

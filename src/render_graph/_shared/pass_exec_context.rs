@@ -51,7 +51,9 @@ impl PassExecContext<'_> {
     if self.config.only_first_frame {
       info!("Start {}", name);
     }
-    add_pass_debug_label(&self.vk_app.debug_utils_loader, self.command_buffer, name);
+    self.vk_app.with_debug_loader(|debug_utils_loader| {
+      add_pass_debug_label(&debug_utils_loader, self.command_buffer, name);
+    });
 
     let device = self.vk_app.vk_device();
     cmd_begin_render_pass_for_framebuffer(
@@ -73,10 +75,9 @@ impl PassExecContext<'_> {
     let device = self.vk_app.vk_device();
     device.cmd_end_render_pass(self.command_buffer);
 
-    self
-      .vk_app
-      .debug_utils_loader
-      .cmd_end_debug_utils_label(self.command_buffer);
+    self.vk_app.with_debug_loader(|debug_utils_loader| {
+      debug_utils_loader.cmd_end_debug_utils_label(self.command_buffer);
+    });
 
     self
       .profiler
@@ -88,7 +89,9 @@ impl PassExecContext<'_> {
     if self.config.only_first_frame {
       info!("Start {}", name);
     }
-    add_pass_debug_label(&self.vk_app.debug_utils_loader, self.command_buffer, name);
+    self.vk_app.with_debug_loader(|debug_utils_loader| {
+      add_pass_debug_label(&debug_utils_loader, self.command_buffer, name);
+    });
 
     let device = self.vk_app.vk_device();
 
@@ -99,10 +102,9 @@ impl PassExecContext<'_> {
   }
 
   pub unsafe fn cmd_end_compute_pass(&self, scope_id: ScopeId) {
-    self
-      .vk_app
-      .debug_utils_loader
-      .cmd_end_debug_utils_label(self.command_buffer);
+    self.vk_app.with_debug_loader(|debug_utils_loader| {
+      debug_utils_loader.cmd_end_debug_utils_label(self.command_buffer)
+    });
 
     let device = self.vk_app.vk_device();
     self

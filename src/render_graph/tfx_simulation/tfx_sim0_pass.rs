@@ -9,6 +9,7 @@ use crate::{scene::TfxObject, utils::create_per_object_pass_name};
 
 use super::{group_count_x_per_vertex, PassExecContext};
 
+// TODO [MEDIUM] add ui sim-reset button? Just copy initial to all buffers.
 const SHADER_PATH: &str =
   "./assets/shaders-compiled/sim0_IntegrationAndGlobalShapeConstraints.comp.spv";
 

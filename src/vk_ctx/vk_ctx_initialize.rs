@@ -44,9 +44,13 @@ fn get_window_size(window: &winit::window::Window) -> vk::Extent2D {
 ///
 /// Reference:
 /// - https://github.com/MaikKlein/ash/blob/master/examples/src/lib.rs#L332
-pub fn vk_ctx_initialize(window: &winit::window::Window, vsync: bool) -> VkCtx {
-  let (entry, instance) = create_instance();
-  let (debug_utils_loader, debug_messenger) = setup_debug_reporting(&entry, &instance);
+pub fn vk_ctx_initialize(
+  window: &winit::window::Window,
+  graphics_debugging: bool,
+  vsync: bool,
+) -> VkCtx {
+  let (entry, instance) = create_instance(graphics_debugging);
+  let debug_utils = setup_debug_reporting(&entry, &instance, graphics_debugging);
 
   // surface data
   let surface_loader = Surface::new(&entry, &instance); // I guess some generic OS-independent thing?
@@ -145,8 +149,7 @@ pub fn vk_ctx_initialize(window: &winit::window::Window, vsync: bool) -> VkCtx {
     push_descriptor,
     surface_loader,
     surface_khr,
-    debug_utils_loader,
-    debug_messenger,
+    debug_utils,
     default_texture_sampler_linear: sampler_linear,
     default_texture_sampler_nearest: sampler_nearest,
   }

@@ -49,14 +49,16 @@ impl VkCtx {
   }
 
   fn assign_buffer_debug_label(&self, buffer: &VkBuffer) {
-    unsafe {
-      set_buffer_debug_label(
-        &self.debug_utils_loader,
-        &self.device.device.handle(),
-        buffer.buffer,
-        &buffer.get_name(),
-      )
-    };
+    self.with_debug_loader(|debug_utils_loader| {
+      unsafe {
+        set_buffer_debug_label(
+          &debug_utils_loader,
+          &self.device.device.handle(),
+          buffer.buffer,
+          &buffer.get_name(),
+        )
+      };
+    });
   }
 
   // textures
@@ -155,13 +157,15 @@ impl VkCtx {
   }
 
   fn assign_texture_debug_label(&self, tex: &VkTexture) {
-    unsafe {
-      set_texture_debug_label(
-        &self.debug_utils_loader,
-        &self.device.device.handle(),
-        tex.image,
-        &tex.get_name(),
-      )
-    };
+    self.with_debug_loader(|debug_utils_loader| {
+      unsafe {
+        set_texture_debug_label(
+          &debug_utils_loader,
+          &self.device.device.handle(),
+          tex.image,
+          &tex.get_name(),
+        )
+      };
+    });
   }
 }

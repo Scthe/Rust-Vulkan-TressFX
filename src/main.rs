@@ -47,7 +47,7 @@ fn main() {
   info!("Window init: OK!");
 
   // init vulkan: create device, init structures etc.
-  let mut vk_app = vk_ctx_initialize(&window, config.vsync());
+  let mut vk_app = vk_ctx_initialize(&window, !config.is_release(), config.vsync());
   info!("Vulkan init: OK!");
   let mut profiler = GpuProfiler::new(&vk_app);
 
@@ -93,6 +93,7 @@ fn main() {
       }
       // redraw
       Event::MainEventsCleared => {
+        // https://github.com/EmbarkStudios/kajiya/blob/main/crates/lib/kajiya-simple/src/main_loop.rs#L308
         timer.mark_start_frame();
         profiler.set_enabled(config.profile_next_frame);
         config.profile_next_frame = false;
