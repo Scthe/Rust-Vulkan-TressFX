@@ -4,6 +4,7 @@ use glam::{vec2, Vec2, Vec3};
 
 use crate::utils::color_hex_to_vec;
 
+use self::tfx_simulation::TfxSimulation;
 pub use self::{camera::*, color_grading::*, light::*, postfx::*, shadows::*, ssao::*, sss::*};
 
 pub mod camera;
@@ -13,6 +14,7 @@ pub mod postfx;
 pub mod shadows;
 pub mod ssao;
 pub mod sss;
+pub mod tfx_simulation;
 
 // Must match consts in `present.frag.glsl`.
 pub enum DisplayMode {
@@ -57,6 +59,8 @@ pub struct Config {
   is_release: bool,
   /// run profiler
   pub profile_next_frame: bool,
+  /// Ui has requested to reset simulation state to initial
+  pub reset_tfx_simulation_next_frame: bool,
   /// show spheres where lights/shadows are
   pub show_debug_positions: bool,
   /// debug display mode
@@ -77,6 +81,7 @@ pub struct Config {
   pub hair_technique: usize,
   pub hair_ppll_display_mode: usize,
   pub hair_solid_display_mode: usize,
+  pub tfx_simulation: TfxSimulation,
   // lights
   pub light_ambient: LightAmbient,
   pub light0: LightCfg,
@@ -112,6 +117,7 @@ impl Config {
       only_first_frame: Self::ONLY_FIRST_FRAME,
       is_release: false, // TODO [CRITICAL] from Cargo build type or cmd line args. Apply to `compile_shaders.py` too
       profile_next_frame: Self::PROFILE_FIRST_FRAME,
+      reset_tfx_simulation_next_frame: false,
       show_debug_positions: false,
       display_mode: DisplayMode::Final as _,
       linear_depth_preview_range: vec2(-2.0, -15.0),
@@ -130,6 +136,7 @@ impl Config {
       hair_technique: HairTechnique::PPLL as _,
       hair_ppll_display_mode: HairPPLLDisplayMode::Final as _,
       hair_solid_display_mode: HairSolidDisplayMode::Final as _,
+      tfx_simulation: TfxSimulation::default(),
       // lights
       light_ambient: LightAmbient::default(),
       light0: LightCfg::light0(),

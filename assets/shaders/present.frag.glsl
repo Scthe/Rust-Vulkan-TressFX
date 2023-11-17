@@ -84,11 +84,9 @@ float sphIntersect(vec3 rayOrigin, vec3 rayDir, vec4 sph){
     return -b - h;
 }
 
-const float DEBUG_SPHERE_RADIUS = 1.5;
-
-#define DRAW_DEBUG_SPHERE(position, color) {\
-  float rayHit = sphIntersect(rayOrigin, rayDir, vec4(position, DEBUG_SPHERE_RADIUS)); \
-  if (rayHit > 0 && rayHit < closestRayHit) { closestRayHit = rayHit; sphereColor = color; } \
+#define DRAW_DEBUG_SPHERE(position, color, radius) {\
+  float rayHit = sphIntersect(rayOrigin, rayDir, vec4(position, (radius))); \
+  if (rayHit > 0 && rayHit <= closestRayHit) { closestRayHit = rayHit; sphereColor = color; } \
 }
 
 vec4 drawDebugSpheres(){
@@ -100,12 +98,21 @@ vec4 drawDebugSpheres(){
   vec3 rayOrigin = u_cameraPosition.xyz;
   float closestRayHit = 99999;
   vec3 sphereColor = vec3(0.0);
+  float r = 1.5; // debug sphere radius
 
-  DRAW_DEBUG_SPHERE(u_directionalShadowCasterPosition.xyz, vec3(0.2));
-  DRAW_DEBUG_SPHERE(u_light0_Position, u_light0_Color.rgb);
-  DRAW_DEBUG_SPHERE(u_light1_Position, u_light1_Color.rgb);
-  DRAW_DEBUG_SPHERE(u_light2_Position, u_light2_Color.rgb);
-  DRAW_DEBUG_SPHERE(u_sssPosition, vec3(0.87, 0.53, 0.36)); // #de875d
+  DRAW_DEBUG_SPHERE(u_directionalShadowCasterPosition.xyz, vec3(0.2), r);
+  DRAW_DEBUG_SPHERE(u_light0_Position, u_light0_Color.rgb, r);
+  DRAW_DEBUG_SPHERE(u_light1_Position, u_light1_Color.rgb, r);
+  DRAW_DEBUG_SPHERE(u_light2_Position, u_light2_Color.rgb, r);
+  DRAW_DEBUG_SPHERE(u_sssPosition, vec3(0.87, 0.53, 0.36), r); // #de875d
+  // wind
+  vec3 windPosition = -u_tfxWind.xyz * 10; // reverse cause if wind blows to the left, we draw source on right
+  // Move consequtive circles closer to camera to pass z-test vs `closestRayHit`.
+  // We are raycasting against 3D spheres and bigger radius 'swallows' the smaller circles.
+  vec3 windToCamera = normalize(u_cameraPosition.xyz - windPosition) * r;
+  DRAW_DEBUG_SPHERE(windPosition,                    vec3(1, 0, 0), r); // red
+  DRAW_DEBUG_SPHERE(windPosition + windToCamera,     vec3(1, 1, 1), r * 0.6); // white
+  DRAW_DEBUG_SPHERE(windPosition + 2 * windToCamera, vec3(1, 0, 0), r * 0.3); // red
 
   if (closestRayHit > 0 && closestRayHit < 99999) {
     return vec4(sphereColor, 1);

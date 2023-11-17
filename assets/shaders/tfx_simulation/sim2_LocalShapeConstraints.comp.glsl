@@ -1,8 +1,8 @@
 #version 450
 // https://github.com/Scthe/TressFX-OpenGL/blob/master/src/shaders/gl-tfx/sim2_LocalShapeConstraints.comp.glsl
 
-#define BINDING_INDEX_POSITIONS 0
-#define BINDING_INDEX_POSITIONS_INITIAL 1
+#define BINDING_INDEX_POSITIONS 1
+#define BINDING_INDEX_POSITIONS_INITIAL 2
 
 #pragma include ./_sim_params;
 #pragma include ./_sim_common;

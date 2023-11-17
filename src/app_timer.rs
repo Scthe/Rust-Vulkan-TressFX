@@ -81,4 +81,8 @@ impl AppTimer {
   pub fn delta_time_ms(&self) -> f32 {
     self.delta_time * 1000.0
   }
+
+  pub fn delta_time_s(&self) -> f32 {
+    self.delta_time_ms() / 1000.0
+  }
 }

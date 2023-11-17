@@ -18,7 +18,11 @@ uniform GlobalConfigUniformBuffer {
   mat4 u_projectionMat;
   mat4 u_invProjectionMat; // inverse projection matrix
   mat4 u_viewProjectionMat;
-  vec4 u_tfxHairSettings; // [hairDisplayMode, u_tfxLinkedListPoolSize, -, -]
+  // hair + simulation
+  vec4 u_tfxHairSettings; // [hairDisplayMode, u_tfxLinkedListPoolSize, g_GravityMagnitude, g_TimeStep]
+  vec4 u_tfxWind; // [windDir.xyz, windStrength]
+  vec4 u_tfxShape; // [Sim0.Verlet damping, Sim2.LSC local stiffness, Sim0.GSC global stiffness, Sim0.GSC global range.]
+  vec4 u_tfxConstraints; // [Sim3.Length Constraints iterations, Sim3.Length stiffness,-,-]
   // AO + Shadow
   mat4 u_directionalShadowMatrix_VP;
   vec4 u_shadowRadiusAndBias; // [u_shadowRadiusForwardShading, u_shadowBiasForwardShading, u_shadowRadiusTfx, u_shadowBiasTfx]

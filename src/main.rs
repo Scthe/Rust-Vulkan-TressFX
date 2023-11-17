@@ -100,6 +100,12 @@ fn main() {
 
         // apply events since last frame. "Game logic" in render loop.
         app_input.update_camera_position(&mut scene.camera);
+        if config.reset_tfx_simulation_next_frame {
+          for tfx_entity in &scene.tressfx_objects {
+            tfx_entity.reset_simulation(&vk_app);
+          }
+        }
+        config.reset_tfx_simulation_next_frame = false;
 
         render_graph.execute_render_graph(
           &window,

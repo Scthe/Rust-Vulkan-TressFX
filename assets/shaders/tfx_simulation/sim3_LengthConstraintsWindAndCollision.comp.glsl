@@ -1,10 +1,13 @@
 #version 450
 // https://github.com/Scthe/TressFX-OpenGL/blob/master/src/shaders/gl-tfx/sim3_LengthConstraintsWindAndCollision.comp.glsl
 
-#define BINDING_INDEX_POSITIONS 0
-#define BINDING_INDEX_POSITIONS_PREV 1
-#define BINDING_INDEX_POSITIONS_INITIAL 2
-#define BINDING_INDEX_TANGENTS 3
+#define BINDING_INDEX_POSITIONS 1
+#define BINDING_INDEX_POSITIONS_PREV 2
+#define BINDING_INDEX_POSITIONS_INITIAL 3
+#define BINDING_INDEX_TANGENTS 4
+
+// TODO this is per model, not a global const. push consts?
+vec4 g_Capsules[4];
 
 // @return true if vec4 from `sharedPos` is movable.
 bool sharedPosIsMovable(vec4 particle0) {
@@ -64,8 +67,8 @@ void ApplyDistanceConstraint(uint idx0, uint idx1, float expectedLength) {
   // how much we scale movement of each vertex
   vec2 multiplier = ConstraintMultiplier(pos0, pos1);
 
-  sharedPos[idx0].xyz += multiplier[0] * delta * LENGTH_STIFFNESS;
-  sharedPos[idx1].xyz -= multiplier[1] * delta * LENGTH_STIFFNESS;
+  sharedPos[idx0].xyz += multiplier[0] * delta * g_LengthStiffness;
+  sharedPos[idx1].xyz -= multiplier[1] * delta * g_LengthStiffness;
 }
 
 //

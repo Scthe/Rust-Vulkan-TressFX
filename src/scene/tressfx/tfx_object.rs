@@ -6,9 +6,10 @@ use glam::{vec3, Mat4, Vec3};
 use crate::{
   app_timer::FrameIdx,
   config::Config,
+  either,
   render_graph::TfxParamsUBO,
   vk_ctx::VkCtx,
-  vk_utils::{VkBuffer, VkBufferMemoryPreference, VkMemoryResource},
+  vk_utils::{VkBuffer, VkBufferMemoryPreference, VkMemoryResource, WithSetupCmdBuffer},
 };
 
 use super::{TfxFileData, TfxMaterial};
@@ -31,6 +32,8 @@ pub struct TfxObject {
 
   /// material
   pub material: TfxMaterial,
+  /// Tfx params uploaded to GPU. Refreshed every frame (cause changes from ui etc.)
+  pub tfx_params_ubo: Vec<VkBuffer>,
 
   /// Number of hair strands in this file. All strands in this file are guide strands.
   /// Follow hair strands are generated procedurally.
@@ -43,15 +46,15 @@ pub struct TfxObject {
   ///   
   /// **Sintel:** 32
   pub num_vertices_per_strand: u32,
-
-  pub initial_positions_buffer: VkBuffer,
-  pub tangents_buffer: VkBuffer,
   pub index_buffer: VkBuffer,
   pub triangle_count: u32,
 
-  /// Tfx params uploaded to GPU. Refreshed every frame (cause changes from ui etc.)
-  pub tfx_params_ubo: Vec<VkBuffer>,
+  // Original tangents from TressFX asset file. Used to reset simulation state.
+  pub initial_tangents_buffer: VkBuffer,
+  pub tangents_buffer: VkBuffer,
 
+  /// Original positions from TressFX asset file. Used to calculate constraints, relative vectors, reset simulation state etc.
+  pub initial_positions_buffer: VkBuffer,
   /// e.g. current positions - used in simulation. Rotates with other `positions_X` buffers.
   pub positions_0_buffer: VkBuffer,
   /// e.g. positions from last frame - used in simulation. Rotates with other `positions_X` buffers.
@@ -71,7 +74,8 @@ impl TfxObject {
     data: &TfxFileData,
   ) -> Self {
     let initial_positions_buffer = create_positions_buffer(vk_ctx, &name, data);
-    let tangents_buffer = create_tangents_buffer(vk_ctx, &name, data);
+    let initial_tangents_buffer = create_tangents_buffer(vk_ctx, &name, data, false);
+    let tangents_buffer = create_tangents_buffer(vk_ctx, &name, data, true);
     let (index_buffer, triangle_count) = create_index_buffer(vk_ctx, &name, data);
 
     let tfx_params_ubo = allocate_params_ubo_vec(vk_ctx, name);
@@ -97,11 +101,12 @@ impl TfxObject {
       num_hair_strands: data.num_hair_strands,
       num_vertices_per_strand: data.num_vertices_per_strand,
       // buffers:
-      initial_positions_buffer,
+      initial_tangents_buffer,
       tangents_buffer,
       index_buffer,
       triangle_count, // closely related to `indices_buffer`
       tfx_params_ubo,
+      initial_positions_buffer,
       positions_0_buffer,
       positions_1_buffer,
       positions_2_buffer,
@@ -118,6 +123,7 @@ impl TfxObject {
   pub unsafe fn destroy(&mut self, allocator: &vma::Allocator) {
     self.initial_positions_buffer.delete(allocator);
     self.tangents_buffer.delete(allocator);
+    self.initial_tangents_buffer.delete(allocator);
     self.index_buffer.delete(allocator);
     self.tfx_params_ubo.iter_mut().for_each(|buffer| {
       buffer.unmap_memory(allocator);
@@ -184,6 +190,41 @@ impl TfxObject {
   pub fn vertex_count(&self) -> u32 {
     self.num_hair_strands * self.num_vertices_per_strand
   }
+
+  pub fn reset_simulation(&self, vk_ctx: &VkCtx) {
+    vk_ctx.with_setup_cb(|device, cb| unsafe {
+      let size = self.initial_positions_buffer.size;
+      let mem_region = ash::vk::BufferCopy::builder()
+        .dst_offset(0)
+        .src_offset(0)
+        .size(size as u64)
+        .build();
+      device.cmd_copy_buffer(
+        cb,
+        self.initial_positions_buffer.buffer,
+        self.positions_0_buffer.buffer,
+        &[mem_region],
+      );
+      device.cmd_copy_buffer(
+        cb,
+        self.initial_positions_buffer.buffer,
+        self.positions_1_buffer.buffer,
+        &[mem_region],
+      );
+      device.cmd_copy_buffer(
+        cb,
+        self.initial_positions_buffer.buffer,
+        self.positions_2_buffer.buffer,
+        &[mem_region],
+      );
+      device.cmd_copy_buffer(
+        cb,
+        self.initial_tangents_buffer.buffer,
+        self.tangents_buffer.buffer,
+        &[mem_region],
+      );
+    });
+  }
 }
 
 fn create_positions_buffer(vk_ctx: &VkCtx, name: &str, data: &TfxFileData) -> VkBuffer {
@@ -191,14 +232,25 @@ fn create_positions_buffer(vk_ctx: &VkCtx, name: &str, data: &TfxFileData) -> Vk
     vk_ctx,
     format!("{}.tfx_initial_positions", name),
     &data.raw_vertex_positions,
+    vk::BufferUsageFlags::TRANSFER_SRC,
   )
 }
 
 fn create_simulation_positions_buffer(vk_ctx: &VkCtx, name: &str, data: &TfxFileData) -> VkBuffer {
-  create_buffer_from_float_vec(vk_ctx, name.to_string(), &data.raw_vertex_positions)
+  create_buffer_from_float_vec(
+    vk_ctx,
+    name.to_string(),
+    &data.raw_vertex_positions,
+    vk::BufferUsageFlags::TRANSFER_DST,
+  )
 }
 
-fn create_tangents_buffer(vk_ctx: &VkCtx, name: &str, data: &TfxFileData) -> VkBuffer {
+fn create_tangents_buffer(
+  vk_ctx: &VkCtx,
+  name: &str,
+  data: &TfxFileData,
+  is_used_in_sim: bool,
+) -> VkBuffer {
   let total_float_cnt = (data.total_vertices() * 4) as usize;
   let mut tangents = Vec::<f32>::with_capacity(total_float_cnt);
   for _ in 0..total_float_cnt {
@@ -244,7 +296,13 @@ fn create_tangents_buffer(vk_ctx: &VkCtx, name: &str, data: &TfxFileData) -> VkB
     }
   }
 
-  create_buffer_from_float_vec(vk_ctx, format!("{}.tfx_tangents", name), &tangents)
+  let nn = either!(is_used_in_sim, "tfx_tangents", "tfx_initial_tangents");
+  let usage = either!(
+    is_used_in_sim,
+    vk::BufferUsageFlags::TRANSFER_DST,
+    vk::BufferUsageFlags::TRANSFER_SRC
+  );
+  create_buffer_from_float_vec(vk_ctx, format!("{}.{}", name, nn), &tangents, usage)
 }
 
 fn subtract_norm(a: Vec3, b: Vec3) -> Vec3 {
@@ -296,9 +354,14 @@ fn create_index_buffer(vk_ctx: &VkCtx, name: &str, data: &TfxFileData) -> (VkBuf
   (buffer, triangle_cnt)
 }
 
-fn create_buffer_from_float_vec(vk_ctx: &VkCtx, name: String, data: &Vec<f32>) -> VkBuffer {
+fn create_buffer_from_float_vec(
+  vk_ctx: &VkCtx,
+  name: String,
+  data: &Vec<f32>,
+  usage: vk::BufferUsageFlags,
+) -> VkBuffer {
   let bytes = bytemuck::cast_slice(&data);
-  vk_ctx.create_buffer_from_data(name, bytes, vk::BufferUsageFlags::STORAGE_BUFFER)
+  vk_ctx.create_buffer_from_data(name, bytes, vk::BufferUsageFlags::STORAGE_BUFFER | usage)
 }
 
 fn allocate_params_ubo(vk_ctx: &VkCtx, name: &str, frame_idx: usize) -> VkBuffer {

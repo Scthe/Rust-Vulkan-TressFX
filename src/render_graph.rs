@@ -183,7 +183,7 @@ impl RenderGraph {
     // update per-frame uniforms
     let frame_resources = &mut self.resources_per_frame[swapchain_image_index];
     let config_vk_buffer = &frame_resources.config_uniform_buffer;
-    update_config_uniform_buffer(vk_app, config, scene, config_vk_buffer);
+    update_config_uniform_buffer(vk_app, config, timer, scene, config_vk_buffer);
     update_model_uniform_buffers(config, scene, swapchain_image_index);
     update_tfx_uniform_buffers(config, scene, swapchain_image_index);
 
@@ -523,11 +523,12 @@ fn allocate_config_uniform_buffer(vk_app: &VkCtx, frame_id: usize) -> VkBuffer {
 fn update_config_uniform_buffer(
   vk_app: &VkCtx,
   config: &Config,
+  timer: &AppTimer,
   scene: &World,
   vk_buffer: &VkBuffer,
 ) {
   let camera = &scene.camera;
-  let data = GlobalConfigUBO::new(vk_app, config, camera);
+  let data = GlobalConfigUBO::new(vk_app, config, timer, camera);
   let data_bytes = bytemuck::bytes_of(&data);
   vk_buffer.write_to_mapped(data_bytes);
 }

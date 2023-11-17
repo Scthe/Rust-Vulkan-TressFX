@@ -29,8 +29,9 @@ impl TfxSim2Pass {
   /// Change this in `_sim_common.glsl` too
   const THREAD_GROUP_SIZE: u32 = TfxSim0Pass::THREAD_GROUP_SIZE;
 
-  const BINDING_INDEX_POSITIONS: u32 = 0;
-  const BINDING_INDEX_POSITIONS_INITIAL: u32 = 1;
+  const BINDING_INDEX_CONFIG_UBO: u32 = 0;
+  const BINDING_INDEX_POSITIONS: u32 = 1;
+  const BINDING_INDEX_POSITIONS_INITIAL: u32 = 2;
 
   pub fn new(vk_app: &VkCtx) -> Self {
     info!("Creating {}", get_simple_type_name::<Self>());
@@ -57,6 +58,10 @@ impl TfxSim2Pass {
 
   fn get_uniforms_layout() -> Vec<vk::DescriptorSetLayoutBinding> {
     vec![
+      create_ubo_binding(
+        Self::BINDING_INDEX_CONFIG_UBO,
+        vk::ShaderStageFlags::COMPUTE,
+      ),
       create_ssbo_binding(Self::BINDING_INDEX_POSITIONS, vk::ShaderStageFlags::COMPUTE),
       create_ssbo_binding(
         Self::BINDING_INDEX_POSITIONS_INITIAL,
@@ -95,8 +100,14 @@ impl TfxSim2Pass {
     let frame_idx = exec_ctx.timer.frame_idx();
     let resouce_binder = exec_ctx.create_resouce_binder(self.pipeline_layout);
     let positions_current = entity.get_current_position_buffer(frame_idx);
+    let config_buffer = exec_ctx.config_buffer;
 
     let uniform_resouces = [
+      BindableResource::Buffer {
+        usage: BindableBufferUsage::UBO,
+        binding: Self::BINDING_INDEX_CONFIG_UBO,
+        buffer: config_buffer,
+      },
       BindableResource::Buffer {
         usage: BindableBufferUsage::SSBO,
         binding: Self::BINDING_INDEX_POSITIONS,

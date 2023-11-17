@@ -2,6 +2,7 @@ use bytemuck;
 use glam::{vec4, Mat4, Vec3, Vec4};
 
 use crate::{
+  app_timer::AppTimer,
   config::{ColorGradingProp, Config, LightAmbient, LightCfg, SSAOConfig},
   render_graph::{
     shadow_map_pass::ShadowMapPass, sss_depth_pass::SSSDepthPass, tfx_render::TfxPpllBuildPass,
@@ -21,7 +22,11 @@ pub struct GlobalConfigUBO {
   pub u_projection_mat: Mat4,
   pub u_inv_projection_mat: Mat4, // inverse projection matrix
   pub u_view_projection_mat: Mat4,
-  pub u_tfx_hair_settings: Vec4, // [hairDisplayMode, u_tfxLinkedListPoolSize, -, -]
+  pub u_tfx_hair_settings: Vec4, // [hairDisplayMode, u_tfxLinkedListPoolSize, g_GravityMagnitude, g_TimeStep]
+  pub u_tfx_wind: Vec4,          // [windDir.xyz, windStrength]
+  pub u_tfx_shape: Vec4, // [Sim0.Verlet damping, Sim2.LSC local stiffness, Sim0.GSC global stiffness, Sim0.GSC global range.]
+  pub u_tfx_constraints: Vec4, // [Sim3.Length Constraints iterations, Sim3.Length stiffness,-,-]
+
   // AO + Shadow
   pub u_shadow_matrix_vp: Mat4,
   pub u_shadow_radius_and_bias: Vec4, // [u_shadowRadiusForwardShading, u_shadowBiasForwardShading, u_shadowRadiusTfx, u_shadowBiasTfx]
@@ -81,7 +86,12 @@ fn encode_flag_in_value_sign(flag: bool, value: f32) -> f32 {
 }
 
 impl GlobalConfigUBO {
-  pub fn new(vk_app: &VkCtx, config: &Config, camera: &Camera) -> GlobalConfigUBO {
+  pub fn new(
+    vk_app: &VkCtx,
+    config: &Config,
+    timer: &AppTimer,
+    camera: &Camera,
+  ) -> GlobalConfigUBO {
     let vp = vk_app.window_size();
     let cam_cfg = &config.camera;
     let cam_pos = camera.position();
@@ -113,6 +123,22 @@ impl GlobalConfigUBO {
       u_tfx_hair_settings: vec4(
         config.get_hair_display_mode() as f32,
         TfxPpllBuildPass::get_ppll_data_nodes_count(config.get_viewport_size()) as f32,
+        config.tfx_simulation.gravity,
+        timer.delta_time_s(),
+      ),
+      u_tfx_wind: into_vec4(
+        config.tfx_simulation.wind_position(),
+        config.tfx_simulation.wind_strength,
+      ),
+      u_tfx_shape: vec4(
+        config.tfx_simulation.verlet_integration_damping,
+        config.tfx_simulation.local_stiffness,
+        config.tfx_simulation.global_stiffness,
+        config.tfx_simulation.global_stiffness_range,
+      ),
+      u_tfx_constraints: vec4(
+        config.tfx_simulation.length_constraint_iterations as f32,
+        config.tfx_simulation.length_stiffness,
         0.0,
         0.0,
       ),

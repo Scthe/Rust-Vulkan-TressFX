@@ -1,16 +1,30 @@
-#define g_GravityMagnitude (0.0)
-#define g_TimeStep (1.0/60.0)
-#define g_NumOfStrandsPerThreadGroup (2) // TODO ?
-// TODO this is per model, not a global const. push consts?
-// And `g_NumOfStrandsPerThreadGroup` too, though loader already checks it's 32 verts/strand
-vec4 g_Capsules[4];
-#define g_Wind (vec4(-1,0,0, 10))
-const float LENGTH_STIFFNESS = 1.0;
+#pragma include ../_config_ubo;
+
+//
+// Constants
+
+// There is an assert inside loader that each asset has to have 32 vertices per strand.
+// All simulation shaders use 64 threads workgroups. So 2 strands per workgroup in by-vertex mode.
+// Ofc. if we run thread per strand, this setting has no sense
+#define g_NumOfStrandsPerThreadGroup (2)
 
 // No reason to make uniform tbh. Can just vec4(,,,0) to ignore
 // TODO debug view may not be accurate due to sim. not using model_matrix?
 //      so set model scale to 1.0, test-try-preview capsules, then revert scale?
 const int NUM_COLLISION_CAPSULES = 4;
+
+
+//
+// Uniforms
+
+#define g_GravityMagnitude (u_tfxHairSettings.z)
+#define g_TimeStep (u_tfxHairSettings.w)
+#define g_Wind (u_tfxWind)
+#define g_LengthStiffness (u_tfxConstraints.y)
+
+
+
+
 
 
 // Used durring Verlet integration. Can be though of as inertia.
@@ -19,10 +33,7 @@ const int NUM_COLLISION_CAPSULES = 4;
 //   * if damping == 0, then delta affects outcome (seemingly another acceleration)
 //   * if damping == 1, then delta is nullified and verlet only calculates
 //       basing on forces/gravity
-float GetDamping() {
-  // return g_Shape.x; // 1.0f;
-  return 1.0f;
-}
+float GetDamping() { return u_tfxShape.x; }
 
 
 //
@@ -33,27 +44,20 @@ float GetDamping() {
 // this, the strands will not move.
 //
 // TL;DR: 'Nudge' final position toward initial position by 'that much'.
-float GetGlobalStiffness() {
-  // return g_Shape.z; //0.05;
-  return 0.05;
-}
+float GetGlobalStiffness() { return u_tfxShape.z; }
 
 // AMD:
 // By default, Global Shape Constraints affect only `global_range * vertices_in_strand`
 // vertices:
-//   * globalRange == 0.0, then whole strand is affected by forces/gravity
-//   * globalRange == 0.5, only half of strand (the one closer to root)
+//   * globalRange == 0.0, only root affected by GSC
+//   * globalRange == 0.5, only half of strand (near tip)
 //       is affected by forces/gravity
-//   * globalRange == 1.0, then strand tips will be affected
-//       by GSC, which wolud negate forces/gravity etc.
+//   * globalRange == 1.0, then whole strand is affected by forces/gravity
 // Also known as 'globalShapeMatchingEffectiveRange'
 //
 // TL;DR: If the number is small, the tips will be very 'bouncy' (it will affect only near root).
 // If it's high, the hair will be 'static'.
-float GetGlobalRange() {
-  // return g_Shape.w; // 0.3;
-  return 0.3;
-}
+float GetGlobalRange() { return u_tfxShape.w; }
 
 
 
@@ -62,10 +66,7 @@ float GetGlobalRange() {
 
 // * stiffness == 0, then no local shape preservation
 // * stiffness == 1, then ignore forces/gravity VSP etc.
-float GetLocalStiffness() {
-  // return g_Shape.y; // 0.9;
-  return 0.9;
-}
+float GetLocalStiffness() { return u_tfxShape.y; }
 
 
 
@@ -73,6 +74,5 @@ float GetLocalStiffness() {
 // Length Constraints
 
 int GetLengthConstraintIterations() {
-  // return int(g_SimInts.x); //1;
-  return 1;
+  return max(0, readConfigInt(u_tfxConstraints.x));
 }

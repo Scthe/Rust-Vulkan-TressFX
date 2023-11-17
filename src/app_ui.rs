@@ -10,9 +10,10 @@ use winit::event::Event;
 use crate::{
   app_timer::AppTimer,
   config::{
-    ColorGradingPerRangeSettings, ColorGradingProp, Config, DisplayMode, HairPPLLDisplayMode,
-    HairSolidDisplayMode, HairTechnique, LightAmbient, LightCfg, PostFxCfg, SSAOConfig,
-    SSSBlurPassCfg, SSSForwardScatterPassCfg, ShadowTechnique, ShadowsConfig, TonemappingMode,
+    tfx_simulation::TfxSimulation, ColorGradingPerRangeSettings, ColorGradingProp, Config,
+    DisplayMode, HairPPLLDisplayMode, HairSolidDisplayMode, HairTechnique, LightAmbient, LightCfg,
+    PostFxCfg, SSAOConfig, SSSBlurPassCfg, SSSForwardScatterPassCfg, ShadowTechnique,
+    ShadowsConfig, TonemappingMode,
   },
   either,
   gpu_profiler::{GpuProfiler, GpuProfilerReport},
@@ -110,6 +111,7 @@ impl AppUI {
           Self::draw_hair_settings(ui, config);
           ui.spacing();
 
+          Self::draw_hair_simulation_settings(ui, config);
           scene
             .entities
             .iter_mut()
@@ -319,6 +321,69 @@ impl AppUI {
     );
   }
 
+  fn draw_hair_simulation_settings(ui: &Ui, config: &mut Config) {
+    // TODO [LOW] flag to turn off collision? It can just set radii to 0.
+    let push_token = ui.push_id("tressfx_sim");
+
+    if ui.collapsing_header("Hair simulation", *HEADER_FLAGS) {
+      if ui.button("Reset hair state") {
+        config.reset_tfx_simulation_next_frame = true;
+      }
+
+      let sim: &mut TfxSimulation = &mut config.tfx_simulation;
+      slider_small(ui, "Gravity", 0.0, 20.0, &mut sim.gravity);
+      // verlet
+      slider_small(ui, "Damping", 0.0, 1.0, &mut sim.verlet_integration_damping);
+      add_tooltip_to_previous_widget(ui, "Damping for verlet integration.\n0 - continue movement from previous frame\n1 - use only gravity and wind");
+      // gsc
+      slider_small(ui, "Global stiff.", 0.0, 1.0, &mut sim.global_stiffness);
+      add_tooltip_to_previous_widget(
+        ui,
+        "(Global Shape Constraint)\nGlobal stiffness - preserve initial shape of the hair",
+      );
+      slider_small(
+        ui,
+        "Global stiff. range",
+        0.0,
+        1.0,
+        &mut sim.global_stiffness_range,
+      );
+      add_tooltip_to_previous_widget(ui, "(Global Shape Constraint)\nGlobal Stiffness Range\n0 - only root is affected by GSC, so the tips will be 'bouncy'\n1 - whole strand is affected by GSC (less movement)",);
+      // lsc
+      slider_small(ui, "Local stiffness", 0.0, 1.0, &mut sim.local_stiffness);
+      add_tooltip_to_previous_widget(
+        ui,
+        "(Local Shape Constraint)\nPreserve local shape of the hair (direction between consecutive vertices). Used with e.g. curly hair.\n0 - no local shape preservation (affected by gravity/wind more)\n1 - less affected by forces",
+      );
+      // length constraints
+      slider_small(ui, "Length stiffness", 0.0, 1.0, &mut sim.length_stiffness);
+      add_tooltip_to_previous_widget(
+        ui,
+        "(Length Constraint)\nPreserve initial distance between strand vertices. Fix hairs that are too long/short.",
+      );
+      slider_small(
+        ui,
+        "Length iterations",
+        0,
+        5,
+        &mut sim.length_constraint_iterations,
+      );
+      add_tooltip_to_previous_widget(
+        ui,
+        "(Length Constraint)\nPreserve initial distance between strand vertices. Fix hairs that are too long/short.",
+      );
+
+      // wind
+      ui.spacing();
+      ui.text_disabled("Wind");
+      slider_small(ui, "Wind strength", 0.0, 30.0, &mut sim.wind_strength);
+      slider_position_phi(ui, "Wind position phi", &mut sim.wind_pos_phi);
+      slider_position_theta(ui, "Wind position th", &mut sim.wind_pos_theta);
+    }
+
+    push_token.end();
+  }
+
   fn draw_entity(ui: &Ui, entity: &mut WorldEntity) {
     let push_token = ui.push_id(entity.name.clone());
     let material = &mut entity.material;
@@ -447,8 +512,8 @@ impl AppUI {
     if ui.collapsing_header(name, *HEADER_FLAGS) {
       color_rgb(ui, "Color", &mut light.color);
       slider_small(ui, "Energy", 0.0, 5.0, &mut light.energy);
-      slider_small(ui, "Position phi", -179.0, 179.0, &mut light.pos_phi);
-      slider_small(ui, "Position th", 15.0, 165.0, &mut light.pos_theta);
+      slider_position_phi(ui, "Position phi", &mut light.pos_phi);
+      slider_position_theta(ui, "Position th", &mut light.pos_theta);
       slider_small(ui, "Distance", 1.0, 20.0, &mut light.pos_distance);
     }
 
@@ -495,20 +560,8 @@ impl AppUI {
       );
       add_tooltip_to_previous_widget(ui, "Make hair strands thicker to cast bigger shadow");
 
-      slider_small(
-        ui,
-        "Position phi",
-        -179.0,
-        179.0,
-        &mut shadows.shadow_source.pos_phi,
-      );
-      slider_small(
-        ui,
-        "Position th",
-        15.0,
-        165.0,
-        &mut shadows.shadow_source.pos_theta,
-      );
+      slider_position_phi(ui, "Position phi", &mut shadows.shadow_source.pos_phi);
+      slider_position_theta(ui, "Position th", &mut shadows.shadow_source.pos_theta);
       // dir.add(this.cfg.shadows.directionalLight, 'posRadius', 1, 10).step(0.1).name('Position r');
     }
 
@@ -519,8 +572,8 @@ impl AppUI {
     let push_token = ui.push_id("sss_forward_pass");
 
     if ui.collapsing_header("SSS forward pass", *HEADER_FLAGS) {
-      slider_small(ui, "Position phi", -179.0, 179.0, &mut sss.source.pos_phi);
-      slider_small(ui, "Position th", 15.0, 165.0, &mut sss.source.pos_theta);
+      slider_position_phi(ui, "Position phi", &mut sss.source.pos_phi);
+      slider_position_theta(ui, "Position th", &mut sss.source.pos_theta);
     }
 
     push_token.end();
@@ -715,7 +768,7 @@ fn add_tooltip_to_previous_widget(ui: &Ui, tooltip: &str) {
   }
 }
 
-pub fn slider_small<T: AsRef<str>, K: DataTypeKind>(
+fn slider_small<T: AsRef<str>, K: DataTypeKind>(
   ui: &Ui,
   label: T,
   min: K,
@@ -724,6 +777,14 @@ pub fn slider_small<T: AsRef<str>, K: DataTypeKind>(
 ) -> bool {
   next_widget_small(ui);
   ui.slider(label, min, max, value)
+}
+
+fn slider_position_phi<T: AsRef<str>>(ui: &Ui, label: T, value: &mut f32) -> bool {
+  slider_small(ui, label, -179.0, 179.0, value)
+}
+
+fn slider_position_theta<T: AsRef<str>>(ui: &Ui, label: T, value: &mut f32) -> bool {
+  slider_small(ui, label, 15.0, 165.0, value)
 }
 
 pub fn color_rgb<T: AsRef<str>, K>(ui: &Ui, label: T, value: &mut K) -> bool
