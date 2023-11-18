@@ -70,6 +70,11 @@ uniform GlobalConfigUniformBuffer {
   vec4 u_colorGammaHighlights;
   vec4 u_colorGainHighlights;
   vec4 u_colorOffsetHighlights;
+  // TressFX collision spheres
+  vec4 u_debugCollisionSphere0;
+  vec4 u_debugCollisionSphere1;
+  vec4 u_debugCollisionSphere2;
+  vec4 u_debugCollisionSphere3;
 };
 
 // u_cameraPositionAndDisplayMode

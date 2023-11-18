@@ -17,6 +17,8 @@ use super::{TfxFileData, TfxMaterial};
 pub struct TfxObject {
   pub name: String,
   pub model_matrix: Mat4,
+  /// used to draw collision spheres in debug mode
+  pub scale_debug_use_only: f32,
   pub center_of_gravity: Vec3,
   /// radius of each strand
   pub fiber_radius: f32,
@@ -96,6 +98,7 @@ impl TfxObject {
     let tfx_obj = Self {
       name: name.to_string(),
       model_matrix,
+      scale_debug_use_only: 1.0,
       center_of_gravity: vec3(0.0, 0.0, 0.0),
       material: TfxMaterial::default(),
       // tressfx:

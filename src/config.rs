@@ -1,6 +1,6 @@
 use ash;
 use ash::vk;
-use glam::{vec2, Vec2, Vec3};
+use glam::{vec2, vec4, Vec2, Vec3, Vec4};
 
 use crate::utils::color_hex_to_vec;
 
@@ -100,6 +100,12 @@ pub struct Config {
   // showDebugPositions = false;
   // useMSAA = true; // ok, technically it's brute force supersampling, but who cares?
   // center_of_gravity: vec3(0, 3.0, 0), // used for calulating hair normals (remember, no cards!)
+
+  // TressFX collision spheres
+  pub debug_collision_sphere0: Vec4,
+  pub debug_collision_sphere1: Vec4,
+  pub debug_collision_sphere2: Vec4,
+  pub debug_collision_sphere3: Vec4,
 }
 
 impl Config {
@@ -149,6 +155,11 @@ impl Config {
       sss_blur: SSSBlurPassCfg::default(),
       // postfx
       postfx: PostFxCfg::default(),
+      // TressFX collision spheres
+      debug_collision_sphere0: vec4(0.0, 0.0, 0.0, 0.0),
+      debug_collision_sphere1: vec4(0.0, 0.0, 0.0, 0.0),
+      debug_collision_sphere2: vec4(0.0, 0.0, 0.0, 0.0),
+      debug_collision_sphere3: vec4(0.0, 0.0, 0.0, 0.0),
     }
   }
 

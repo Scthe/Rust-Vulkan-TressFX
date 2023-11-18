@@ -49,6 +49,7 @@ pub fn load_scene(vk_ctx: &VkCtx, config: &Config) -> World {
   sintel_hair.collision_capsule0 = vec4(0.0, 36.65, -1.3, 9.27);
   sintel_hair.collision_capsule1 = vec4(0.0, 35.81, 2.38, 8.97);
   sintel_hair.collision_capsule2 = vec4(0.0, 26.56, 2.75, 8.89);
+  sintel_hair.scale_debug_use_only = scale;
 
   World {
     camera: Camera::new(config, vk_ctx.window_size()),

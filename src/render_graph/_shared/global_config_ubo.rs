@@ -73,6 +73,11 @@ pub struct GlobalConfigUBO {
   pub u_color_gamma_highlights: Vec4,
   pub u_color_gain_highlights: Vec4,
   pub u_color_offset_highlights: Vec4,
+  // TressFX collision spheres
+  pub debug_collision_sphere0: Vec4,
+  pub debug_collision_sphere1: Vec4,
+  pub debug_collision_sphere2: Vec4,
+  pub debug_collision_sphere3: Vec4,
 }
 
 unsafe impl bytemuck::Zeroable for GlobalConfigUBO {}
@@ -240,6 +245,11 @@ impl GlobalConfigUBO {
       u_color_gamma_highlights: pack_color_grading_prop(&color_grading.highlights.gamma),
       u_color_gain_highlights: pack_color_grading_prop(&color_grading.highlights.gain),
       u_color_offset_highlights: pack_color_grading_prop(&color_grading.highlights.offset),
+      // TressFX collision spheres
+      debug_collision_sphere0: config.debug_collision_sphere0,
+      debug_collision_sphere1: config.debug_collision_sphere1,
+      debug_collision_sphere2: config.debug_collision_sphere2,
+      debug_collision_sphere3: config.debug_collision_sphere3,
     }
   }
 }

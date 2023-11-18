@@ -31,7 +31,9 @@ void UpdateFinalVertexPositions(
   vec4 newPosition,
   uint globalVertexIndex
 ) {
-  g_HairVertexPositionsPrevPrev[globalVertexIndex] = g_HairVertexPositionsPrev[globalVertexIndex]; // TODO [LOW] is this write even needed? Do we use it anywhere?
+  // TODO [LOW] is g_HairVertexPositionsPrevPrev even needed? Do we use it anywhere?
+  //      write what is in each buffer before and after
+  g_HairVertexPositionsPrevPrev[globalVertexIndex] = g_HairVertexPositionsPrev[globalVertexIndex];
   g_HairVertexPositionsPrev[globalVertexIndex] = oldPosition;
   g_HairVertexPositions[globalVertexIndex] = newPosition;
 }

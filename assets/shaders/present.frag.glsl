@@ -84,38 +84,53 @@ float sphIntersect(vec3 rayOrigin, vec3 rayDir, vec4 sph){
     return -b - h;
 }
 
-#define DRAW_DEBUG_SPHERE(position, color, radius) {\
-  float rayHit = sphIntersect(rayOrigin, rayDir, vec4(position, (radius))); \
-  if (rayHit > 0 && rayHit <= closestRayHit) { closestRayHit = rayHit; sphereColor = color; } \
+#define DRAW_DEBUG_SPHERE_TRANSP(position, color, radius, alpha) {\
+  float rayHit = sphIntersect(rayOrigin, rayDir, vec4(position.xyz, (radius))); \
+  if (rayHit > 0 && rayHit <= closestRayHit) { closestRayHit = rayHit; sphereColor = vec4(color.rgb, alpha); } \
 }
+
+#define DRAW_DEBUG_SPHERE(position, color, radius) DRAW_DEBUG_SPHERE_TRANSP(position, color, radius, 1.0)
 
 vec4 drawDebugSpheres(){
   const vec4 SKIP_DRAW = vec4(0,0,0, 0);
-  if (!u_showDebugPositions) { return SKIP_DRAW; }
 
   vec4 fragPositionWorldSpace = getWorldSpacePosition();
   vec3 rayDir = normalize(fragPositionWorldSpace.xyz - u_cameraPosition.xyz);
   vec3 rayOrigin = u_cameraPosition.xyz;
   float closestRayHit = 99999;
-  vec3 sphereColor = vec3(0.0);
+  vec4 sphereColor = vec4(0.0);
   float r = 1.5; // debug sphere radius
 
-  DRAW_DEBUG_SPHERE(u_directionalShadowCasterPosition.xyz, vec3(0.2), r);
-  DRAW_DEBUG_SPHERE(u_light0_Position, u_light0_Color.rgb, r);
-  DRAW_DEBUG_SPHERE(u_light1_Position, u_light1_Color.rgb, r);
-  DRAW_DEBUG_SPHERE(u_light2_Position, u_light2_Color.rgb, r);
-  DRAW_DEBUG_SPHERE(u_sssPosition, vec3(0.87, 0.53, 0.36), r); // #de875d
-  // wind
-  vec3 windPosition = -u_tfxWind.xyz * 10; // reverse cause if wind blows to the left, we draw source on right
-  // Move consequtive circles closer to camera to pass z-test vs `closestRayHit`.
-  // We are raycasting against 3D spheres and bigger radius 'swallows' the smaller circles.
-  vec3 windToCamera = normalize(u_cameraPosition.xyz - windPosition) * r;
-  DRAW_DEBUG_SPHERE(windPosition,                    vec3(1, 0, 0), r); // red
-  DRAW_DEBUG_SPHERE(windPosition + windToCamera,     vec3(1, 1, 1), r * 0.6); // white
-  DRAW_DEBUG_SPHERE(windPosition + 2 * windToCamera, vec3(1, 0, 0), r * 0.3); // red
+  if (u_showDebugPositions) {
+    DRAW_DEBUG_SPHERE(u_directionalShadowCasterPosition.xyz, vec3(0.2), r);
+    DRAW_DEBUG_SPHERE(u_light0_Position, u_light0_Color.rgb, r);
+    DRAW_DEBUG_SPHERE(u_light1_Position, u_light1_Color.rgb, r);
+    DRAW_DEBUG_SPHERE(u_light2_Position, u_light2_Color.rgb, r);
+    DRAW_DEBUG_SPHERE(u_sssPosition, vec3(0.87, 0.53, 0.36), r); // #de875d
+    // wind
+    vec3 windPosition = -u_tfxWind.xyz * 10; // reverse cause if wind blows to the left, we draw source on right
+    // Move consequtive circles closer to camera to pass z-test vs `closestRayHit`.
+    // We are raycasting against 3D spheres and bigger radius 'swallows' the smaller circles.
+    vec3 windToCamera = normalize(u_cameraPosition.xyz - windPosition) * r;
+    DRAW_DEBUG_SPHERE(windPosition,                    vec3(1, 0, 0), r); // red
+    DRAW_DEBUG_SPHERE(windPosition + windToCamera,     vec3(1, 1, 1), r * 0.6); // white
+    DRAW_DEBUG_SPHERE(windPosition + 2 * windToCamera, vec3(1, 0, 0), r * 0.3); // red
+  }
+
+  // debug collision spheres
+  float ccTransp = 0.1;
+  vec4 cc = u_debugCollisionSphere0;
+  DRAW_DEBUG_SPHERE_TRANSP(cc, vec3(0, 1, 1), cc.w, ccTransp);
+  cc = u_debugCollisionSphere1;
+  DRAW_DEBUG_SPHERE_TRANSP(cc, vec3(1, 1, 0), cc.w, ccTransp);
+  cc = u_debugCollisionSphere2;
+  DRAW_DEBUG_SPHERE_TRANSP(cc, vec3(1, 0, 1), cc.w, ccTransp);
+  cc = u_debugCollisionSphere3;
+  DRAW_DEBUG_SPHERE_TRANSP(cc, vec3(1, 0.5, 0.5), cc.w, ccTransp);
+
 
   if (closestRayHit > 0 && closestRayHit < 99999) {
-    return vec4(sphereColor, 1);
+    return sphereColor;
   }
   return SKIP_DRAW;
 }

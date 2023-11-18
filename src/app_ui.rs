@@ -1,5 +1,6 @@
 use ash;
 use ash::vk;
+use glam::{vec4, Vec4};
 use imgui::{internal::DataTypeKind, ColorEditFlags, Condition, Context, TreeNodeFlags, Ui};
 use imgui_rs_vulkan_renderer::{Options, Renderer};
 use imgui_winit_support::{HiDpiMode, WinitPlatform};
@@ -119,7 +120,7 @@ impl AppUI {
           scene
             .tressfx_objects
             .iter_mut()
-            .for_each(|entity| Self::draw_tfx_object(ui, entity));
+            .for_each(|entity| Self::draw_tfx_object(ui, config, entity));
           Self::draw_ambient_light(ui, &mut config.light_ambient);
           Self::draw_light(ui, "Light 0", &mut config.light0);
           Self::draw_light(ui, "Light 1", &mut config.light1);
@@ -208,7 +209,7 @@ impl AppUI {
     }
 
     ui.checkbox("Show positions", &mut config.show_debug_positions);
-    add_tooltip_to_previous_widget(ui, "Show positions of lights and shadow source");
+    add_tooltip_to_previous_widget(ui, "Show positions of lights, shadow source, wind etc.");
 
     push_token.end();
   }
@@ -244,6 +245,7 @@ impl AppUI {
         "{:<name_letters$}: {:>4.2}ms ({:>5.2}%)",
         name2, duration_ms, perc
       ));
+      add_tooltip_to_previous_widget(ui, &name);
     });
 
     ui.text_disabled(format!("Total: {:.2}ms", total_ms));
@@ -375,6 +377,7 @@ impl AppUI {
       );
 
       // wind
+      // TODO [MEDIUM] add option to jitter direction/strength? Can be CPU only
       ui.spacing();
       ui.text_disabled("Wind");
       slider_small(ui, "Wind strength", 0.0, 300.0, &mut sim.wind_strength);
@@ -424,7 +427,7 @@ impl AppUI {
     push_token.end();
   }
 
-  fn draw_tfx_object(ui: &Ui, entity: &mut TfxObject) {
+  fn draw_tfx_object(ui: &Ui, config: &mut Config, entity: &mut TfxObject) {
     let push_token = ui.push_id(entity.name.clone());
     let mat = &mut entity.material;
 
@@ -435,6 +438,30 @@ impl AppUI {
         "Verts per strand: {}",
         entity.num_vertices_per_strand
       ));
+
+      if ui.button("Toggle show collision meshes") {
+        let is_currently_showing = config.debug_collision_sphere0.w != 0.0
+          || config.debug_collision_sphere1.w != 0.0
+          || config.debug_collision_sphere2.w != 0.0
+          || config.debug_collision_sphere3.w != 0.0;
+        if is_currently_showing {
+          config.debug_collision_sphere0.w = 0.0;
+          config.debug_collision_sphere1.w = 0.0;
+          config.debug_collision_sphere2.w = 0.0;
+          config.debug_collision_sphere3.w = 0.0;
+        } else {
+          let model_mat = entity.model_matrix.clone();
+          let scale = entity.scale_debug_use_only;
+          let cc_fn = |cc: Vec4| {
+            let a = model_mat * cc;
+            vec4(a.x, a.y, a.z, cc.w * scale)
+          };
+          config.debug_collision_sphere0 = cc_fn(entity.collision_capsule0);
+          config.debug_collision_sphere1 = cc_fn(entity.collision_capsule1);
+          config.debug_collision_sphere2 = cc_fn(entity.collision_capsule2);
+          config.debug_collision_sphere3 = cc_fn(entity.collision_capsule3);
+        }
+      }
 
       slider_small(ui, "Radius", 0.001, 0.025, &mut entity.fiber_radius);
       slider_small(ui, "Thin tip", 0.0, 1.0, &mut entity.thin_tip); // delta: 0.01,
