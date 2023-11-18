@@ -1,7 +1,7 @@
 use std::mem::size_of;
 
 use ash::vk;
-use glam::{vec3, Mat4, Vec3};
+use glam::{vec3, vec4, Mat4, Vec3, Vec4};
 
 use crate::{
   app_timer::FrameIdx,
@@ -34,6 +34,12 @@ pub struct TfxObject {
   pub material: TfxMaterial,
   /// Tfx params uploaded to GPU. Refreshed every frame (cause changes from ui etc.)
   pub tfx_params_ubo: Vec<VkBuffer>,
+
+  // collision data (all are world space, ignoring model_matrix!)
+  pub collision_capsule0: Vec4,
+  pub collision_capsule1: Vec4,
+  pub collision_capsule2: Vec4,
+  pub collision_capsule3: Vec4,
 
   /// Number of hair strands in this file. All strands in this file are guide strands.
   /// Follow hair strands are generated procedurally.
@@ -110,6 +116,11 @@ impl TfxObject {
       positions_0_buffer,
       positions_1_buffer,
       positions_2_buffer,
+      // collision
+      collision_capsule0: vec4(0.0, 0.0, 0.0, 0.0),
+      collision_capsule1: vec4(0.0, 0.0, 0.0, 0.0),
+      collision_capsule2: vec4(0.0, 0.0, 0.0, 0.0),
+      collision_capsule3: vec4(0.0, 0.0, 0.0, 0.0),
     };
 
     // write initial value to each buffer. Used if we rely on data from previous frame

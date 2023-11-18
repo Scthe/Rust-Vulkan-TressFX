@@ -11,22 +11,18 @@
 #pragma include ./_sim_buffers;
 // #pragma include ./_sim_quat;
 
-shared vec4 sharedPos[THREAD_GROUP_SIZE];
 
 // Uses Verlet integration to calculate the new position for the current time step
 vec4 Integrate(
   vec4 curPosition, vec4 oldPosition,
   vec4 force, float dampingCoeff
 ) {
-  vec4 outputPos = curPosition;
-
   force.xyz += g_GravityMagnitude * vec3(0, -1.0f, 0);
-  vec3 posDelta = curPosition.xyz - oldPosition.xyz;
-  outputPos.xyz = curPosition.xyz
-                  + (1.0 - dampingCoeff) * posDelta
+  vec3 towardOldPosition = oldPosition.xyz - curPosition.xyz;
+  vec3 outputPos = curPosition.xyz
+                  + dampingCoeff * towardOldPosition
                   + force.xyz * g_TimeStep * g_TimeStep;
-
-  return outputPos;
+  return vec4(outputPos, curPosition.w);
 }
 
 // Updates the hair vertex positions based on the physics simulation
@@ -35,13 +31,10 @@ void UpdateFinalVertexPositions(
   vec4 newPosition,
   uint globalVertexIndex
 ) {
-  g_HairVertexPositionsPrevPrev[globalVertexIndex] = g_HairVertexPositionsPrev[globalVertexIndex];
+  g_HairVertexPositionsPrevPrev[globalVertexIndex] = g_HairVertexPositionsPrev[globalVertexIndex]; // TODO [LOW] is this write even needed? Do we use it anywhere?
   g_HairVertexPositionsPrev[globalVertexIndex] = oldPosition;
   g_HairVertexPositions[globalVertexIndex] = newPosition;
 }
-
-// TODO [LOW] why does AMD store this in shared memory? Macro to make the code more readable.
-#define nextPosition sharedPos[vertData.localId]
 
 
 // Compute shader to simulate the gravitational force with integration
@@ -64,17 +57,12 @@ void main() {
 
   // Apply bone skinning to initial position.
   // TODO [LOW] add Model matrix here. Gravity should point global down.
-  // vec4 bone_quat;
   vec4 initialPos = g_InitialHairPositions[vertData.vertexId_global]; // rest position
+  vec4 currentPos = g_HairVertexPositions[vertData.vertexId_global];
+  vec4 nextPosition = initialPos;
   // initialPos.xyz = ApplyVertexBoneSkinning(initialPos.xyz, /*skinningData,*/ bone_quat);
   // we temporarily use g_HairVertexTangents to hold bone quaternion data compute in ApplyVertexBoneSkinning.
   // g_HairVertexTangents[vertData.strandId_global] = bone_quat; // TODO needed?
-
-  // position when this step starts. In other words, a position from the last step.
-  vec4 currentPos = nextPosition = g_HairVertexPositions[vertData.vertexId_global];
-
-  GroupMemoryBarrierWithGroupSync();
-
 
   // Integrate
   vec4 oldPos = g_HairVertexPositionsPrev[vertData.vertexId_global];
@@ -85,22 +73,19 @@ void main() {
     nextPosition = Integrate(
       currentPos, oldPos, force, damping
     );
-  } else {
-    nextPosition = initialPos;
   }
 
   
   // Global Shape Constraints
   float stiffnessForGlobalShapeMatching = GetGlobalStiffness();
-  bool hasStiffness = stiffnessForGlobalShapeMatching > 0;// && globalShapeMatchingEffectiveRange;
-  // 
   float globalShapeMatchingEffectiveRange = GetGlobalRange();
-  bool closeEnoughToRoot = float(vertData.vertexId) < globalShapeMatchingEffectiveRange * float(numVerticesInTheStrand);
+  bool closeToRoot = float(vertData.vertexId) < globalShapeMatchingEffectiveRange * float(numVerticesInTheStrand);
+  // float linearDecr = 1.0 - float(vertData.vertexId) / float(numVerticesInTheStrand); // some kind of smoothstep?
 
-  if (hasStiffness && isMoveable && closeEnoughToRoot) {
+  if (isMoveable && closeToRoot) {
     // (Calc delta to initial position and move in that direction)
-    vec3 delta = (initialPos - nextPosition).xyz;
-    nextPosition.xyz += stiffnessForGlobalShapeMatching * delta;
+    vec3 towardInitialPosition = (initialPos - nextPosition).xyz;
+    nextPosition.xyz += stiffnessForGlobalShapeMatching * towardInitialPosition;
   }
 
   // update global position buffers

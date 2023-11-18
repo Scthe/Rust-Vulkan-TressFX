@@ -1,6 +1,8 @@
 use ash;
 use ash::vk;
+use glam::{vec4, Vec4};
 use log::info;
+use std::mem::size_of;
 
 use crate::utils::get_simple_type_name;
 use crate::vk_ctx::VkCtx;
@@ -41,8 +43,10 @@ impl TfxSim3Pass {
     let pipeline_cache = &vk_app.pipeline_cache;
 
     let uniforms_desc = Self::get_uniforms_layout();
+    let push_constant_ranges = Self::get_push_constant_layout();
     let uniforms_layout = create_push_descriptor_layout(device, uniforms_desc);
-    let pipeline_layout = create_pipeline_layout(device, &[uniforms_layout], &[]);
+    let pipeline_layout =
+      create_pipeline_layout(device, &[uniforms_layout], &[push_constant_ranges]);
     let pipeline = create_compute_pipeline(device, pipeline_cache, &pipeline_layout, SHADER_PATH);
 
     Self {
@@ -75,6 +79,14 @@ impl TfxSim3Pass {
       ),
       create_ssbo_binding(Self::BINDING_INDEX_TANGENTS, vk::ShaderStageFlags::COMPUTE),
     ]
+  }
+
+  fn get_push_constant_layout() -> vk::PushConstantRange {
+    vk::PushConstantRange::builder()
+      .offset(0)
+      .size(size_of::<TfxSim3PassPerModelConstants>() as _)
+      .stage_flags(vk::ShaderStageFlags::COMPUTE)
+      .build()
   }
 
   pub fn execute(&self, exec_ctx: &PassExecContext, entity: &TfxObject) -> () {
@@ -137,5 +149,49 @@ impl TfxSim3Pass {
       },
     ];
     bind_resources_to_descriptors_compute(&resouce_binder, 0, &uniform_resouces);
+
+    // push constants
+    let vk_app = exec_ctx.vk_app;
+    let command_buffer = exec_ctx.command_buffer;
+    let device = vk_app.vk_device();
+
+    let push_constants = TfxSim3PassPerModelConstants {
+      // scale: 0.3
+      collision_capsule_0: entity.collision_capsule0,
+      collision_capsule_1: entity.collision_capsule1,
+      collision_capsule_2: entity.collision_capsule2,
+      ..Default::default()
+    };
+    let push_constants_bytes = bytemuck::bytes_of(&push_constants);
+    device.cmd_push_constants(
+      command_buffer,
+      self.pipeline_layout,
+      vk::ShaderStageFlags::COMPUTE,
+      0,
+      push_constants_bytes,
+    );
+  }
+}
+
+#[derive(Copy, Clone, Debug)] // , bytemuck::Zeroable, bytemuck::Pod
+#[repr(C)]
+struct TfxSim3PassPerModelConstants {
+  pub collision_capsule_0: Vec4,
+  pub collision_capsule_1: Vec4,
+  pub collision_capsule_2: Vec4,
+  pub collision_capsule_3: Vec4,
+}
+
+unsafe impl bytemuck::Zeroable for TfxSim3PassPerModelConstants {}
+unsafe impl bytemuck::Pod for TfxSim3PassPerModelConstants {}
+
+impl Default for TfxSim3PassPerModelConstants {
+  fn default() -> Self {
+    Self {
+      collision_capsule_0: vec4(0.0, 0.0, 0.0, 0.0),
+      collision_capsule_1: vec4(0.0, 0.0, 0.0, 0.0),
+      collision_capsule_2: vec4(0.0, 0.0, 0.0, 0.0),
+      collision_capsule_3: vec4(0.0, 0.0, 0.0, 0.0),
+    }
   }
 }

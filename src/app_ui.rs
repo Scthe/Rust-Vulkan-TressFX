@@ -331,7 +331,7 @@ impl AppUI {
       }
 
       let sim: &mut TfxSimulation = &mut config.tfx_simulation;
-      slider_small(ui, "Gravity", 0.0, 20.0, &mut sim.gravity);
+      slider_small(ui, "Gravity", 0.0, 300.0, &mut sim.gravity);
       // verlet
       slider_small(ui, "Damping", 0.0, 1.0, &mut sim.verlet_integration_damping);
       add_tooltip_to_previous_widget(ui, "Damping for verlet integration.\n0 - continue movement from previous frame\n1 - use only gravity and wind");
@@ -348,12 +348,13 @@ impl AppUI {
         1.0,
         &mut sim.global_stiffness_range,
       );
+      // TODO [CRITICAL] is this reversed?!
       add_tooltip_to_previous_widget(ui, "(Global Shape Constraint)\nGlobal Stiffness Range\n0 - only root is affected by GSC, so the tips will be 'bouncy'\n1 - whole strand is affected by GSC (less movement)",);
       // lsc
       slider_small(ui, "Local stiffness", 0.0, 1.0, &mut sim.local_stiffness);
       add_tooltip_to_previous_widget(
         ui,
-        "(Local Shape Constraint)\nPreserve local shape of the hair (direction between consecutive vertices). Used with e.g. curly hair.\n0 - no local shape preservation (affected by gravity/wind more)\n1 - less affected by forces",
+        "(Local Shape Constraint)\nPreserve local shape of the hair (direction between consecutive vertices). Used with e.g. curly hair.\n0 - no local shape preservation (affected by gravity/wind more)\n1 - preserve relative vectors between vertices (less affected by forces)",
       );
       // length constraints
       slider_small(ui, "Length stiffness", 0.0, 1.0, &mut sim.length_stiffness);
@@ -376,7 +377,7 @@ impl AppUI {
       // wind
       ui.spacing();
       ui.text_disabled("Wind");
-      slider_small(ui, "Wind strength", 0.0, 30.0, &mut sim.wind_strength);
+      slider_small(ui, "Wind strength", 0.0, 300.0, &mut sim.wind_strength);
       slider_position_phi(ui, "Wind position phi", &mut sim.wind_pos_phi);
       slider_position_theta(ui, "Wind position th", &mut sim.wind_pos_theta);
     }

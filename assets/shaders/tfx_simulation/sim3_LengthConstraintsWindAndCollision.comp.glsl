@@ -6,7 +6,12 @@
 #define BINDING_INDEX_POSITIONS_INITIAL 3
 #define BINDING_INDEX_TANGENTS 4
 
-// TODO this is per model, not a global const. push consts?
+layout(push_constant) uniform Constants {
+  vec4 collisionCapsule0;
+  vec4 collisionCapsule1;
+  vec4 collisionCapsule2;
+  vec4 collisionCapsule3;
+} u_PushConstants;
 vec4 g_Capsules[4];
 
 // @return true if vec4 from `sharedPos` is movable.
@@ -49,11 +54,11 @@ vec2 ConstraintMultiplier(vec4 particle0, vec4 particle1) {
   return vec2(0, 0); // can't move either
 }
 
-void ApplyDistanceConstraint(uint idx0, uint idx1, float expectedLength) {
-  vec4 pos0 = sharedPos[idx0];
-  vec4 pos1 = sharedPos[idx1];
+void ApplyDistanceConstraint(uint idxCurrent, uint idxNext, float expectedLength) {
+  vec4 posCurrent = sharedPos[idxCurrent];
+  vec4 posNext = sharedPos[idxNext];
 
-  vec3 delta = pos1.xyz - pos0.xyz;
+  vec3 delta = posNext.xyz - posCurrent.xyz; // from current to next
   float distance = max(length(delta), 1e-7);
   // expectedLength / distance:
   //  * > 1 if real distance if TOO SHORT and we need to ELONGATE
@@ -65,10 +70,10 @@ void ApplyDistanceConstraint(uint idx0, uint idx1, float expectedLength) {
   delta = stretching * delta;
 
   // how much we scale movement of each vertex
-  vec2 multiplier = ConstraintMultiplier(pos0, pos1);
+  vec2 multiplier = ConstraintMultiplier(posCurrent, posNext);
 
-  sharedPos[idx0].xyz += multiplier[0] * delta * g_LengthStiffness;
-  sharedPos[idx1].xyz -= multiplier[1] * delta * g_LengthStiffness;
+  sharedPos[idxCurrent].xyz += multiplier[0] * delta * g_LengthStiffness;
+  sharedPos[idxNext].xyz -= multiplier[1] * delta * g_LengthStiffness;
 }
 
 //
@@ -82,10 +87,10 @@ void ApplyDistanceConstraint(uint idx0, uint idx1, float expectedLength) {
 //
 layout (local_size_x = THREAD_GROUP_SIZE) in; // [numthreads(THREAD_GROUP_SIZE, 1, 1)]
 void main() {
-  g_Capsules[0] = vec4(0,0,0, 0);
-  g_Capsules[1] = vec4(0,0,0, 0);
-  g_Capsules[2] = vec4(0,0,0, 0);
-  g_Capsules[3] = vec4(0,0,0, 0);
+  g_Capsules[0] = u_PushConstants.collisionCapsule0;
+  g_Capsules[1] = u_PushConstants.collisionCapsule1;
+  g_Capsules[2] = u_PushConstants.collisionCapsule2;
+  g_Capsules[3] = u_PushConstants.collisionCapsule3;
 
 
   const uint numOfStrandsPerThreadGroup = g_NumOfStrandsPerThreadGroup;
@@ -103,15 +108,14 @@ void main() {
   GroupMemoryBarrierWithGroupSync();
 
 
-  // Wind
+  // Wind (proportional to length of the edge between this and next vertex)
   if (IsMovable(vertData.vertexId)) {
     uint sharedIndex      = getSharedIndex(vertData.vertexId);
     uint sharedIndex_next = getSharedIndex(vertData.vertexId + 1);
     // vector(next_vertex -> this_vertex), NOT NORMALIZED
     vec3 from_next_vert = sharedPos[sharedIndex].xyz - sharedPos[sharedIndex_next].xyz;
 
-    // add small value to make it not panic during cross().
-    vec3 windDirection =  normalize(g_Wind.xyz + vec3(0.00001));
+    vec3 windDirection =  normalize(g_Wind.xyz);
     float windStrength = length(from_next_vert) * g_Wind.w; // longer edge means more force applied
     from_next_vert = normalize(from_next_vert);
     // make wind perpendicular to strand.
@@ -132,7 +136,7 @@ void main() {
   int nLengthContraintIterations = GetLengthConstraintIterations();
 
   // we re-adjust positions several times, getting more accurate results with each iter.
-  // In each iter. we operate on 2 distances between 3 diffrent consecutive vertices
+  // In each iter. we operate on 2 distances between 3 different consecutive vertices
   for (int jitteration = 0; jitteration < nLengthContraintIterations; jitteration++) {
     // vert0 strand0: 2*0*2 + 0 = 0  | n1=2  | n2=4
     // vert0 strand1: 2*0*2 + 1 = 1  | n1=3  | n2=5
@@ -168,7 +172,9 @@ void main() {
   // Compute tangent
   // tangent := normalize(vertex -> next_vertex)
   // If this is the last vertex in the strand, we can't get tangent from subtracting from the next vertex, need to use previous instead
-  uint nextVertexLocalIdMod = (vertData.vertexId == numVerticesInTheStrand - 1) ? -numOfStrandsPerThreadGroup : numOfStrandsPerThreadGroup;
+  uint nextVertexLocalIdMod = (vertData.vertexId == numVerticesInTheStrand - 1)
+    ? -numOfStrandsPerThreadGroup // prev vertex if current vertex is last in strand
+    :  numOfStrandsPerThreadGroup; // next vertex
   vec3 tangent = sharedPos[vertData.localId + nextVertexLocalIdMod].xyz
                - sharedPos[vertData.localId].xyz;
   g_HairVertexTangents[vertData.vertexId_global].xyz = normalize(tangent);

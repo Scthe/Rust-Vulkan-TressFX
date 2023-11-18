@@ -42,7 +42,7 @@ void main() {
     uint globalVertexIndex = globalRootVertexIndex + i;
     // pos of previous vertex in strand
     vec4 pos = g_HairVertexPositions[globalVertexIndex];
-    vec4 pos_init = g_HairVertexPositions[globalVertexIndex];
+    vec4 pos_init = g_InitialHairPositions[globalVertexIndex];
 
     // delta from current_vert -> prev_vert - expected local shape (think curly hair)
     vec4 delta_init = pos_init - pos_init_prev;
