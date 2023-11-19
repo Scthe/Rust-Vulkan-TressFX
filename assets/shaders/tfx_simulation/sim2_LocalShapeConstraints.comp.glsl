@@ -38,7 +38,7 @@ void main() {
 
   // iterate starting from child vertex 1 (which means first closest to the root)
   // in strand all the way to the tip
-  for (uint i = 1; i < numVerticesInTheStrand - 1; i++ ) {
+  for (uint i = 1; i <= numVerticesInTheStrand - 1; i++ ) {
     uint globalVertexIndex = globalRootVertexIndex + i;
     // pos of previous vertex in strand
     vec4 pos = g_HairVertexPositions[globalVertexIndex];

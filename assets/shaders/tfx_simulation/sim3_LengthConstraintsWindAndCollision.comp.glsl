@@ -172,11 +172,13 @@ void main() {
   // Compute tangent
   // tangent := normalize(vertex -> next_vertex)
   // If this is the last vertex in the strand, we can't get tangent from subtracting from the next vertex, need to use previous instead
-  uint nextVertexLocalIdMod = (vertData.vertexId == numVerticesInTheStrand - 1)
+  bool isLastVertInStrand = vertData.vertexId == numVerticesInTheStrand - 1;
+  uint nextVertexLocalIdMod = isLastVertInStrand
     ? -numOfStrandsPerThreadGroup // prev vertex if current vertex is last in strand
     :  numOfStrandsPerThreadGroup; // next vertex
   vec3 tangent = sharedPos[vertData.localId + nextVertexLocalIdMod].xyz
                - sharedPos[vertData.localId].xyz;
+  tangent = isLastVertInStrand ? -tangent : tangent;
   g_HairVertexTangents[vertData.vertexId_global].xyz = normalize(tangent);
 
   // update global position buffers
