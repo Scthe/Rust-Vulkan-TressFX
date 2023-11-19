@@ -23,6 +23,6 @@ void main() {
   gl_Position = u_MVP * pos;
   v_Position = (u_M * pos).xyz;
   v_PositionLightShadowSpace = u_directionalShadowMatrix_MVP * pos;
-  v_Normal = in_Normal; // TODO technically we should have rotation matrix here, but not needed for app as simple as this
+  v_Normal = in_Normal; // TODO [IGNORE] technically we should have rotation matrix here, but not needed for app as simple as this
   v_UV = in_UV;
 }

@@ -23,6 +23,7 @@ pub fn group_count_x_per_strand(entity: &TfxObject, thread_group_size: u32) -> u
 }
 
 /// https://github.com/Scthe/TressFX-OpenGL/blob/master/libs/amd_tressfx/src/TressFXSimulation.cpp#L51
+/// https://github.com/Scthe/TressFX-OpenGL/blob/master/src/gl-tfx/TFxSimulation.cpp
 pub fn execute_tfx_simulation(
   pass_ctx: &PassExecContext,
   tfx_sim0: &TfxSim0Pass,
@@ -30,6 +31,8 @@ pub fn execute_tfx_simulation(
   tfx_sim3: &TfxSim3Pass,
 ) {
   let scene = &*pass_ctx.scene;
+  let local_shape_iterations = pass_ctx.config.tfx_simulation.local_stiffness_iterations;
+
   for entity in &scene.tressfx_objects {
     cmd_barrier_prepare_for_simulation(pass_ctx.vk_app.vk_device(), pass_ctx.command_buffer);
 
@@ -37,7 +40,6 @@ pub fn execute_tfx_simulation(
 
     cmd_barrier_between_simulation_steps(pass_ctx.vk_app.vk_device(), pass_ctx.command_buffer);
 
-    let local_shape_iterations = 1; // TODO hardcoded
     for _ in 0..local_shape_iterations {
       tfx_sim2.execute(pass_ctx, entity);
       cmd_barrier_between_simulation_steps(pass_ctx.vk_app.vk_device(), pass_ctx.command_buffer);

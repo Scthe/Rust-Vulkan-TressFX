@@ -107,7 +107,7 @@ vec3 getFollowHairDisplacement (
   return mix(tipOffset, rootOffset, fractionOfStrand);
 
   /*
-  // TODO make this around normal, so the hair does stay near skull
+  // TODO [LOW] make this around normal, so the hair does stay near skull
   vec3 offset = mix(tipOffset, rootOffset, fractionOfStrand);
   vec3 normal   = normalize(offset - tangent * dot(offset, tangent));
   vec3 bitangent = cross(normal, tangent);

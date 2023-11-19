@@ -40,7 +40,7 @@ vec2 kajiyakay(KajiyaKayParams params) {
   vec3 binormalDir = normalize(cross(params.T, params.N));
 
   // shift the tangent via spec map
-  // TODO use tangent or binormalDir?
+  // TODO [LOW] use tangent or binormalDir?
   // vec3 tangent1 = shiftTangent(binormalDir, params.N, params.primaryShift + params.shift);
   // vec3 tangent2 = shiftTangent(binormalDir, params.N, params.secondaryShift + params.shift);
   vec3 tangent1 = shiftTangent(params.T, params.N, params.shift + params.primaryShift);

@@ -8,9 +8,6 @@
 // Ofc. if we run thread per strand, this setting has no sense
 #define g_NumOfStrandsPerThreadGroup (2)
 
-// No reason to make uniform tbh. Can just vec4(,,,0) to ignore
-// TODO debug view may not be accurate due to sim. not using model_matrix?
-//      so set model scale to 1.0, test-try-preview capsules, then revert scale?
 const int NUM_COLLISION_CAPSULES = 4;
 
 

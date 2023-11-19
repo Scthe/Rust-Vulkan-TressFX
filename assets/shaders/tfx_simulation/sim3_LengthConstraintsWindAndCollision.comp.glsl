@@ -130,7 +130,7 @@ void main() {
 
 
   // Enforce length constraints
-  // https://github.com/GPUOpen-Effects/TressFX/blob/master/src/Shaders/TressFXSimulation.hlsl#L918
+  // https://github.com/GPUOpen-Effects/TressFX/blob/ba0bdacdfb964e38522fda812bf23169bc5fa603/src/Shaders/TressFXSimulation.hlsl#L918
   uint maxVertexId_n_n1 = uint(floor(float(numVerticesInTheStrand) / 2.0f)); // 16
   uint maxVertexId_n1_n2 = uint(floor(float(numVerticesInTheStrand - 1) / 2.0f)); // 15
   int nLengthContraintIterations = GetLengthConstraintIterations();

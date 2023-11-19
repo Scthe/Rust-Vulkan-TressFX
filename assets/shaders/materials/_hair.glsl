@@ -10,7 +10,7 @@ float calculateHairShadow (
 ) {
   vec3 positionShadowCaster = u_directionalShadowCasterPosition.xyz;
   vec3 toCaster = normalize(positionShadowCaster - positionWorld);
-  vec3 normal2 = normalize(normal); // TODO use tangent per http://developer.amd.com/wordpress/media/2012/10/Scheuermann_HairRendering.pdf s7?
+  vec3 normal2 = normalize(normal); // TODO [IGNORE] use tangent per http://developer.amd.com/wordpress/media/2012/10/Scheuermann_HairRendering.pdf s7?
   return 1.0 - calculateDirectionalShadow(
     directionalShadowDepthTex,
     positionShadowProjected, normal2, toCaster,
@@ -35,7 +35,7 @@ KajiyaKayParams createKajiyakayParams(
   params.N = normal; // normalDir
   // params.L // filled later
 
-  params.shift = 0.0; // TODO
+  params.shift = 0.0; // TODO [LOW]
   params.primaryShift = u_primaryShift;
   params.secondaryShift = u_secondaryShift;
   params.specularPower1 = u_specularPower1;

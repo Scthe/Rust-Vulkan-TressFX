@@ -1,9 +1,9 @@
 #version 450
 // https://github.com/Scthe/TressFX-OpenGL/blob/master/src/shaders/gl-tfx/sim0_IntegrationAndGlobalShapeConstraints.comp.glsl
 
-#define BINDING_INDEX_POSITIONS 1
-#define BINDING_INDEX_POSITIONS_PREV 2
-#define BINDING_INDEX_POSITIONS_PREV_PREV 3
+#define BINDING_INDEX_POSITIONS 1           // START: (frame-3) positions. Will receive: calculated positions
+#define BINDING_INDEX_POSITIONS_PREV 2      // START: last (frame-1) positions
+#define BINDING_INDEX_POSITIONS_PREV_PREV 3 // START: before last (frame-2) positions
 #define BINDING_INDEX_POSITIONS_INITIAL 4
 
 #pragma include ./_sim_params;
@@ -23,19 +23,6 @@ vec4 Integrate(
                   + dampingCoeff * towardOldPosition
                   + force.xyz * g_TimeStep * g_TimeStep;
   return vec4(outputPos, curPosition.w);
-}
-
-// Updates the hair vertex positions based on the physics simulation
-void UpdateFinalVertexPositions(
-  vec4 oldPosition,
-  vec4 newPosition,
-  uint globalVertexIndex
-) {
-  // TODO [LOW] is g_HairVertexPositionsPrevPrev even needed? Do we use it anywhere?
-  //      write what is in each buffer before and after
-  g_HairVertexPositionsPrevPrev[globalVertexIndex] = g_HairVertexPositionsPrev[globalVertexIndex];
-  g_HairVertexPositionsPrev[globalVertexIndex] = oldPosition;
-  g_HairVertexPositions[globalVertexIndex] = newPosition;
 }
 
 
@@ -60,14 +47,14 @@ void main() {
   // Apply bone skinning to initial position.
   // TODO [LOW] add Model matrix here. Gravity should point global down.
   vec4 initialPos = g_InitialHairPositions[vertData.vertexId_global]; // rest position
-  vec4 currentPos = g_HairVertexPositions[vertData.vertexId_global];
+  vec4 currentPos = g_HairVertexPositionsPrev[vertData.vertexId_global];
+  vec4 oldPos = g_HairVertexPositionsPrevPrev[vertData.vertexId_global];
   vec4 nextPosition = initialPos;
   // initialPos.xyz = ApplyVertexBoneSkinning(initialPos.xyz, /*skinningData,*/ bone_quat);
   // we temporarily use g_HairVertexTangents to hold bone quaternion data compute in ApplyVertexBoneSkinning.
-  // g_HairVertexTangents[vertData.strandId_global] = bone_quat; // TODO needed?
+  // g_HairVertexTangents[vertData.strandId_global] = bone_quat;
 
   // Integrate
-  vec4 oldPos = g_HairVertexPositionsPrev[vertData.vertexId_global];
   vec4 force = vec4(0, 0, 0, 0);
   bool isMoveable = IsMovable(vertData.vertexId);
   if (isMoveable){
@@ -91,10 +78,7 @@ void main() {
   }
 
   // update global position buffers
-  // vec4 newPosition = currentPos + vec4(0, 0.01, 0, 0); // Test: hair flies up!
-  UpdateFinalVertexPositions(
-    currentPos, nextPosition, vertData.vertexId_global
-  );
+  g_HairVertexPositions[vertData.vertexId_global] = nextPosition;
 }
 
 /*

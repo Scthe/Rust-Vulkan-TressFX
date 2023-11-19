@@ -2,16 +2,15 @@ use glam::Vec3;
 
 use crate::utils::spherical_to_cartesian_dgr;
 
-// TODO [HIGH] Show wind for debug
 pub struct TfxSimulation {
   pub gravity: f32,
   pub verlet_integration_damping: f32,
   pub global_stiffness: f32,
   pub global_stiffness_range: f32,
   pub local_stiffness: f32,
-  // vsp_force, vsp_threshold
-  pub length_constraint_iterations: u32,
+  pub local_stiffness_iterations: u32,
   pub length_stiffness: f32,
+  pub length_constraint_iterations: u32,
 
   // wind
   /// horizontal [dgr]
@@ -34,9 +33,10 @@ impl Default for TfxSimulation {
       verlet_integration_damping: 1.0,
       global_stiffness: 0.01,
       global_stiffness_range: 0.3,
-      local_stiffness: 0.5,
-      length_constraint_iterations: 4,
+      local_stiffness: 0.15,
+      local_stiffness_iterations: 2,
       length_stiffness: 1.0,
+      length_constraint_iterations: 4,
 
       // wind
       wind_pos_phi: 140.0,

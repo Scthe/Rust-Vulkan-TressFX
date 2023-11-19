@@ -32,11 +32,12 @@ void swapPPLLFragmentsData(inout PPLLFragmentData fragA, inout PPLLFragmentData 
   fragB.depth = depth;
 }
 
-uint FillFirstKBuffferElements (inout PPLLFragmentData kBuffer[KBUFFER_SIZE], uint pointer) {
+uint FillFirstKBuffferElements (inout PPLLFragmentData kBuffer[KBUFFER_SIZE], uint pointer, inout uint linkedListElements) {
   for (int p = 0; p < KBUFFER_SIZE; ++p) {
     if (pointer != FRAGMENT_LIST_NULL) {
       kBuffer[p] = unpackPPLLFragment(pointer);
       pointer = NODE_NEXT(pointer);
+      ++linkedListElements;
     }
   }
   return pointer;
@@ -70,7 +71,8 @@ vec4 GatherLinkedList(vec2 vfScreenAddress, inout PPLLFragmentData closestFragme
   // linked list elements have special treatment in blending
   PPLLFragmentData kBuffer[KBUFFER_SIZE];
   ClearKBuffer(kBuffer);
-  pointer = FillFirstKBuffferElements(kBuffer, pointer);
+  uint linkedListElements = 0; // count of traversed elements
+  pointer = FillFirstKBuffferElements(kBuffer, pointer, linkedListElements);
 
   vec4 fcolor = vec4(0, 0, 0, 1); // final fragment color
 
@@ -101,12 +103,13 @@ vec4 GatherLinkedList(vec2 vfScreenAddress, inout PPLLFragmentData closestFragme
     fcolor.a *= (1.0 - alpha);
 
     pointer = NODE_NEXT(pointer);
+    ++linkedListElements;
   }
 
 
   // Blend the k nearest layers of fragments from back to front, where k = KBUFFER_SIZE
-  for (int j = 0; j < KBUFFER_SIZE; j++) {
-    // TODO [MEDIUM] what when we have less than `KBUFFER_SIZE` fragments? Do we use the values from `ClearKBuffer` then?
+  // ofc if linked list has <KBUFFER_SIZE elements we can stop early
+  for (int j = 0; j < min(KBUFFER_SIZE, linkedListElements); j++) {
     float kbufferFurthestDepth = DEPTH_RESET_TO_CLOSE;
     int kBufferFurthestIdx = FindFurthestKBufferEl(kBuffer, kbufferFurthestDepth);
 
