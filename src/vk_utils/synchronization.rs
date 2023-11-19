@@ -26,6 +26,7 @@ libs
 /// so you can debug it.
 ///
 /// https://github.com/KhronosGroup/Vulkan-Docs/wiki/Synchronization-Examples#full-pipeline-barrier
+#[deprecated(note = "Extremely suboptimal performance")]
 pub unsafe fn execute_full_pipeline_barrier(
   device: &ash::Device,
   command_buffer: vk::CommandBuffer,
@@ -43,17 +44,33 @@ pub unsafe fn execute_full_pipeline_barrier(
   device.cmd_pipeline_barrier2(command_buffer, &dependency_info);
 }
 
-/// Barrier for all types of resources (both buffer and image)
-/// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkMemoryBarrier.html
-/// TODO [HIGH] is global barrier optimal? Or maybe use fine grained buffer/image barriers instead?
-pub fn create_global_barrier(
-  src_access_mask: vk::AccessFlags,
-  dst_access_mask: vk::AccessFlags,
-) -> vk::MemoryBarrier {
-  vk::MemoryBarrier::builder()
-    .src_access_mask(src_access_mask)
-    .dst_access_mask(dst_access_mask)
-    .build()
+/// Barrier mostly used for SSBO and storage images. No layout transitions etc.
+pub struct VkStorageResourceBarrier {
+  /// wait for previous use in
+  pub previous_op: (vk::PipelineStageFlags2, vk::AccessFlags2),
+  /// before we
+  pub next_op: (vk::PipelineStageFlags2, vk::AccessFlags2),
+}
+
+/// Barrier mostly used for SSBO and storage images. No layout transitions etc.
+pub unsafe fn cmd_storage_resource_barrier(
+  device: &ash::Device,
+  command_buffer: vk::CommandBuffer,
+  barrier: VkStorageResourceBarrier,
+) {
+  let mem_barrier = vk::MemoryBarrier2::builder()
+    // wait for previous use in:
+    .src_stage_mask(barrier.previous_op.0)
+    .src_access_mask(barrier.previous_op.1)
+    // before we:
+    .dst_stage_mask(barrier.next_op.0)
+    .dst_access_mask(barrier.next_op.1)
+    .build();
+  let dependency_info = vk::DependencyInfo::builder()
+    .memory_barriers(&[mem_barrier])
+    .build();
+
+  device.cmd_pipeline_barrier2(command_buffer, &dependency_info);
 }
 
 /// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageMemoryBarrier.html

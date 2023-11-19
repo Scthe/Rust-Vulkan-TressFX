@@ -243,9 +243,12 @@ impl TfxPpllBuildPass {
     let pass_name = &create_per_object_pass_name::<Self>(&entity.name);
 
     unsafe {
+      // clears not allowed inside render pass per Vulkan Spec 19.1
+      // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#clears
       self.cmd_reset_current_values(exec_ctx, framebuffer);
+
+      // usuall sync stuff
       self.cmd_resource_barriers(device, &command_buffer, depth_stencil_tex);
-      execute_full_pipeline_barrier(device, command_buffer); // TODO [PPLL_sync] remove
 
       // start render pass
       let scope_id =
@@ -274,7 +277,14 @@ impl TfxPpllBuildPass {
     let device = vk_app.vk_device();
     let command_buffer = exec_ctx.command_buffer;
 
+    // We could try to do a sync here, but it's pointless. It's across many frames,
+    // which are inheritely behind semaphores.
+
     // clear atomic counter to 0
+    // After user presses 'reset simulation' buttonm the "QueueSubmit sync. validation layer"
+    // claims SYNC-HAZARD-WRITE-AFTER-READ. But simulation reset does not touch
+    // `ppll_next_free_entry_atomic`. Since "QueueSubmit sync ..." is marked as (ALPHA)
+    // we can ignore.
     device.cmd_fill_buffer(
       command_buffer,
       framebuffer.ppll_next_free_entry_atomic.buffer,
@@ -309,23 +319,6 @@ impl TfxPpllBuildPass {
       &clear_color_value,
       &[range],
     );
-
-    // We need a barrier to make sure all writes are finished before starting to write again
-    let mem_barrier = create_global_barrier(
-      vk::AccessFlags::TRANSFER_WRITE,
-      vk::AccessFlags::SHADER_READ | vk::AccessFlags::SHADER_WRITE,
-    );
-    device.cmd_pipeline_barrier(
-      command_buffer,
-      // wait for previous use in:
-      vk::PipelineStageFlags::TRANSFER,
-      // before we: execute fragment shader
-      vk::PipelineStageFlags::FRAGMENT_SHADER,
-      vk::DependencyFlags::empty(),
-      &[mem_barrier],
-      &[],
-      &[],
-    )
   }
 
   unsafe fn cmd_resource_barriers(
@@ -334,6 +327,22 @@ impl TfxPpllBuildPass {
     command_buffer: &vk::CommandBuffer,
     depth_stencil_tex: &mut VkTexture, // write
   ) {
+    // Both STORAGE_IMAGE and SSBO!
+    // After cmd_fill_buffer and cmd_clear_color_image
+    // https://github.com/SaschaWillems/Vulkan/blob/master/examples/oit/oit.cpp#L559
+    let barrier = VkStorageResourceBarrier {
+      previous_op: (
+        vk::PipelineStageFlags2::CLEAR // vkCmdClearColorImage
+          | vk::PipelineStageFlags2::TRANSFER, // vkCmdFillBuffer
+        vk::AccessFlags2::TRANSFER_WRITE,
+      ),
+      next_op: (
+        vk::PipelineStageFlags2::FRAGMENT_SHADER,
+        vk::AccessFlags2::SHADER_STORAGE_READ | vk::AccessFlags2::SHADER_STORAGE_WRITE,
+      ),
+    };
+    cmd_storage_resource_barrier(device, *command_buffer, barrier);
+
     VkTexture::cmd_transition_attachments_for_write_barrier(
       device,
       *command_buffer,

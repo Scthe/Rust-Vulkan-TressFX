@@ -4,7 +4,8 @@ mod tfx_sim3_pass;
 
 use ash::vk;
 
-use crate::{scene::TfxObject, vk_utils::execute_full_pipeline_barrier};
+use crate::scene::TfxObject;
+use crate::vk_utils::{cmd_storage_resource_barrier, VkStorageResourceBarrier};
 
 pub use self::tfx_sim0_pass::*;
 pub use self::tfx_sim2_pass::*;
@@ -52,19 +53,53 @@ pub fn execute_tfx_simulation(
 }
 
 fn cmd_barrier_prepare_for_simulation(device: &ash::Device, command_buffer: vk::CommandBuffer) {
-  // TODO better barriers! https://vulkan-tutorial.com/Compute_Shader#page_Synchronizing-graphics-and-compute
-  unsafe { execute_full_pipeline_barrier(device, command_buffer) };
+  unsafe {
+    let barrier = VkStorageResourceBarrier {
+      previous_op: (
+        vk::PipelineStageFlags2::FRAGMENT_SHADER,
+        vk::AccessFlags2::SHADER_READ,
+      ),
+      next_op: (
+        vk::PipelineStageFlags2::COMPUTE_SHADER,
+        vk::AccessFlags2::SHADER_WRITE | vk::AccessFlags2::SHADER_READ,
+      ),
+    };
+    cmd_storage_resource_barrier(device, command_buffer, barrier);
+  }
 }
 
+/// https://github.com/KhronosGroup/Vulkan-Docs/wiki/Synchronization-Examples#dispatch-writes-into-a-storage-buffer-draw-consumes-that-buffer-as-an-index-buffer
+/// Though we use this not as an index buffer but SSBO.
 fn cmd_barrier_prepare_for_render(device: &ash::Device, command_buffer: vk::CommandBuffer) {
-  // TODO better barriers! https://vulkan-tutorial.com/Compute_Shader#page_Synchronizing-graphics-and-compute
-  unsafe { execute_full_pipeline_barrier(device, command_buffer) };
+  unsafe {
+    let barrier = VkStorageResourceBarrier {
+      previous_op: (
+        vk::PipelineStageFlags2::COMPUTE_SHADER,
+        vk::AccessFlags2::SHADER_WRITE,
+      ),
+      next_op: (
+        vk::PipelineStageFlags2::VERTEX_SHADER,
+        vk::AccessFlags2::SHADER_READ | vk::AccessFlags2::MEMORY_READ,
+      ),
+    };
+    cmd_storage_resource_barrier(device, command_buffer, barrier);
+  }
 }
 
+/// https://github.com/KhronosGroup/Vulkan-Docs/wiki/Synchronization-Examples#three-dispatches-first-dispatch-writes-to-one-storage-buffer-second-dispatch-writes-to-a-different-storage-buffer-third-dispatch-reads-both
+/// It says that global memory barriers are more effective here than per-resource.
 fn cmd_barrier_between_simulation_steps(device: &ash::Device, command_buffer: vk::CommandBuffer) {
-  // TODO better barriers! https://vulkan-tutorial.com/Compute_Shader#page_Synchronizing-graphics-and-compute
-  //      We should also consider which step changes which buffers.
-  //      e.g. local constraints sim2 only requires current+initial,
-  //      so no barrier for _prev, _prev_prev after it.
-  unsafe { execute_full_pipeline_barrier(device, command_buffer) };
+  unsafe {
+    let barrier = VkStorageResourceBarrier {
+      previous_op: (
+        vk::PipelineStageFlags2::COMPUTE_SHADER,
+        vk::AccessFlags2::SHADER_WRITE,
+      ),
+      next_op: (
+        vk::PipelineStageFlags2::COMPUTE_SHADER,
+        vk::AccessFlags2::SHADER_READ | vk::AccessFlags2::SHADER_WRITE,
+      ),
+    };
+    cmd_storage_resource_barrier(device, command_buffer, barrier);
+  }
 }

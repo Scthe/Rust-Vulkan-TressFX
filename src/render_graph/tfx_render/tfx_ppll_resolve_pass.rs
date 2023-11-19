@@ -229,25 +229,22 @@ impl TfxPpllResolvePass {
     ao_texture: &mut VkTexture,
     shadow_map_texture: &mut VkTexture,
   ) {
-    execute_full_pipeline_barrier(device, *command_buffer); // TODO [PPLL_sync] remove
-
     // Make a pipeline barrier to guarantee the geometry pass is done
+    // Both STORAGE_IMAGE and SSBO!
     // https://github.com/SaschaWillems/Vulkan/blob/master/examples/oit/oit.cpp#L610
-    // TODO [PPLL_sync] seems suboptimal. Why not provide ppll resources for previous pass?
-    device.cmd_pipeline_barrier(
-      *command_buffer,
-      // wait for previous use in:
-      vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT
-        | vk::PipelineStageFlags::LATE_FRAGMENT_TESTS
-        | vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS,
-      // before we: execute fragment shader
-      vk::PipelineStageFlags::FRAGMENT_SHADER,
-      vk::DependencyFlags::empty(),
-      &[],
-      &[],
-      &[],
-    );
+    let barrier = VkStorageResourceBarrier {
+      previous_op: (
+        vk::PipelineStageFlags2::FRAGMENT_SHADER,
+        vk::AccessFlags2::SHADER_WRITE | vk::AccessFlags2::SHADER_READ,
+      ),
+      next_op: (
+        vk::PipelineStageFlags2::FRAGMENT_SHADER,
+        vk::AccessFlags2::SHADER_READ,
+      ),
+    };
+    cmd_storage_resource_barrier(device, *command_buffer, barrier);
 
+    // usuall attachment stuff
     VkTexture::cmd_transition_attachments_for_read_barrier(
       device,
       *command_buffer,

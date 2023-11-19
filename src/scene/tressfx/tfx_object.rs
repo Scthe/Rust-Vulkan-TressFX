@@ -12,6 +12,9 @@ use crate::{
   vk_utils::{VkBuffer, VkBufferMemoryPreference, VkMemoryResource, WithSetupCmdBuffer},
 };
 
+#[allow(deprecated)]
+use crate::vk_utils::execute_full_pipeline_barrier;
+
 use super::{TfxFileData, TfxMaterial};
 
 pub struct TfxObject {
@@ -207,6 +210,10 @@ impl TfxObject {
 
   pub fn reset_simulation(&self, vk_ctx: &VkCtx) {
     vk_ctx.with_setup_cb(|device, cb| unsafe {
+      // This fn is triggered by UI, it's ok to do full barrier.
+      #[allow(deprecated)]
+      execute_full_pipeline_barrier(device, cb);
+
       let size = self.initial_positions_buffer.size;
       let mem_region = ash::vk::BufferCopy::builder()
         .dst_offset(0)
@@ -237,6 +244,10 @@ impl TfxObject {
         self.tangents_buffer.buffer,
         &[mem_region],
       );
+
+      // This fn is triggered by UI, it's ok to do full barrier.
+      #[allow(deprecated)]
+      execute_full_pipeline_barrier(device, cb);
     });
   }
 }
