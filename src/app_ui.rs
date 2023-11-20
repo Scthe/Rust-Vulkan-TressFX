@@ -1,7 +1,9 @@
 use ash;
 use ash::vk;
 use glam::{vec4, Vec4};
-use imgui::{internal::DataTypeKind, ColorEditFlags, Condition, Context, TreeNodeFlags, Ui};
+use imgui::{
+  internal::DataTypeKind, ColorEditFlags, Condition, Context, StyleColor, TreeNodeFlags, Ui,
+};
 use imgui_rs_vulkan_renderer::{Options, Renderer};
 use imgui_winit_support::{HiDpiMode, WinitPlatform};
 use lazy_static::lazy_static;
@@ -29,6 +31,8 @@ lazy_static! {
   static ref HEADER_FLAGS: TreeNodeFlags =
     TreeNodeFlags::FRAMED | TreeNodeFlags::FRAME_PADDING | TreeNodeFlags::SPAN_FULL_WIDTH;
 }
+
+const SSS_FORWARD_TOOLTIP: &str = "Light that passes through thin parts of model (ears, nose)";
 
 /// Controls examples:
 /// - https://magnum.graphics/showcase/imgui/
@@ -352,7 +356,7 @@ impl AppUI {
         ui,
         "Preserve initial shape of the hair.\nHappens every frame so this effect is VERY strong.",
       );
-      slider_small(ui, "Stiffness##gsc", 0.0, 0.1, &mut sim.global_stiffness);
+      slider_small(ui, "Stiffness##gsc", 0.0, 0.2, &mut sim.global_stiffness);
       slider_small(
         ui,
         "Strand range",
@@ -422,6 +426,9 @@ impl AppUI {
       slider_small(ui, "Specular mul", 0.0, 5.0, &mut material.specular_mul);
       add_tooltip_to_previous_widget(ui, "Extra specular for eyes");
 
+      // SSS
+      ui.text_disabled("SSS forward pass");
+      add_tooltip_to_previous_widget(ui, SSS_FORWARD_TOOLTIP);
       slider_small(
         ui,
         "SSS transluency",
@@ -429,11 +436,21 @@ impl AppUI {
         1.0,
         &mut material.sss_transluency,
       );
-      slider_small(ui, "SSS width", 0.0, 100.0, &mut material.sss_width);
-      add_tooltip_to_previous_widget(ui, "Should be same as for SSS blur and all entities");
+      add_tooltip_to_previous_widget(ui, "How much light passess through");
+      slider_small(
+        ui,
+        "SSS width",
+        SSSBlurPassCfg::SSS_WIDTH_MIN,
+        SSSBlurPassCfg::SSS_WIDTH_MAX,
+        &mut material.sss_width,
+      );
+      add_tooltip_to_previous_widget(ui, "Scale distance between light entrance and exit");
       slider_small(ui, "SSS bias", 0.0, 0.1, &mut material.sss_bias);
+      add_tooltip_to_previous_widget(ui, "Similar to shadow maps, prevents 'acne' effect.");
       slider_small(ui, "SSS gain", 0.0, 1.0, &mut material.sss_gain);
+      add_tooltip_to_previous_widget(ui, "Similar to shadow maps, prevents 'acne' effect.");
       slider_small(ui, "SSS strength", 0.0, 1.5, &mut material.sss_strength);
+      add_tooltip_to_previous_widget(ui, "Scale the effect");
     }
 
     push_token.end();
@@ -476,7 +493,9 @@ impl AppUI {
       }
 
       slider_small(ui, "Radius", 0.001, 0.025, &mut entity.fiber_radius);
+      add_tooltip_to_previous_widget(ui, "Radius of each strand");
       slider_small(ui, "Thin tip", 0.0, 1.0, &mut entity.thin_tip); // delta: 0.01,
+      add_tooltip_to_previous_widget(ui, "Scale strand tip wrt to root");
       slider_small(
         ui,
         "Follow hairs",
@@ -484,6 +503,7 @@ impl AppUI {
         TfxObject::MAX_FOLLOW_HAIRS_PER_GUIDE,
         &mut entity.follow_hairs,
       );
+      add_tooltip_to_previous_widget(ui, "Artificial strands around main, simulated strand");
       slider_small(
         ui,
         "Spread root",
@@ -491,6 +511,7 @@ impl AppUI {
         0.6,
         &mut entity.follow_hair_spread_root,
       );
+      add_tooltip_to_previous_widget(ui, "Scatter follow strands at root");
       slider_small(
         ui,
         "Spread tip",
@@ -498,11 +519,13 @@ impl AppUI {
         0.6,
         &mut entity.follow_hair_spread_tip,
       );
+      add_tooltip_to_previous_widget(ui, "Scatter follow strands at tip");
 
       // material
       let max_spec = 500.0;
       let min_shift = -0.1;
       let max_shift = 0.1;
+      text_disabled_multiline(ui, "Kajiya-Kay hair shading model");
       color_rgb(ui, "Diffuse", &mut mat.albedo);
       slider_small(ui, "Opacity", 0.001, 1.0, &mut mat.opacity);
 
@@ -528,6 +551,7 @@ impl AppUI {
         &mut mat.secondary_shift,
       ); // delta 0.001;
 
+      text_disabled_multiline(ui, "Ambient occlusion");
       slider_small(ui, "AO strength", 0.0, 1.0, &mut mat.ao_strength); // delta 0.01
       slider_small(ui, "AO exp", 0.0, 5.0, &mut mat.ao_exp); // delta 0.1
     }
@@ -588,9 +612,12 @@ impl AppUI {
         slider_small(ui, "Hair blur radius", 0, 4, &mut shadows.blur_radius_tfx);
       }
       ui.slider("Strength", 0.0, 1.0, &mut shadows.strength);
+      add_tooltip_to_previous_widget(ui, "Artificialy set maximal shadows strength");
 
       ui.slider("Bias", 0.001, 0.1, &mut shadows.bias);
+      add_tooltip_to_previous_widget(ui, "Prevent shadow acne");
       ui.slider("Hair bias", 0.001, 0.1, &mut shadows.bias_hair_tfx);
+      add_tooltip_to_previous_widget(ui, "Prevent shadow acne");
       slider_small(
         ui,
         "Hair radius mul",
@@ -612,6 +639,11 @@ impl AppUI {
     let push_token = ui.push_id("sss_forward_pass");
 
     if ui.collapsing_header("SSS forward pass", *HEADER_FLAGS) {
+      text_disabled_multiline(
+        ui,
+        &(SSS_FORWARD_TOOLTIP.to_string() + ". See each object for more options."),
+      );
+
       slider_position_phi(ui, "Position phi", &mut sss.source.pos_phi);
       slider_position_theta(ui, "Position th", &mut sss.source.pos_theta);
     }
@@ -623,7 +655,15 @@ impl AppUI {
     let push_token = ui.push_id("sss_blur");
 
     if ui.collapsing_header("SSS blur", *HEADER_FLAGS) {
-      slider_small(ui, "Blur width", 1.0, 100.0, &mut sss.blur_width);
+      text_disabled_multiline(ui, "Blur skin with special per-channel profile");
+      slider_small(
+        ui,
+        "Blur width",
+        SSSBlurPassCfg::SSS_WIDTH_MIN,
+        SSSBlurPassCfg::SSS_WIDTH_MAX,
+        &mut sss.blur_width,
+      );
+      add_tooltip_to_previous_widget(ui, "Distance in world units");
       slider_small(ui, "Blur strength", 0.0, 1.0, &mut sss.blur_strength);
       ui.checkbox("Blur follow surface", &mut sss.blur_follow_surface);
       add_tooltip_to_previous_widget(ui, "Slight changes for incident angles ~90dgr");
@@ -661,7 +701,9 @@ impl AppUI {
         "Discard samples during blur (based on linear depth 0-1)",
       );
       slider_small(ui, "AO strength", 0.0, 1.0, &mut ssao.ao_strength); // delta 0.01
+      add_tooltip_to_previous_widget(ui, "Artificialy modify SSAO value");
       slider_small(ui, "AO exp", 0.0, 5.0, &mut ssao.ao_exp); // delta 0.1
+      add_tooltip_to_previous_widget(ui, "Artificialy modify SSAO value");
     }
 
     push_token.end();
@@ -706,6 +748,7 @@ impl AppUI {
     let push_token = ui.push_id("PostFX");
 
     if ui.collapsing_header("PostFX", *HEADER_FLAGS) {
+      ui.slider("Gamma", 1.0, 3.0, &mut postfx.gamma);
       ui.slider("Dither", 0.0, 2.0, &mut postfx.dither_strength);
 
       next_widget_small(ui);
@@ -806,6 +849,13 @@ fn add_tooltip_to_previous_widget(ui: &Ui, tooltip: &str) {
   if ui.is_item_hovered() {
     ui.tooltip_text(tooltip);
   }
+}
+
+fn text_disabled_multiline(ui: &Ui, text: &str) {
+  let color = ui.style_color(StyleColor::TextDisabled);
+  let style = ui.push_style_color(StyleColor::Text, color);
+  ui.text_wrapped(text);
+  style.end();
 }
 
 fn slider_small<T: AsRef<str>, K: DataTypeKind>(
