@@ -32,12 +32,11 @@ void swapPPLLFragmentsData(inout PPLLFragmentData fragA, inout PPLLFragmentData 
   fragB.depth = depth;
 }
 
-uint FillFirstKBuffferElements (inout PPLLFragmentData kBuffer[KBUFFER_SIZE], uint pointer, inout uint linkedListElements) {
+uint FillFirstKBuffferElements (inout PPLLFragmentData kBuffer[KBUFFER_SIZE], uint pointer) {
   for (int p = 0; p < KBUFFER_SIZE; ++p) {
     if (pointer != FRAGMENT_LIST_NULL) {
       kBuffer[p] = unpackPPLLFragment(pointer);
       pointer = NODE_NEXT(pointer);
-      ++linkedListElements;
     }
   }
   return pointer;
@@ -56,6 +55,13 @@ int FindFurthestKBufferEl (inout PPLLFragmentData kBuffer[KBUFFER_SIZE], inout f
   return id;
 }
 
+vec4 combineFragmentColorWithAcc(vec4 acc, vec4 fragmentColor) {
+  float alpha = fragmentColor.a;
+  acc.rgb = mix(acc.rgb, fragmentColor.rgb * alpha, alpha);
+  acc.a *= 1.0 - alpha;
+  return acc;
+}
+
 
 // https://github.com/GPUOpen-Effects/TressFX/blob/ba0bdacdfb964e38522fda812bf23169bc5fa603/src/Shaders/TressFXPPLL.hlsl#L252
 vec4 GatherLinkedList(vec2 vfScreenAddress, inout PPLLFragmentData closestFragment) {
@@ -71,8 +77,7 @@ vec4 GatherLinkedList(vec2 vfScreenAddress, inout PPLLFragmentData closestFragme
   // linked list elements have special treatment in blending
   PPLLFragmentData kBuffer[KBUFFER_SIZE];
   ClearKBuffer(kBuffer);
-  uint linkedListElements = 0; // count of traversed elements
-  pointer = FillFirstKBuffferElements(kBuffer, pointer, linkedListElements);
+  pointer = FillFirstKBuffferElements(kBuffer, pointer);
 
   vec4 fcolor = vec4(0, 0, 0, 1); // final fragment color
 
@@ -98,18 +103,14 @@ vec4 GatherLinkedList(vec2 vfScreenAddress, inout PPLLFragmentData closestFragme
 
     // add the element to accumulating value
     vec4 fragmentColor = TFX_SHADING_FAR_FN(vfScreenAddress, furthestFragment);
-    float alpha = fragmentColor.a;
-    fcolor.rgb = fcolor.rgb * (1.0 - alpha) + (fragmentColor.rgb * alpha) * alpha;
-    fcolor.a *= (1.0 - alpha);
+    fcolor = combineFragmentColorWithAcc(fcolor, fragmentColor);
 
     pointer = NODE_NEXT(pointer);
-    ++linkedListElements;
   }
 
 
   // Blend the k nearest layers of fragments from back to front, where k = KBUFFER_SIZE
-  // ofc if linked list has <KBUFFER_SIZE elements we can stop early
-  for (int j = 0; j < min(KBUFFER_SIZE, linkedListElements); j++) {
+  for (int j = 0; j < KBUFFER_SIZE; j++) {
     float kbufferFurthestDepth = DEPTH_RESET_TO_CLOSE;
     int kBufferFurthestIdx = FindFurthestKBufferEl(kBuffer, kbufferFurthestDepth);
 
@@ -118,9 +119,7 @@ vec4 GatherLinkedList(vec2 vfScreenAddress, inout PPLLFragmentData closestFragme
     closestFragment = kBuffer[kBufferFurthestIdx];
 
     // Blend in the fragment color
-    float alpha = fragmentColor.a;
-    fcolor.rgb = fcolor.rgb * (1.0 - alpha) + (fragmentColor.rgb * alpha) * alpha;
-    fcolor.a *= (1.0 - alpha);
+    fcolor = combineFragmentColorWithAcc(fcolor, fragmentColor);
 
     // take this node out of the next search (will fail FindFurthestKBufferEl)
     kBuffer[kBufferFurthestIdx].depth = DEPTH_RESET_TO_CLOSE;

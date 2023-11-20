@@ -65,6 +65,7 @@ vec4 tfxCalculateFarFragmentsColor(vec2 pixelCoord, inout PPLLFragmentData frag)
 }
 
 vec4 tfxCalculateCloseFragmentsColor(vec2 pixelCoord, inout PPLLFragmentData frag) {
+  // return vec4(TfxParamsUbo.u_albedo.rgb, u_tfxOpacity);
   vec3 positionWorld = frag.positionWorldSpace;
   float coverage = frag.tangentAndCoverage.w;
   vec3 tangent = frag.tangentAndCoverage.xyz;
@@ -101,7 +102,7 @@ void main () {
   GlobalLightsArray[0] = unpackLight(u_light0_Position, u_light0_Color);
   GlobalLightsArray[1] = unpackLight(u_light1_Position, u_light1_Color);
   GlobalLightsArray[2] = unpackLight(u_light2_Position, u_light2_Color);
-  // shared value based on last-frame's closes fragment
+  // shared value based on last-frame's closest fragment
   PrecalcAmbientOcclusion = calculateHairAO(u_aoTex);
 
   PPLLFragmentData closestFragment;
@@ -111,12 +112,12 @@ void main () {
   // gather debug output
   vec3 normal = calculateHairNormal(closestFragment.positionWorldSpace.xyz);
   vec4 colorDebug = debugModeOverride(result.rgb, closestFragment, normal);
-  result.rgb = mix(result.rgb, colorDebug.rgb, colorDebug.a);
+  result = mix(result.rgba, colorDebug.rgba, colorDebug.a);
 
   // write color + normals
   // WARNING: Blend mode means `outColor1.a==0` may render nothing!
   // Normals have blend=OFF, so no worry there, only color can be a problem.
-  outColor1 = vec4(result.rgb, result.a);
+  outColor1 = result;
   outColor2 = uvec4(packNormal(normal), 255);
 }
 
