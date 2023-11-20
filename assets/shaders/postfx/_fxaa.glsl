@@ -8,16 +8,14 @@
 //  - http://blog.simonrodriguez.fr/articles/2016/07/implementing_fxaa.html
 
 
-vec4 FxaaSampleCol(sampler2D tex, vec2 coords, float bias) {
-  // uvec4 value = texture(tex, coords, bias); // as uint [0-255]
-  // return vec4(value) / 255.0;
-  return texture(tex, coords, bias); // as uint [0-255]
+vec4 FxaaSampleCol(usampler2D tex, vec2 coords, float bias) {
+  uvec4 value = texture(tex, coords, bias); // as uint [0-255]
+  return vec4(value) / 255.0; // float [0-1]
 }
 
-float FxaaSampleLuma(sampler2D tex, vec2 coords, float bias) {
-  // uint value = texture(tex, coords, bias).a; // as uint [0-255]
-  // return float(value) / 255.0;
-  return texture(tex, coords, bias).a; // as uint [0-255]
+float FxaaSampleLuma(usampler2D tex, vec2 coords, float bias) {
+  uint value = texture(tex, coords, bias).a; // as uint [0-255]
+  return float(value) / 255.0; // float [0-1]
 }
 
 float max5(float a, float b, float c, float d, float e) {
@@ -29,8 +27,8 @@ float min5(float a, float b, float c, float d, float e) {
 
 vec4 FxaaPixelShader(
     vec2 pos
-    ,sampler2D tex
-    ,sampler2D lumaTex
+    ,usampler2D tex
+    ,usampler2D lumaTex
     // 1.0/screenSizeInPixels
     ,vec2 fxaaQualityRcpFrame
     // Choose the amount of sub-pixel aliasing removal.

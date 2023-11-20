@@ -8,7 +8,7 @@ layout(binding = 1)
 uniform sampler2D u_source;
 
 layout(location = 0) in vec2 v_position; // TexCoords
-layout(location = 0) out vec4 outColor;
+layout(location = 0) out uvec4 outColor;
 
 
 #pragma include ./_config_ubo;
@@ -49,11 +49,12 @@ void main() {
   // skipping LDR conversion. This, and also cause we can.
   vec3 colorAfterColorGrading = colorCorrectAll(colorHDR);
 
-  outColor.rgb = saturate(
-    doTonemapping(u_tonemappingMode, colorAfterColorGrading)
-  );
+  vec3 result = doTonemapping(u_tonemappingMode, colorAfterColorGrading);
+  result = saturate(result);
 
-  float luma = toLuma_fromLinear(outColor.rgb);
+  float luma = toLuma_fromLinear(result);
   // just SOME gamma, does not matter exact. We need to convert into SOME perceptual space
-  outColor.a = doGamma(luma, u_fxaa_luma_gamma);
+  luma = doGamma(luma, u_fxaa_luma_gamma);
+
+  outColor = uvec4(vec4(result, luma) * 255);
 }

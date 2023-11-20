@@ -6,7 +6,7 @@ precision highp usampler2D;
 
 
 layout(binding = 1)
-uniform sampler2D u_tonemappedTex; // TODO usampler2D
+uniform usampler2D u_tonemappedTex;
 layout(binding = 2)
 uniform usampler2D u_normalsTex;
 layout(binding = 3)
@@ -33,8 +33,9 @@ vec3 doFxaa (vec2 uv) {
   vec4 color;
 
   if (u_edgeThreshold == 0.0) {
-    // color = vec4(readModelTexture_uint(u_tonemappedTex, uv), 1.0);
-    color = vec4(texture(u_tonemappedTex, uv).rgb, 1.0);
+    // FXAA off
+    color = FxaaSampleCol(u_tonemappedTex, uv, 0.0);
+    color.w = 1.0;
   } else {
     color = FxaaPixelShader(
       uv, // in [0-1]
@@ -150,7 +151,7 @@ void main() {
     
     case DISPLAY_MODE_LUMA: {
       vec2 uv = fixOpenGLTextureCoords_AxisY(v_position);
-      float luma = texture(u_tonemappedTex, uv).a;
+      float luma = FxaaSampleLuma(u_tonemappedTex, uv, 0.0);
       result = vec3(luma, luma, luma);
       break;
     }

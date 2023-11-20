@@ -11,8 +11,7 @@ use super::PassExecContext;
 const BINDING_INDEX_CONFIG_UBO: u32 = 0;
 const BINDING_INDEX_PREVIOUS_RESULT: u32 = 1;
 
-// const RESULT_TEXTURE_FORMAT: vk::Format = vk::Format::R8G8B8A8_UINT; // TODO [CRITICAL] after tonemapping should be R8G8B8A8, not floats
-const RESULT_TEXTURE_FORMAT: vk::Format = vk::Format::R32G32B32A32_SFLOAT;
+const RESULT_TEXTURE_FORMAT: vk::Format = vk::Format::R8G8B8A8_UINT;
 const COLOR_ATTACHMENT_COUNT: usize = 1;
 const SHADER_PATHS: (&str, &str) = (
   "./assets/shaders-compiled/fullscreen_quad.vert.spv",
