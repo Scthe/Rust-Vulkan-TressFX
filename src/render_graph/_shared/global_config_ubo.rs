@@ -31,7 +31,7 @@ pub struct GlobalConfigUBO {
   pub u_shadow_matrix_vp: Mat4,
   pub u_shadow_radius_and_bias: Vec4, // [u_shadowRadiusForwardShading, u_shadowBiasForwardShading, u_shadowRadiusTfx, u_shadowBiasTfx]
   pub u_shadow_caster_position: Vec4, // [position.xyz, u_shadowsTechnique]
-  pub u_ao_settings: Vec4, // (u_aoStrength, u_aoExp, showDebugPositions+u_maxShadowContribution, -)
+  pub u_ao_settings: Vec4, // (u_aoStrength, u_aoExp, showDebugPositions+u_maxShadowContribution, gamma)
   // sss
   pub u_sss_settings: Vec4, // [u_sssPosition, u_sssFarPlane]
   pub u_sss_matrix_vp: Mat4,
@@ -163,7 +163,7 @@ impl GlobalConfigUBO {
         config.ssao.ao_strength,
         config.ssao.ao_exp,
         encode_flag_in_value_sign(config.show_debug_positions, shadows.strength),
-        0.0,
+        config.postfx.gamma,
       ),
       // sss
       u_sss_settings: vec4(

@@ -54,6 +54,7 @@ pub fn create_surface_khr(
   }
 }
 
+/// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPresentModeKHR.html
 pub fn get_swapchain_format(
   surface_loader: &Surface,
   surface_khr: vk::SurfaceKHR,
@@ -72,6 +73,7 @@ pub fn get_swapchain_format(
   // return surface_formats.first();
 
   // TBH there is only one that I know
+  // https://stackoverflow.com/questions/66401081/vulkan-swapchain-format-unorm-vs-srgb
   let fmt = surface_formats.iter().find(|surface_fmt| {
     let fmt_ok = surface_fmt.format == vk::Format::B8G8R8A8_UNORM;
     let color_space_ok = surface_fmt.color_space == vk::ColorSpaceKHR::SRGB_NONLINEAR;

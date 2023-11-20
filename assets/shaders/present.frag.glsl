@@ -192,6 +192,10 @@ void main() {
     case DISPLAY_MODE_FINAL: {
       vec2 uv = fixOpenGLTextureCoords_AxisY(v_position);
       result = doFxaa(uv);
+      // check used vk::SurfaceFormatKHR (swapchain format + color space) first.
+      // We are using vk::Format::B8G8R8A8_UNORM and vk::ColorSpaceKHR::SRGB_NONLINEAR
+      // so the gamma is required.
+      result = doGamma(result, u_gamma);
       break;
     }
   }

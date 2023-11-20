@@ -9,6 +9,7 @@ pub enum TonemappingMode {
 }
 
 pub struct PostFxCfg {
+  pub gamma: f32,
   pub dither_strength: f32,
   // tonemapping
   pub tonemapping_op: usize,
@@ -30,6 +31,7 @@ pub struct PostFxCfg {
 impl Default for PostFxCfg {
   fn default() -> Self {
     Self {
+      gamma: 2.2,
       dither_strength: 1.5,
       // tonemapping
       tonemapping_op: TonemappingMode::AcesUe4 as _,

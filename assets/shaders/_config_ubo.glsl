@@ -27,7 +27,7 @@ uniform GlobalConfigUniformBuffer {
   mat4 u_directionalShadowMatrix_VP;
   vec4 u_shadowRadiusAndBias; // [u_shadowRadiusForwardShading, u_shadowBiasForwardShading, u_shadowRadiusTfx, u_shadowBiasTfx]
   vec4 u_directionalShadowCasterPosition; // [position.xyz, u_maxShadowContribution]
-  vec4 u_aoSettings; // (u_aoStrength, u_aoExp, showDebugPositions+u_maxShadowContribution, -)
+  vec4 u_aoSettings; // (u_aoStrength, u_aoExp, showDebugPositions+u_maxShadowContribution, gamma)
   // sss
   vec4 u_sssSettings; // [u_sssPosition, u_sssFarPlane]
   mat4 u_sssMatrix_VP;
@@ -98,6 +98,7 @@ uniform GlobalConfigUniformBuffer {
 #define u_aoExp (u_aoSettings.g)
 #define u_showDebugPositions (readConfigFlagFromSign(u_aoSettings.b))
 #define u_maxShadowContribution (readConfigValueFromValueWithFlag(u_aoSettings.b))
+#define u_gamma (u_aoSettings.w)
 
 // SSS (u_sssSettings)
 #define u_sssPosition (u_sssSettings.xyz)
