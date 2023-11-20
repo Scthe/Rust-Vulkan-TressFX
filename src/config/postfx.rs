@@ -30,6 +30,9 @@ pub struct PostFxCfg {
 
 impl Default for PostFxCfg {
   fn default() -> Self {
+    let mut cg_global = ColorGradingPerRangeSettings::default();
+    cg_global.gamma.value = 0.9;
+
     Self {
       gamma: 2.2,
       dither_strength: 1.5,
@@ -44,7 +47,7 @@ impl Default for PostFxCfg {
       color_grading: ColorGradingCfg {
         shadows_max: 0.09,
         highlights_min: 0.5,
-        global: ColorGradingPerRangeSettings::default(),
+        global: cg_global,
         shadows: ColorGradingPerRangeSettings::default(),
         midtones: ColorGradingPerRangeSettings::default(),
         highlights: ColorGradingPerRangeSettings::default(),

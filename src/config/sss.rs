@@ -28,9 +28,14 @@ pub struct SSSBlurPassCfg {
 impl Default for SSSBlurPassCfg {
   fn default() -> Self {
     Self {
-      blur_width: 25.0,
-      blur_strength: 0.35,
+      blur_width: 0.25,
+      blur_strength: 0.03,
       blur_follow_surface: true,
     }
   }
+}
+
+impl SSSBlurPassCfg {
+  pub const SSS_WIDTH_MIN: f32 = 0.01;
+  pub const SSS_WIDTH_MAX: f32 = 1.0;
 }

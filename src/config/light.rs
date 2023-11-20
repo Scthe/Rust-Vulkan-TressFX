@@ -33,7 +33,7 @@ impl LightCfg {
       pos_theta: 45.0, // verical [dgr]
       pos_distance: 10.0,
       color: vec3_to_mint(color_hex_to_vec(214, 197, 208)),
-      energy: 1.0,
+      energy: 0.6,
     }
   }
 
@@ -43,7 +43,7 @@ impl LightCfg {
       pos_theta: 82.0, // verical [dgr]
       pos_distance: 10.0,
       color: vec3_to_mint(color_hex_to_vec(214, 166, 166)),
-      energy: 0.80,
+      energy: 1.25,
     }
   }
 
@@ -52,8 +52,8 @@ impl LightCfg {
       pos_phi: -105.0, // horizontal [dgr]
       pos_theta: 55.0, // verical [dgr]
       pos_distance: 10.0,
-      color: vec3_to_mint(color_hex_to_vec(133, 171, 169)),
-      energy: 0.55,
+      color: vec3_to_mint(color_hex_to_vec(154, 138, 112)),
+      energy: 0.7,
     }
   }
 }

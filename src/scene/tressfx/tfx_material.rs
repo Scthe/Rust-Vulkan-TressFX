@@ -27,17 +27,17 @@ pub struct TfxMaterial {
 impl Default for TfxMaterial {
   fn default() -> Self {
     Self {
-      albedo: vec3_to_mint(color_hex_to_vec(31, 26, 24)),
+      albedo: vec3_to_mint(color_hex_to_vec(23, 15, 12)),
       opacity: 0.9,
       ao_strength: 1.0,
       ao_exp: 3.1,
-      specular_color1: vec3_to_mint(color_hex_to_vec(87, 43, 24)),
-      specular_power1: 160.0,
-      specular_strength1: 0.27,
+      specular_color1: vec3_to_mint(color_hex_to_vec(104, 67, 44)),
+      specular_power1: 20.0,
+      specular_strength1: 0.075,
       primary_shift: 0.005,
       specular_color2: vec3_to_mint(color_hex_to_vec(138, 129, 111)),
-      specular_power2: 400.0,
-      specular_strength2: 0.07,
+      specular_power2: 380.0,
+      specular_strength2: 0.23,
       secondary_shift: -0.06,
     }
   }

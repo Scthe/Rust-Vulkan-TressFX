@@ -41,6 +41,7 @@ float SSSSS_sampleDepthLinear (sampler2D depthTex, vec2 texcoord) {
 #pragma include ./materials/_pbr;
 #pragma include ./materials/_shadows;
 #define SSSS_GLSL_3 1
+#define SSSS_QUALITY 2
 #pragma include ./materials/_separableSSSSS;
 // #pragma include ./_skin; // not imported even in WebFx?
 
@@ -155,7 +156,7 @@ vec4 debugModeOverride(Material material, vec3 shadingResult){
       break;
     }
     case DISPLAY_MODE_SSS_SCATTERING: {
-      vec4 sss = calculateSSSForwardScattering(material);
+      vec4 sss = calculateSSSForwardScattering(material) * u_sssStrength;
       result = vec4(sss.rgb, 1);
       break;
     }

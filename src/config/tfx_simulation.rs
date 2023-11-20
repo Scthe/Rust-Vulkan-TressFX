@@ -29,13 +29,16 @@ impl TfxSimulation {
 impl Default for TfxSimulation {
   fn default() -> Self {
     Self {
-      gravity: 20.0,
-      verlet_integration_damping: 1.0,
-      global_stiffness: 0.01,
-      global_stiffness_range: 0.3,
+      gravity: 50.0,
+      verlet_integration_damping: 0.5,
+      // global
+      global_stiffness: 0.1,
+      global_stiffness_range: 0.2,
+      // local
       local_stiffness: 0.15,
-      local_stiffness_iterations: 2,
-      length_stiffness: 1.0,
+      local_stiffness_iterations: 1,
+      // length
+      length_stiffness: 0.95,
       length_constraint_iterations: 4,
 
       // wind

@@ -75,7 +75,7 @@ pub struct TfxObject {
 }
 
 impl TfxObject {
-  pub const MAX_FOLLOW_HAIRS_PER_GUIDE: u32 = 15;
+  pub const MAX_FOLLOW_HAIRS_PER_GUIDE: u32 = 20;
 
   pub fn from_file(
     vk_ctx: &VkCtx,
@@ -105,9 +105,9 @@ impl TfxObject {
       center_of_gravity: vec3(0.0, 0.0, 0.0),
       material: TfxMaterial::default(),
       // tressfx:
-      fiber_radius: 0.02,
+      fiber_radius: 0.013,
       thin_tip: 0.9,
-      follow_hairs: 10,
+      follow_hairs: 15,
       follow_hair_spread_root: 0.3,
       follow_hair_spread_tip: 0.09,
       num_hair_strands: data.num_hair_strands,

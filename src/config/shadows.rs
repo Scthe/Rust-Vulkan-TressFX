@@ -31,7 +31,7 @@ impl Default for ShadowSourceCfg {
   fn default() -> Self {
     let proj_box_side = ShadowsConfig::SHADOWS_ORTHO_SIZE as f32;
     Self {
-      pos_phi: 105.0,
+      pos_phi: 51.5,
       pos_theta: 45.0,
       pos_distance: 20,
       look_at_target: vec3(0.0, 5.0, 0.0),
@@ -84,7 +84,7 @@ impl Default for ShadowsConfig {
       blur_radius: 4,
       blur_radius_tfx: 1,
       bias: 0.005,
-      bias_hair_tfx: 0.050,
+      bias_hair_tfx: 0.020,
       hair_tfx_radius_multipler: 1.1,
       strength: 0.7,
       shadow_source: ShadowSourceCfg::default(),

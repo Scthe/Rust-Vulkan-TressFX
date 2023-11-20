@@ -110,6 +110,7 @@ vec4 drawDebugSpheres(){
     DRAW_DEBUG_SPHERE(u_sssPosition, vec3(0.87, 0.53, 0.36), r); // #de875d
     // wind
     vec3 windPosition = -u_tfxWind.xyz * 10; // reverse cause if wind blows to the left, we draw source on right
+    windPosition += vec3(0,7,0); // Hardcoded for debug - this is Sintel's eyes height so it's easier to see the wind dir for hair instead of around (0,0,0)
     // Move consequtive circles closer to camera to pass z-test vs `closestRayHit`.
     // We are raycasting against 3D spheres and bigger radius 'swallows' the smaller circles.
     vec3 windToCamera = normalize(u_cameraPosition.xyz - windPosition) * r;

@@ -154,31 +154,6 @@
 //-----------------------------------------------------------------------------
 // Configurable Defines
 
-/**
- * SSSS_FOV must be set to the value used to render the scene.
- */
-#ifndef SSSS_FOVY
-#define SSSS_FOVY 20.0
-#endif
-
-/**
- * Light diffusion should occur on the surface of the object, not in a screen
- * oriented plane. Setting SSSS_FOLLOW_SURFACE to 1 will ensure that diffusion
- * is more accurately calculated, at the expense of more memory accesses.
- */
-#ifndef SSSS_FOLLOW_SURFACE
-#define SSSS_FOLLOW_SURFACE 0
-#endif
-
-/**
- * This define allows to specify a different source for the SSS strength
- * (instead of using the alpha channel of the color framebuffer). This is
- * useful when the alpha channel of the mian color buffer is used for something
- * else.
- */
-#ifndef SSSS_STREGTH_SOURCE
-#define SSSS_STREGTH_SOURCE (colorM.a)
-#endif
 
 /**
  * If SSSS_N_SAMPLES is defined at this point, a custom filter kernel must be
@@ -205,7 +180,7 @@ float4 kernel[SSSS_N_SAMPLES];
  * Quality ranges from 0 to 2, being 2 the highest quality available.
  * The quality is with respect to 1080p; for 720p Quality=0 suffices.
  */
-#define SSSS_QUALITY 1
+// #define SSSS_QUALITY 1
 
 #if SSSS_QUALITY == 2
 #define SSSS_N_SAMPLES 25
@@ -433,10 +408,8 @@ float4 SSSSBlurPS(
       float depth = SSSSS_sampleDepthLinear(depthTex, offset);
 
       // Original:
-      // float s = SSSSSaturate(
-        // abs(depthM - depth) / (distanceToProjectionWindow * (maxOffsetMm / sssWidth))
-      // );
-      // s = min(1.0, s * 1.5); // custom / user definable scaling
+      // float s = SSSSSaturate(300.0f * distanceToProjectionWindow *
+                              // sssWidth * abs(depthM - depth));
       // UE4:
       float s = saturate(12.0f / 400.0f * sssWidth * abs(depthM - depth));
 

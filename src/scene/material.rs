@@ -29,11 +29,13 @@ impl Material {
       is_metallic: false,
       specular: 0.7,
       specular_mul: 1.0,
+      // sss
       sss_transluency: 0.8,
-      sss_width: 30.0,
+      sss_width: 0.35,
       sss_bias: 0.07,
       sss_gain: 0.0,
-      sss_strength: 0.6,
+      sss_strength: 0.3,
+      // textures
       albedo_tex,
       specular_tex,
       hair_shadow_tex,
