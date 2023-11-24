@@ -72,13 +72,17 @@ impl VkCtx {
     VkCtxPerSwapchainImageData {
       swapchain_image_idx: frame_idx,
       command_buffer: get_resource_at_idx("command_buffer", cmd_bufs, frame_idx),
-      draw_command_fence: get_resource_at_idx("fence", &syncs.draw_commands_fences, frame_idx),
-      present_complete_semaphore: get_resource_at_idx(
+      queue_submit_finished_fence: get_resource_at_idx(
+        "fence",
+        &syncs.draw_commands_fences,
+        frame_idx,
+      ),
+      swapchain_image_acquired_semaphore: get_resource_at_idx(
         "present_complete_semaphore",
         &syncs.present_complete_semaphore,
         frame_idx,
       ),
-      rendering_complete_semaphore: get_resource_at_idx(
+      queue_submit_finished_semaphore: get_resource_at_idx(
         "rendering_complete_semaphore",
         &syncs.rendering_complete_semaphore,
         frame_idx,

@@ -128,8 +128,8 @@ impl Config {
       display_mode: DisplayMode::Final as _,
       linear_depth_preview_range: vec2(-2.0, -15.0),
       // window
-      window_width: 800f64,
-      window_height: 600f64,
+      window_width: 1280f64,
+      window_height: 720f64,
       vsync: true,
       // clear colors
       clear_color: color_hex_to_vec(clear_col, clear_col, clear_col),

@@ -1,10 +1,10 @@
 [package]
 name = "rs-tressfx"
-version = "0.1.0"
+version = "1.0.0"
 authors = ["Scthe <marcin1113C@gmail.com>"]
 edition = "2018"
-description = ""
-repository = "https://github.com/scthe/rs-tressfx"
+description = "Implementation of AMD's TressFX hair rendering and simulation technology using Rust and Vulkan."
+repository = "https://github.com/scthe/Rust-Vulkan-TressFX"
 license = "MIT"
 
 [profile.release]

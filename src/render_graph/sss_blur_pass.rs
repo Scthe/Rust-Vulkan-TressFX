@@ -304,7 +304,7 @@ impl SSSBlurPass {
     );
 
     // TODO [LOW] this rebinds same render pass/pipeline as the pass above (same for normal blur). But what about the barriers?
-    //      Optimize: BARRIER_1 -> START_RENDER_PASS -> RENDER_1 -> BARRIER_2 -> RENDER_2 -> END_RENDER_PASS
+    //      Optimize: BARRIER_1 -> START_RENDER_PASS -> SUBPASS_RENDER_1 -> BARRIER_2 -> SUBPASS_RENDER_2 -> END_RENDER_PASS
     self.execute_blur_single_direction(
       exec_ctx,
       framebuffer1,

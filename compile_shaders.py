@@ -138,7 +138,7 @@ def add_debug_data(path_glsl, path_spv):
 	if result.returncode == 0:
 		print(f"\tDebug data added")
 	else:
-		print(f"\nError adding debug datacompiling '{clickable_path}'")
+		print(f"\nError adding debug data. File '{clickable_path}'")
 		print(result.stderr)
 		sys.exit(1)
 
@@ -154,8 +154,9 @@ def compile_shader(path, shader_lines):
 	if shader_stage is None:
 		print(f"Unable to guess shader type from filepath '{path}'")
 		sys.exit(1)
-	pass
 
+	# Use `glslc.exe` to compile to `.spv` and parse errors if any.
+	# if `ADD_DEBUG_DATA` is true, we will later override result of `glsc.exe` anyway
 	out_path = path.replace(".glsl", ".spv")
 	trace(f"\tCompiling {shader_stage} shader to '{out_path}'")
 	result = subprocess.run(

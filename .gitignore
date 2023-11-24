@@ -4,5 +4,8 @@ workspace.code-workspace
 # app
 /target
 /reference
-/assets/shaders-compiled
+/assets/shaders-compiled/*.glsl
+/assets/shaders-compiled/*.spv
 imgui.ini
+# RenderDoc capture settings
+*.cap

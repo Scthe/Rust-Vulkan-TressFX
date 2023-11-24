@@ -13,6 +13,7 @@ use super::VkTexture;
 // https://github.com/Tobski/simple_vulkan_synchronization/blob/main/thsvs_simpler_vulkan_synchronization.h
 // https://github.com/KhronosGroup/Vulkan-Docs/wiki/Synchronization-Examples-(Legacy-synchronization-APIs)
 // https://github.com/EmbarkStudios/kajiya/blob/main/crates/lib/kajiya-rg/src/graph.rs#L950
+// TODO [LOW] This code is from before I knew more about Vulkan sync. Rewrite to make it cleaner. Though all works fine so..
 
 impl VkTexture {
   /// The `srcStageMask` marks the stages to wait for in previous commands

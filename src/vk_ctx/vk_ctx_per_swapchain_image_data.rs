@@ -8,7 +8,7 @@ pub struct VkCtxPerSwapchainImageData {
   pub command_buffer: vk::CommandBuffer,
 
   // synchronize
-  pub present_complete_semaphore: vk::Semaphore,
-  pub rendering_complete_semaphore: vk::Semaphore,
-  pub draw_command_fence: vk::Fence,
+  pub swapchain_image_acquired_semaphore: vk::Semaphore,
+  pub queue_submit_finished_semaphore: vk::Semaphore,
+  pub queue_submit_finished_fence: vk::Fence,
 }

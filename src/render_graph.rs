@@ -167,13 +167,14 @@ impl RenderGraph {
     let cmd_buf = frame_sync.command_buffer;
 
     // get next swapchain image (view and framebuffer)
+    // https://themaister.net/blog/2023/11/12/my-scuffed-game-streaming-adventure-pyrofling/
     let swapchain_image_index: usize = unsafe {
       swapchain
         .swapchain_loader
         .acquire_next_image(
           swapchain.swapchain,
           u64::MAX,
-          frame_sync.present_complete_semaphore, // 'acquire_semaphore'
+          frame_sync.swapchain_image_acquired_semaphore, // 'acquire_semaphore'
           vk::Fence::null(),
         )
         .expect("Failed to acquire next swapchain image")
@@ -188,12 +189,15 @@ impl RenderGraph {
     update_tfx_uniform_buffers(config, scene, swapchain_image_index);
 
     // sync between frames
+    // since we have usually 3 frames in flight, wait for queue submit
+    // of the frame that was 3 frames before.
+    // TODO [HIGH] shouldn't this be before we "update per-frame uniforms"?
     unsafe {
       device
-        .wait_for_fences(&[frame_sync.draw_command_fence], true, u64::MAX)
+        .wait_for_fences(&[frame_sync.queue_submit_finished_fence], true, u64::MAX)
         .expect("vkWaitForFences at frame start failed");
       device
-        .reset_fences(&[frame_sync.draw_command_fence])
+        .reset_fences(&[frame_sync.queue_submit_finished_fence])
         .expect("vkResetFences at frame start failed");
     }
 
@@ -367,23 +371,27 @@ impl RenderGraph {
 
     // submit command buffers to the queue
     let submit_info = vk::SubmitInfo::builder()
-      .wait_semaphores(&[frame_sync.present_complete_semaphore])
+      .wait_semaphores(&[frame_sync.swapchain_image_acquired_semaphore])
       .wait_dst_stage_mask(&[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT])
       .command_buffers(&[cmd_buf])
-      .signal_semaphores(&[frame_sync.rendering_complete_semaphore]) // release_semaphore
+      .signal_semaphores(&[frame_sync.queue_submit_finished_semaphore]) // release_semaphore
       .build();
     unsafe {
       device
-        .queue_submit(queue, &[submit_info], frame_sync.draw_command_fence)
+        .queue_submit(
+          queue,
+          &[submit_info],
+          frame_sync.queue_submit_finished_fence,
+        )
         .expect("Failed queue_submit()");
     }
 
-    // present queue result
+    // present queue result after queue finished work
     let present_info = vk::PresentInfoKHR::builder()
       .image_indices(&[swapchain_image_index as _])
       // .results(results) // p_results: ptr::null_mut(),
       .swapchains(&[swapchain.swapchain])
-      .wait_semaphores(&[frame_sync.rendering_complete_semaphore])
+      .wait_semaphores(&[frame_sync.queue_submit_finished_semaphore])
       .build();
 
     unsafe {
