@@ -3,9 +3,23 @@
 This is an implementation of [AMD's TressFX](https://gpuopen.com/tressfx/) hair rendering and simulation technology using Rust and Vulkan.
 
 
+
+https://github.com/Scthe/Rust-Vulkan-TressFX/assets/9325337/d558c2cb-8164-47f0-903c-1346d2829c71
+
+*Showcase adjusting real-time shadows using the UI*
+
+
 [TressFX](https://gpuopen.com/tressfx/) is AMD's library used for the simulation and rendering of hair. It's been used in commercial games like the newest Tomb Raider titles and Deus Ex: Mankind Divided. The library itself is [open source](https://github.com/GPUOpen-Effects/TressFX) under GPUOpen initiative. Please visit the provided links to get more details.
 
 Previously, I've already [ported TressFX to OpenGL with C++](https://github.com/Scthe/TressFX-OpenGL). It was mainly required to provide bindings for AMD's framework functions and translate HLSL into GLSL shader code. The app contained both the rendering and the simulation part. Later on, I created [WebFX](https://github.com/Scthe/WebFX) ([Demo](http://scthe.github.io/WebFX/dist)) - in browser viewer for TressFX files. Due to WebGL limitations (no compute shaders), it only contained the rendering part.
+
+
+
+
+https://github.com/Scthe/Rust-Vulkan-TressFX/assets/9325337/3f99198f-425c-4eb9-94d4-65b18c593339
+
+*TressFX simulation: adjusting the wind strength*
+
 
 
 ## Usage
