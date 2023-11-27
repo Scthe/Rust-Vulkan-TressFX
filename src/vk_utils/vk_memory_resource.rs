@@ -1,5 +1,42 @@
 use std::marker::{Send, Sync};
 
+#[derive(PartialEq)]
+pub enum VkMemoryPreference {
+  /// Usage: vertex, index buffers, SSBO.
+  GpuOnly,
+  /// CPU-mapped memory that is read on GPU (e.g. uniforms).
+  /// Will be persistently mapped.
+  ///
+  /// Usage: Uniform buffers.
+  GpuMappable,
+  /// Temporary allocation used when copying CPU data to GPU-only memory.
+  /// No guarantee if it's CPU or GPU. Nor should you care.
+  ScratchTransfer,
+}
+
+pub fn determine_gpu_allocation_info(
+  memory_pref: &VkMemoryPreference,
+) -> vma::AllocationCreateInfo {
+  match memory_pref {
+    VkMemoryPreference::GpuOnly => vma::AllocationCreateInfo {
+      usage: vma::MemoryUsage::AutoPreferDevice,
+      ..Default::default()
+    },
+    VkMemoryPreference::GpuMappable => vma::AllocationCreateInfo {
+      usage: vma::MemoryUsage::AutoPreferDevice,
+      flags: vma::AllocationCreateFlags::HOST_ACCESS_SEQUENTIAL_WRITE
+        | vma::AllocationCreateFlags::MAPPED,
+      ..Default::default()
+    },
+    VkMemoryPreference::ScratchTransfer => vma::AllocationCreateInfo {
+      usage: vma::MemoryUsage::Auto,
+      flags: vma::AllocationCreateFlags::HOST_ACCESS_SEQUENTIAL_WRITE
+        | vma::AllocationCreateFlags::MAPPED,
+      ..Default::default()
+    },
+  }
+}
+
 /// Wrapper over a raw pointer to make it moveable and accessible from other threads
 pub struct MemoryMapPointer(pub *mut u8);
 unsafe impl Send for MemoryMapPointer {}

@@ -198,7 +198,7 @@ impl TfxPpllBuildPass {
       vk::ImageTiling::OPTIMAL,
       // will be cleared every frame:
       vk::ImageUsageFlags::STORAGE | vk::ImageUsageFlags::TRANSFER_DST,
-      vk::MemoryPropertyFlags::DEVICE_LOCAL,
+      VkMemoryPreference::GpuOnly,
       vk::ImageLayout::GENERAL,
     );
 
@@ -209,7 +209,7 @@ impl TfxPpllBuildPass {
       format!("TfxPpllBuildPass.ppll_data#{}", frame_id),
       ppll_size as _,
       vk::BufferUsageFlags::STORAGE_BUFFER,
-      VkBufferMemoryPreference::GpuOnly,
+      VkMemoryPreference::GpuOnly,
     );
 
     // single atomic uint
@@ -218,7 +218,7 @@ impl TfxPpllBuildPass {
       Self::PPLL_ATOMIC_COUNTER_BYTES,
       // will be cleared every frame:
       vk::BufferUsageFlags::STORAGE_BUFFER | vk::BufferUsageFlags::TRANSFER_DST,
-      VkBufferMemoryPreference::GpuOnly,
+      VkMemoryPreference::GpuOnly,
     );
 
     TfxPpllBuildPassFramebuffer {

@@ -8,7 +8,7 @@ use crate::{
   config::Config,
   render_graph::ForwardModelUBO,
   vk_ctx::VkCtx,
-  vk_utils::{VkBuffer, VkBufferMemoryPreference, VkMemoryResource},
+  vk_utils::{VkBuffer, VkMemoryPreference, VkMemoryResource},
 };
 
 use super::{BoundingBox, Camera, Material};
@@ -76,7 +76,7 @@ fn allocate_model_ubo(vk_ctx: &VkCtx, name: &str, frame_idx: usize) -> VkBuffer 
     format!("{}.model_ubo#{}", name, frame_idx),
     size,
     vk::BufferUsageFlags::UNIFORM_BUFFER,
-    VkBufferMemoryPreference::Mappable,
+    VkMemoryPreference::GpuMappable,
   )
 }
 

@@ -11,7 +11,10 @@ use ash::vk;
 
 use crate::vk_utils::create_image_view;
 
-use super::{MemoryMapPointer, VkMemoryResource, WithSetupCmdBuffer};
+use super::{
+  determine_gpu_allocation_info, MemoryMapPointer, VkMemoryPreference, VkMemoryResource,
+  WithSetupCmdBuffer,
+};
 
 pub struct VkTexture {
   /// For debugging. User-set name
@@ -51,7 +54,7 @@ impl VkTexture {
     format: vk::Format,
     tiling: vk::ImageTiling,
     usage: vk::ImageUsageFlags,
-    allocation_flags: vk::MemoryPropertyFlags,
+    memory_pref: VkMemoryPreference,
     initial_layout: vk::ImageLayout,
   ) -> Self {
     let create_info = vk::ImageCreateInfo::builder()
@@ -73,16 +76,10 @@ impl VkTexture {
       .array_layers(1)
       .build();
 
-    #[allow(deprecated)]
-    let alloc_info = vma::AllocationCreateInfo {
-      usage: vma::MemoryUsage::GpuOnly,
-      required_flags: allocation_flags,
-      ..Default::default()
-    };
-
+    let alloc_create_info = determine_gpu_allocation_info(&memory_pref);
     let (image, allocation) = unsafe {
       allocator
-        .create_image(&create_info, &alloc_info)
+        .create_image(&create_info, &alloc_create_info)
         .expect("Failed allocating GPU memory for texture")
     };
 
@@ -150,7 +147,7 @@ impl VkTexture {
       format,
       vk::ImageTiling::OPTIMAL,
       vk::ImageUsageFlags::SAMPLED | vk::ImageUsageFlags::TRANSFER_DST,
-      vk::MemoryPropertyFlags::DEVICE_LOCAL,
+      VkMemoryPreference::GpuOnly,
       vk::ImageLayout::TRANSFER_DST_OPTIMAL,
     );
 
@@ -189,7 +186,7 @@ impl VkTexture {
       format,
       vk::ImageTiling::OPTIMAL,
       vk::ImageUsageFlags::SAMPLED | vk::ImageUsageFlags::TRANSFER_DST,
-      vk::MemoryPropertyFlags::DEVICE_LOCAL,
+      VkMemoryPreference::GpuOnly,
       vk::ImageLayout::TRANSFER_DST_OPTIMAL,
     );
 
@@ -214,7 +211,7 @@ impl VkTexture {
       dst_texture.format,
       vk::ImageTiling::LINEAR,
       vk::ImageUsageFlags::SAMPLED | vk::ImageUsageFlags::TRANSFER_SRC,
-      vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
+      VkMemoryPreference::ScratchTransfer,
       vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
     );
 

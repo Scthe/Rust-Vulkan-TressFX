@@ -403,7 +403,7 @@ impl ForwardPass {
       VkTexture::RAW_DATA_TEXTURE_FORMAT,
       vk::ImageTiling::OPTIMAL,
       vk::ImageUsageFlags::SAMPLED,
-      vk::MemoryPropertyFlags::DEVICE_LOCAL,
+      VkMemoryPreference::GpuOnly,
       vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
     )
   }

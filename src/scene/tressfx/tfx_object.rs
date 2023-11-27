@@ -9,7 +9,7 @@ use crate::{
   either,
   render_graph::TfxParamsUBO,
   vk_ctx::VkCtx,
-  vk_utils::{VkBuffer, VkBufferMemoryPreference, VkMemoryResource, WithSetupCmdBuffer},
+  vk_utils::{VkBuffer, VkMemoryPreference, VkMemoryResource, WithSetupCmdBuffer},
 };
 
 #[allow(deprecated)]
@@ -395,7 +395,7 @@ fn allocate_params_ubo(vk_ctx: &VkCtx, name: &str, frame_idx: usize) -> VkBuffer
     format!("{}.params_ubo#{}", name, frame_idx),
     size,
     vk::BufferUsageFlags::UNIFORM_BUFFER,
-    VkBufferMemoryPreference::Mappable,
+    VkMemoryPreference::GpuMappable,
   )
 }
 

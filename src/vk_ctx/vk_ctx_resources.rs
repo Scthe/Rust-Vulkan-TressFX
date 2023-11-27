@@ -4,7 +4,7 @@ use ash::{self};
 use crate::utils::get_attachment_name;
 use crate::vk_utils::debug::{set_buffer_debug_label, set_texture_debug_label};
 use crate::vk_utils::{
-  get_image_aspect_from_format, VkBuffer, VkBufferMemoryPreference, VkMemoryResource, VkTexture,
+  get_image_aspect_from_format, VkBuffer, VkMemoryPreference, VkMemoryResource, VkTexture,
 };
 
 use super::*;
@@ -16,7 +16,7 @@ impl VkCtx {
     name: String,
     size: usize,
     usage: vk::BufferUsageFlags,
-    memory_pref: VkBufferMemoryPreference,
+    memory_pref: VkMemoryPreference,
   ) -> VkBuffer {
     let buffer = VkBuffer::empty(
       &self.allocator,
@@ -69,7 +69,7 @@ impl VkCtx {
     format: vk::Format,
     tiling: vk::ImageTiling,
     usage: vk::ImageUsageFlags,
-    allocation_flags: vk::MemoryPropertyFlags,
+    memory_pref: VkMemoryPreference,
     initial_layout: vk::ImageLayout,
   ) -> VkTexture {
     let tex = VkTexture::empty(
@@ -81,7 +81,7 @@ impl VkCtx {
       format,
       tiling,
       usage,
-      allocation_flags,
+      memory_pref,
       initial_layout,
     );
     self.assign_texture_debug_label(&tex);
@@ -125,7 +125,7 @@ impl VkCtx {
       format,
       vk::ImageTiling::OPTIMAL,
       usage_flags,
-      vk::MemoryPropertyFlags::DEVICE_LOCAL,
+      VkMemoryPreference::GpuOnly,
       initial_layout,
     )
   }

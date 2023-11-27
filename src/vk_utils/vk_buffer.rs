@@ -1,7 +1,10 @@
 use ash::vk;
 use vma::Alloc;
 
-use super::{MemoryMapPointer, VkMemoryResource, WithSetupCmdBuffer};
+use super::{
+  determine_gpu_allocation_info, MemoryMapPointer, VkMemoryPreference, VkMemoryResource,
+  WithSetupCmdBuffer,
+};
 
 /*
 https://gpuopen-librariesandsdks.github.io/VulkanMemoryAllocator/html/quick_start.html
@@ -17,13 +20,6 @@ Similar small reference implementation:
 - https://github.com/EmbarkStudios/kajiya/blob/main/crates/lib/kajiya-backend/src/vulkan/buffer.rs
 - https://github.com/adrien-ben/gltf-viewer-rs/blob/12054a20e39ba12c8b30c46bc83da55a8021f695/crates/libs/vulkan/src/buffer.rs
 */
-
-#[derive(PartialEq)]
-pub enum VkBufferMemoryPreference {
-  GpuOnly,
-  /// Optimize for CPU mapping to copy CPU->GPU data
-  Mappable,
-}
 
 pub struct VkBuffer {
   /// For debugging. User-set name
@@ -49,7 +45,7 @@ impl VkBuffer {
     name: String,
     size: usize,
     usage: vk::BufferUsageFlags,
-    memory_pref: VkBufferMemoryPreference,
+    memory_pref: VkMemoryPreference,
   ) -> Self {
     let queue_family_indices = [queue_family];
     let buffer_info = vk::BufferCreateInfo::builder()
@@ -58,27 +54,14 @@ impl VkBuffer {
       .sharing_mode(vk::SharingMode::EXCLUSIVE)
       .queue_family_indices(&queue_family_indices);
 
-    #[allow(deprecated)]
-    let mut alloc_info = vma::AllocationCreateInfo {
-      usage: vma::MemoryUsage::GpuOnly,
-      ..Default::default()
-    };
-
-    #[allow(deprecated)]
-    match memory_pref {
-      VkBufferMemoryPreference::Mappable => {
-        alloc_info.required_flags =
-          vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT;
-      }
-      _ => (),
-    }
-
     let long_name = get_buffer_long_name(&name, size);
+    let alloc_create_info = determine_gpu_allocation_info(&memory_pref);
     let (buffer, allocation) = unsafe {
       allocator
-        .create_buffer(&buffer_info, &alloc_info)
+        .create_buffer(&buffer_info, &alloc_create_info)
         .expect(&format!("Failed allocating: {}", long_name))
     };
+    // let alloc_info = allocator.get_allocation_info(allocation);
 
     let mut buffer = Self {
       name: name.clone(),
@@ -90,7 +73,7 @@ impl VkBuffer {
     };
 
     // map if needed
-    if memory_pref == VkBufferMemoryPreference::Mappable {
+    if memory_pref != VkMemoryPreference::GpuOnly {
       buffer.map_memory(allocator);
     }
 
@@ -116,7 +99,7 @@ impl VkBuffer {
       format!("{}-scratch-buffer", name),
       size,
       vk::BufferUsageFlags::TRANSFER_SRC,
-      VkBufferMemoryPreference::Mappable,
+      VkMemoryPreference::ScratchTransfer,
     );
     // map buffer and copy content
     scratch_buffer.map_memory(allocator);
@@ -130,7 +113,7 @@ impl VkBuffer {
       name,
       size,
       usage | vk::BufferUsageFlags::TRANSFER_DST,
-      VkBufferMemoryPreference::GpuOnly,
+      VkMemoryPreference::GpuOnly,
     );
     with_setup_cb.with_setup_cb(|device, cb| unsafe {
       let mem_region = ash::vk::BufferCopy::builder()
