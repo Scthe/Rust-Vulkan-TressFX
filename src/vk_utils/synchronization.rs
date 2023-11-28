@@ -45,11 +45,21 @@ pub unsafe fn execute_full_pipeline_barrier(
 }
 
 /// Barrier mostly used for SSBO and storage images. No layout transitions etc.
+#[derive(Debug)]
 pub struct VkStorageResourceBarrier {
   /// wait for previous use in
   pub previous_op: (vk::PipelineStageFlags2, vk::AccessFlags2),
   /// before we
   pub next_op: (vk::PipelineStageFlags2, vk::AccessFlags2),
+}
+
+impl VkStorageResourceBarrier {
+  pub fn empty() -> Self {
+    Self {
+      previous_op: (vk::PipelineStageFlags2::empty(), vk::AccessFlags2::empty()),
+      next_op: (vk::PipelineStageFlags2::empty(), vk::AccessFlags2::empty()),
+    }
+  }
 }
 
 /// Barrier mostly used for SSBO and storage images. No layout transitions etc.
@@ -73,23 +83,20 @@ pub unsafe fn cmd_storage_resource_barrier(
   device.cmd_pipeline_barrier2(command_buffer, &dependency_info);
 }
 
-/// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageMemoryBarrier.html
+/// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageMemoryBarrier2.html
 pub fn create_image_barrier(
   image: vk::Image,
   aspect_mask: vk::ImageAspectFlags,
   old_layout: vk::ImageLayout,
   new_layout: vk::ImageLayout,
-  src_access_mask: vk::AccessFlags,
-  dst_access_mask: vk::AccessFlags,
-) -> vk::ImageMemoryBarrier {
-  vk::ImageMemoryBarrier::builder()
+  barrier: VkStorageResourceBarrier,
+) -> vk::ImageMemoryBarrier2 {
+  vk::ImageMemoryBarrier2::builder()
     .old_layout(old_layout)
     .new_layout(new_layout)
     .src_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
     .dst_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
     .image(image)
-    .src_access_mask(src_access_mask)
-    .dst_access_mask(dst_access_mask)
     .subresource_range(vk::ImageSubresourceRange {
       aspect_mask,
       base_mip_level: 0,
@@ -97,5 +104,11 @@ pub fn create_image_barrier(
       base_array_layer: 0,
       layer_count: 1, // vk::REMAINING_ARRAY_LAYERS
     })
+    // wait for previous use in:
+    .src_stage_mask(barrier.previous_op.0)
+    .src_access_mask(barrier.previous_op.1)
+    // before we:
+    .dst_stage_mask(barrier.next_op.0)
+    .dst_access_mask(barrier.next_op.1)
     .build()
 }

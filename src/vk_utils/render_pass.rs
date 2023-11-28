@@ -84,8 +84,12 @@ pub unsafe fn create_render_pass_from_attachments(
 
   // depth
   if let Some(a_ds) = depth {
-    src_stage_mask = src_stage_mask | vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS;
-    dst_stage_mask = dst_stage_mask | vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS;
+    src_stage_mask = src_stage_mask
+      | vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS
+      | vk::PipelineStageFlags::LATE_FRAGMENT_TESTS;
+    dst_stage_mask = dst_stage_mask
+      | vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS
+      | vk::PipelineStageFlags::LATE_FRAGMENT_TESTS;
     dst_access_mask = dst_access_mask | vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE;
     all_attachment_descs.push(a_ds.0);
     subpass.p_depth_stencil_attachment = &a_ds.1 as *const vk::AttachmentReference;
