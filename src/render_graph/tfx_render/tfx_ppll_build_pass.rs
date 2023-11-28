@@ -243,6 +243,9 @@ impl TfxPpllBuildPass {
     let pass_name = &create_per_object_pass_name::<Self>(&entity.name);
 
     unsafe {
+      // profiling might be a bit skewed cause barriers
+      let scope_id = exec_ctx.cmd_begin_scope(pass_name);
+
       // clears not allowed inside render pass per Vulkan Spec 19.1
       // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#clears
       self.cmd_reset_current_values(exec_ctx, framebuffer);
@@ -251,12 +254,12 @@ impl TfxPpllBuildPass {
       self.cmd_resource_barriers(device, &command_buffer, depth_stencil_tex);
 
       // start render pass
-      let scope_id =
-        exec_ctx.cmd_start_render_pass(pass_name, &self.render_pass, &framebuffer.fbo, &size, &[]);
-      device.cmd_bind_pipeline(
-        command_buffer,
-        vk::PipelineBindPoint::GRAPHICS,
-        self.pipeline,
+      exec_ctx.cmd_start_render_pass(
+        &self.render_pass,
+        &self.pipeline,
+        &framebuffer.fbo,
+        &size,
+        &[],
       );
 
       // draw calls

@@ -243,20 +243,16 @@ impl ShadowMapPass {
       self.cmd_resource_barriers(device, &command_buffer, framebuffer);
 
       // start render pass
-      let scope_id = exec_ctx.cmd_start_render_pass(
-        pass_name,
+      let scope_id = exec_ctx.cmd_begin_scope(pass_name);
+      exec_ctx.cmd_start_render_pass(
         &self.render_pass,
+        &self.pipeline_meshes,
         &framebuffer.fbo,
         &size,
         &[clear_depth],
       );
 
       // draw meshes
-      device.cmd_bind_pipeline(
-        command_buffer,
-        vk::PipelineBindPoint::GRAPHICS,
-        self.pipeline_meshes,
-      );
       let scene = &*exec_ctx.scene;
       for entity in &scene.entities {
         self.bind_push_constants(
@@ -273,11 +269,13 @@ impl ShadowMapPass {
 
       // draw hair
       if render_hair {
+        // switch pipeline
         device.cmd_bind_pipeline(
           command_buffer,
           vk::PipelineBindPoint::GRAPHICS,
           self.pipeline_hair,
         );
+        // draw hair commands
         for entity in &scene.tressfx_objects {
           self.bind_hair_ubos(exec_ctx, entity);
           self.bind_push_constants(

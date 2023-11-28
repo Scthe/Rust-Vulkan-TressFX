@@ -262,17 +262,13 @@ impl ForwardPass {
       );
 
       // start render pass
-      let scope_id = exec_ctx.cmd_start_render_pass(
-        pass_name,
+      let scope_id = exec_ctx.cmd_begin_scope(pass_name);
+      exec_ctx.cmd_start_render_pass(
         &self.render_pass,
+        &self.pipeline,
         &framebuffer.fbo,
         &size,
         &clear_values,
-      );
-      device.cmd_bind_pipeline(
-        command_buffer,
-        vk::PipelineBindPoint::GRAPHICS,
-        self.pipeline,
       );
 
       // draw calls

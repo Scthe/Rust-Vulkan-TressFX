@@ -425,6 +425,7 @@ impl RenderGraph {
           SSAOPass::create_result_texture(vk_app, &ssao_result_size, frame_id, true);
 
         // fbos
+        // shadow + shadow-like SSS
         let shadow_map_pass = self.shadow_map_pass.create_framebuffer::<ShadowMapPass>(
           vk_app,
           frame_id,
@@ -436,9 +437,11 @@ impl RenderGraph {
           &self.shadow_map_pass,
           config.sss_forward_scatter.depthmap_size,
         );
+        // forward
         let forward_pass = self
           .forward_pass
           .create_framebuffer(vk_app, frame_id, window_size);
+        // tfx
         let tfx_ppll_build_pass = self.tfx_ppll_build_pass.create_framebuffer(
           vk_app,
           frame_id,
@@ -450,9 +453,11 @@ impl RenderGraph {
           &forward_pass.diffuse_tex,
           &forward_pass.normals_tex,
         );
+
         let tfx_depth_only_pass = self
           .tfx_depth_only_pass
           .create_framebuffer(vk_app, &forward_pass.depth_stencil_tex);
+        // sss blur
         let sss_blur_fbo0 = self.sss_blur_pass.create_framebuffer(
           vk_app,
           &forward_pass.depth_stencil_tex,
@@ -463,10 +468,12 @@ impl RenderGraph {
           &forward_pass.depth_stencil_tex,
           &forward_pass.diffuse_tex,
         );
+        // linear depth
         let linear_depth_pass =
           self
             .linear_depth_pass
             .create_framebuffer(vk_app, frame_id, window_size);
+        // ssao
         let ssao_pass = self
           .ssao_pass
           .create_framebuffer(vk_app, frame_id, &ssao_result_size);
@@ -476,6 +483,7 @@ impl RenderGraph {
         let ssao_blur_fbo1 = self
           .ssao_blur_pass
           .create_framebuffer(vk_app, &ssao_pass.ssao_tex);
+        // tonemap
         let tonemapping_pass =
           self
             .tonemapping_pass

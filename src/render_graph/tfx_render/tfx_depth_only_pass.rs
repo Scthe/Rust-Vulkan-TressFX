@@ -158,15 +158,16 @@ impl TfxDepthOnlyPass {
       self.cmd_resource_barriers(device, &command_buffer, depth_tex);
 
       // start render pass
-      let scope_id =
-        exec_ctx.cmd_start_render_pass(&pass_name, &self.render_pass, &fbo, &depth_tex.size(), &[]);
+      let scope_id = exec_ctx.cmd_begin_scope(pass_name);
+      exec_ctx.cmd_start_render_pass(
+        &self.render_pass,
+        &self.pipeline,
+        &fbo,
+        &depth_tex.size(),
+        &[],
+      );
 
       // draw hair
-      device.cmd_bind_pipeline(
-        command_buffer,
-        vk::PipelineBindPoint::GRAPHICS,
-        self.pipeline,
-      );
       self.bind_hair_ubos(exec_ctx, entity);
       entity.cmd_draw_mesh(device, command_buffer);
 

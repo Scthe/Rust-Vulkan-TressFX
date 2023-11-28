@@ -96,7 +96,7 @@ impl TfxSim3Pass {
     let pass_name = &create_per_object_pass_name::<Self>(&entity.name);
 
     unsafe {
-      let scope_id = exec_ctx.cmd_start_compute_pass(pass_name);
+      let scope_id = exec_ctx.cmd_begin_scope(pass_name);
       device.cmd_bind_pipeline(
         command_buffer,
         vk::PipelineBindPoint::COMPUTE,
@@ -111,7 +111,7 @@ impl TfxSim3Pass {
       device.cmd_dispatch(command_buffer, group_count_x, 1, 1);
 
       // end
-      exec_ctx.cmd_end_compute_pass(scope_id);
+      exec_ctx.cmd_end_scope(scope_id);
     }
   }
 

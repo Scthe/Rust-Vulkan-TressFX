@@ -158,13 +158,8 @@ impl PresentPass {
       );
 
       // start render pass
-      let scope_id =
-        exec_ctx.cmd_start_render_pass(pass_name, &self.render_pass, &framebuffer, &size, &[]);
-      device.cmd_bind_pipeline(
-        command_buffer,
-        vk::PipelineBindPoint::GRAPHICS,
-        self.pipeline,
-      );
+      let scope_id = exec_ctx.cmd_begin_scope(pass_name);
+      exec_ctx.cmd_start_render_pass(&self.render_pass, &self.pipeline, &framebuffer, &size, &[]);
 
       // bind uniforms (do not move this)
       self.bind_uniforms(

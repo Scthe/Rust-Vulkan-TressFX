@@ -140,12 +140,13 @@ impl TonemappingPass {
       self.cmd_resource_barriers(device, &command_buffer, framebuffer, previous_result);
 
       // start render pass
-      let scope_id =
-        exec_ctx.cmd_start_render_pass(pass_name, &self.render_pass, &framebuffer.fbo, &size, &[]);
-      device.cmd_bind_pipeline(
-        command_buffer,
-        vk::PipelineBindPoint::GRAPHICS,
-        self.pipeline,
+      let scope_id = exec_ctx.cmd_begin_scope(pass_name);
+      exec_ctx.cmd_start_render_pass(
+        &self.render_pass,
+        &self.pipeline,
+        &framebuffer.fbo,
+        &size,
+        &[],
       );
 
       // bind uniforms (do not move this)

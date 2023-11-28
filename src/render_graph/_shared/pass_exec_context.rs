@@ -42,19 +42,12 @@ impl PassExecContext<'_> {
 
   pub unsafe fn cmd_start_render_pass(
     &self,
-    name: &str,
     render_pass: &vk::RenderPass,
+    pipeline: &vk::Pipeline,
     framebuffer: &vk::Framebuffer,
     viewport_size: &vk::Extent2D,
     clear_values: &[vk::ClearValue],
-  ) -> ScopeId {
-    if self.config.only_first_frame {
-      info!("Start {}", name);
-    }
-    self.vk_app.with_debug_loader(|debug_utils_loader| {
-      add_pass_debug_label(&debug_utils_loader, self.command_buffer, name);
-    });
-
+  ) {
     let device = self.vk_app.vk_device();
     cmd_begin_render_pass_for_framebuffer(
       &device,
@@ -64,28 +57,23 @@ impl PassExecContext<'_> {
       &viewport_size,
       clear_values,
     );
-
-    self
-      .profiler
-      .borrow_mut()
-      .begin_scope(device, self.command_buffer, name)
+    device.cmd_bind_pipeline(
+      self.command_buffer,
+      vk::PipelineBindPoint::GRAPHICS,
+      *pipeline,
+    );
   }
 
   pub unsafe fn cmd_end_render_pass(&self, scope_id: ScopeId) {
     let device = self.vk_app.vk_device();
     device.cmd_end_render_pass(self.command_buffer);
-
-    self.vk_app.with_debug_loader(|debug_utils_loader| {
-      debug_utils_loader.cmd_end_debug_utils_label(self.command_buffer);
-    });
-
-    self
-      .profiler
-      .borrow()
-      .end_scope(device, self.command_buffer, scope_id);
+    self.cmd_end_scope(scope_id);
   }
 
-  pub unsafe fn cmd_start_compute_pass(&self, name: &str) -> ScopeId {
+  /// * Sets debug label for RenderDoc,
+  /// * Sets profiling scope,
+  /// * (single frame mode) Prints name of the pass
+  pub unsafe fn cmd_begin_scope(&self, name: &str) -> ScopeId {
     if self.config.only_first_frame {
       info!("Start {}", name);
     }
@@ -101,7 +89,8 @@ impl PassExecContext<'_> {
       .begin_scope(device, self.command_buffer, name)
   }
 
-  pub unsafe fn cmd_end_compute_pass(&self, scope_id: ScopeId) {
+  /// @see `cmd_begin_scope`
+  pub unsafe fn cmd_end_scope(&self, scope_id: ScopeId) {
     self.vk_app.with_debug_loader(|debug_utils_loader| {
       debug_utils_loader.cmd_end_debug_utils_label(self.command_buffer)
     });

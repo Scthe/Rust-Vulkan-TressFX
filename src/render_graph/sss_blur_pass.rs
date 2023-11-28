@@ -184,18 +184,14 @@ impl SSSBlurPass {
       );
 
       // start render pass
-      let scope_id = exec_ctx.cmd_start_render_pass(
-        pass_name,
+      let scope_id = exec_ctx.cmd_begin_scope(pass_name);
+      exec_ctx.cmd_start_render_pass(
         &self.render_pass,
+        &self.pipeline,
         &framebuffer.fbo,
         &size,
         // TODO [LOW] clear https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkAttachmentLoadOp.html
         &[],
-      );
-      device.cmd_bind_pipeline(
-        command_buffer,
-        vk::PipelineBindPoint::GRAPHICS,
-        self.pipeline,
       );
 
       // bind uniforms (do not move this)
