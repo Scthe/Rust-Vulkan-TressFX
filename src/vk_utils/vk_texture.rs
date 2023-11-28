@@ -12,8 +12,8 @@ use ash::vk;
 use crate::vk_utils::create_image_view;
 
 use super::{
-  determine_gpu_allocation_info, MemoryMapPointer, VkMemoryPreference, VkMemoryResource,
-  WithSetupCmdBuffer,
+  determine_gpu_allocation_info, get_persistently_mapped_pointer, MemoryMapPointer,
+  VkMemoryPreference, VkMemoryResource, WithSetupCmdBuffer,
 };
 
 pub struct VkTexture {
@@ -82,6 +82,7 @@ impl VkTexture {
         .create_image(&create_info, &alloc_create_info)
         .expect("Failed allocating GPU memory for texture")
     };
+    let mapped_pointer = get_persistently_mapped_pointer(allocator, &allocation);
 
     let aspect = get_image_aspect_from_format(format);
     let image_view = create_image_view(device, image, create_info.format, aspect);
@@ -92,7 +93,7 @@ impl VkTexture {
       height: size.height,
       image,
       allocation,
-      mapped_pointer: None,
+      mapped_pointer,
       layout: create_info.initial_layout,
       image_view,
       aspect_flags: aspect,
@@ -206,7 +207,7 @@ impl VkTexture {
       device,
       allocator,
       with_setup_cb,
-      format!("{}-scratch-texture", dst_texture.long_name),
+      format!("{}-scratch-texture", dst_texture.name),
       dst_texture.size(),
       dst_texture.format,
       vk::ImageTiling::LINEAR,
@@ -214,11 +215,9 @@ impl VkTexture {
       VkMemoryPreference::ScratchTransfer,
       vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
     );
-
-    // map image and copy content
-    scratch_texture.map_memory(allocator);
     scratch_texture.write_to_mapped(&pixel_bytes);
-    scratch_texture.unmap_memory(allocator);
+
+    // copy content
     with_setup_cb.with_setup_cb(|device, cb| unsafe {
       let offset_zero = vk::Offset3D { x: 0, y: 0, z: 0 };
       let subresources = vk::ImageSubresourceLayers {
@@ -387,15 +386,8 @@ impl VkMemoryResource for VkTexture {
     &self.long_name
   }
 
-  fn get_allocation(&mut self) -> &mut vma::Allocation {
-    &mut self.allocation
-  }
-
   fn get_mapped_pointer(&self) -> Option<MemoryMapPointer> {
     self.mapped_pointer.clone()
-  }
-  fn set_mapped_pointer(&mut self, next_ptr: Option<MemoryMapPointer>) {
-    self.mapped_pointer = next_ptr;
   }
 }
 

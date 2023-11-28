@@ -11,7 +11,7 @@ use crate::render_graph::sss_depth_pass::SSSDepthPassFramebuffer;
 use crate::render_graph::tfx_render::{TfxPpllBuildPassFramebuffer, TfxPpllResolvePassFramebuffer};
 use crate::render_graph::tonemapping_pass::TonemappingPassFramebuffer;
 use crate::vk_ctx::VkCtx;
-use crate::vk_utils::{VkBuffer, VkMemoryResource, VkTexture};
+use crate::vk_utils::{VkBuffer, VkTexture};
 
 /// One instance per frame-in-flight.
 pub struct PerFrameResources {
@@ -48,7 +48,6 @@ impl PerFrameResources {
     let allocator = &vk_app.allocator;
 
     // buffers
-    self.config_uniform_buffer.unmap_memory(allocator);
     self.config_uniform_buffer.delete(allocator);
 
     // passes framebuffers

@@ -1,6 +1,8 @@
 use ash::vk;
 use vma::Alloc;
 
+use crate::vk_utils::get_persistently_mapped_pointer;
+
 use super::{
   determine_gpu_allocation_info, MemoryMapPointer, VkMemoryPreference, VkMemoryResource,
   WithSetupCmdBuffer,
@@ -61,23 +63,16 @@ impl VkBuffer {
         .create_buffer(&buffer_info, &alloc_create_info)
         .expect(&format!("Failed allocating: {}", long_name))
     };
-    // let alloc_info = allocator.get_allocation_info(allocation);
+    let mapped_pointer = get_persistently_mapped_pointer(allocator, &allocation);
 
-    let mut buffer = Self {
+    Self {
       name: name.clone(),
       long_name,
       size,
       buffer,
       allocation,
-      mapped_pointer: None,
-    };
-
-    // map if needed
-    if memory_pref != VkMemoryPreference::GpuOnly {
-      buffer.map_memory(allocator);
+      mapped_pointer,
     }
-
-    buffer
   }
 
   /// Allocate vulkan buffer and fill it with data
@@ -101,10 +96,7 @@ impl VkBuffer {
       vk::BufferUsageFlags::TRANSFER_SRC,
       VkMemoryPreference::ScratchTransfer,
     );
-    // map buffer and copy content
-    scratch_buffer.map_memory(allocator);
     scratch_buffer.write_to_mapped(bytes);
-    scratch_buffer.unmap_memory(allocator);
 
     // create final buffer and transfer the content
     let buffer = VkBuffer::empty(
@@ -143,15 +135,8 @@ impl VkMemoryResource for VkBuffer {
     &self.long_name
   }
 
-  fn get_allocation(&mut self) -> &mut vma::Allocation {
-    &mut self.allocation
-  }
-
   fn get_mapped_pointer(&self) -> Option<MemoryMapPointer> {
     self.mapped_pointer.clone()
-  }
-  fn set_mapped_pointer(&mut self, next_ptr: Option<MemoryMapPointer>) {
-    self.mapped_pointer = next_ptr;
   }
 }
 

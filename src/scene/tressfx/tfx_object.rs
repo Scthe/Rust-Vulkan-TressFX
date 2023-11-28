@@ -143,7 +143,6 @@ impl TfxObject {
     self.initial_tangents_buffer.delete(allocator);
     self.index_buffer.delete(allocator);
     self.tfx_params_ubo.iter_mut().for_each(|buffer| {
-      buffer.unmap_memory(allocator);
       buffer.delete(allocator);
     });
 

@@ -35,7 +35,6 @@ impl WorldEntity {
     self.index_buffer.delete(allocator);
     self.material.destroy(device, allocator);
     self.model_ubo.iter_mut().for_each(|buffer| {
-      buffer.unmap_memory(allocator);
       buffer.delete(allocator);
     })
   }
