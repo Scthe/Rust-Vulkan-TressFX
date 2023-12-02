@@ -109,8 +109,9 @@ pub fn first_letters(value: &str, letter_count: usize) -> String {
   value.chars().into_iter().take(letter_count).collect()
 }
 
-/// Macro to pick from 2 values based on conditional
-/// `either!(foo == bar; println!("it is true"); println!("it is false"));`
+/// Macro to pick from 2 values based on conditional:
+///
+/// `let a = either!(0 == 1, "true", "false");`
 #[macro_export]
 macro_rules! either {
   ($test:expr, $true_expr:expr, $false_expr:expr) => {

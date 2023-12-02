@@ -204,4 +204,7 @@ void main() {
   vec4 colDpgSpheres = drawDebugSpheres();
   result = mix(result, colDpgSpheres.rgb, colDpgSpheres.a);
   color1 = vec4(result, 1.0f);
+
+  // Alpha composite test
+  // color1.w = (1 - v_position.x + v_position.y) < 0.8 ? 0.0 : 1.0;
 }

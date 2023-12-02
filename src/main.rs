@@ -39,6 +39,9 @@ fn main() {
   let event_loop = EventLoop::new();
   let window = WindowBuilder::new()
     .with_title("Rust TressFX")
+    .with_transparent(Config::TEST_ALPHA_COMPOSITE) // error - see capabilities
+    .with_decorations(!Config::TEST_ALPHA_COMPOSITE) // no decorations for alpha compose
+    // .with_position(winit::dpi::PhysicalPosition { x: 2500, y: 100 })
     .with_resizable(false)
     .with_inner_size(LogicalSize::new(config.window_width, config.window_height))
     .build(&event_loop)

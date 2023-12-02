@@ -1,4 +1,4 @@
-use log::trace;
+use log::{error, trace};
 
 use ash::extensions::khr::{Surface, Swapchain};
 use ash::vk;
@@ -6,6 +6,8 @@ use ash::vk;
 #[cfg(target_os = "windows")]
 use ash::extensions::khr::Win32Surface;
 
+use crate::config::Config;
+use crate::either;
 use crate::vk_utils::create_image_view;
 
 /*
@@ -137,6 +139,28 @@ pub fn get_present_mode(
     .unwrap_or(vk::PresentModeKHR::FIFO) // FIFO is guaranteed
 }
 
+fn get_alpha_composite(
+  surface_capabilites: &vk::SurfaceCapabilitiesKHR,
+) -> vk::CompositeAlphaFlagsKHR {
+  let mut composite_alpha = either!(
+    Config::TEST_ALPHA_COMPOSITE,
+    vk::CompositeAlphaFlagsKHR::POST_MULTIPLIED,
+    vk::CompositeAlphaFlagsKHR::OPAQUE
+  );
+  if !surface_capabilites
+    .supported_composite_alpha
+    .contains(composite_alpha)
+  {
+    error!(
+      "Unsupported CompositeAlphaFlagsKHR. Wanted {:?}, but only {:?} are available",
+      composite_alpha, surface_capabilites.supported_composite_alpha
+    );
+    composite_alpha = vk::CompositeAlphaFlagsKHR::OPAQUE;
+  }
+
+  composite_alpha
+}
+
 /// Creates OS-dependent swapchain
 pub fn create_swapchain_khr(
   swapchain_loader: &Swapchain,
@@ -151,6 +175,7 @@ pub fn create_swapchain_khr(
     .max_image_count
     .min(surface_capabilites.min_image_count + 1);
 
+  let composite_alpha = get_alpha_composite(&surface_capabilites);
   let create_info = vk::SwapchainCreateInfoKHR::builder()
     .surface(surface_khr)
     .min_image_count(image_count)
@@ -158,12 +183,11 @@ pub fn create_swapchain_khr(
     .image_color_space(surface_format.color_space)
     .image_extent(*size)
     .image_array_layers(1)
-    // TODO [LOW] VK_IMAGE_USAGE_TRANSFER_DST_BIT ?
     .image_usage(vk::ImageUsageFlags::COLOR_ATTACHMENT)
     .image_sharing_mode(vk::SharingMode::EXCLUSIVE)
     .queue_family_indices(&[queue_familiy_idx])
     .present_mode(present_mode)
-    .composite_alpha(vk::CompositeAlphaFlagsKHR::OPAQUE)
+    .composite_alpha(composite_alpha)
     .pre_transform(get_pre_transform(surface_capabilites))
     .clipped(true)
     .build();

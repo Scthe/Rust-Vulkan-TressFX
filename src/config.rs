@@ -113,6 +113,10 @@ impl Config {
   const PROFILE_FIRST_FRAME: bool = false;
   pub const DEBUG_LAYOUT_TRANSITIONS: bool = false;
 
+  /// Test transparency for swapchain image.
+  /// Requires alpha channel added to "assets\shaders\present.frag.glsl"
+  pub const TEST_ALPHA_COMPOSITE: bool = false;
+
   pub const STENCIL_BIT_SKIN: u32 = 1 << 0;
   pub const STENCIL_BIT_HAIR: u32 = 1 << 1;
 
@@ -207,6 +211,14 @@ impl Config {
       depth_stencil: vk::ClearDepthStencilValue {
         depth: self.clear_depth,
         stencil: self.clear_stencil as u32,
+      },
+    }
+  }
+
+  pub fn clear_swapchain_color(&self) -> vk::ClearValue {
+    vk::ClearValue {
+      color: vk::ClearColorValue {
+        uint32: [0, 0, 0, 0],
       },
     }
   }

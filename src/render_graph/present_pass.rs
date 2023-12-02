@@ -3,10 +3,11 @@ use ash::vk;
 use log::info;
 
 use crate::app_ui::AppUI;
+use crate::config::Config;
 use crate::gpu_profiler::GpuProfiler;
 use crate::utils::get_simple_type_name;
 use crate::vk_ctx::VkCtx;
-use crate::vk_utils::*;
+use crate::{either, vk_utils::*};
 
 use super::PassExecContext;
 
@@ -62,10 +63,15 @@ impl PresentPass {
   }
 
   fn create_render_pass(device: &ash::Device, image_format: vk::Format) -> vk::RenderPass {
+    let load_op = either!(
+      Config::TEST_ALPHA_COMPOSITE,
+      vk::AttachmentLoadOp::CLEAR,
+      vk::AttachmentLoadOp::DONT_CARE
+    );
     let color_attachment = create_color_attachment(
       0,
       image_format,
-      vk::AttachmentLoadOp::DONT_CARE, // we override every pixel regardless
+      load_op, // we override every pixel regardless
       vk::AttachmentStoreOp::STORE,
       true,
     );
@@ -142,6 +148,7 @@ impl PresentPass {
     let command_buffer = exec_ctx.command_buffer;
     let device = vk_app.vk_device();
     let size = exec_ctx.size;
+    let clear_values = exec_ctx.config.clear_swapchain_color();
     let pass_name = &get_simple_type_name::<Self>();
 
     unsafe {
@@ -159,7 +166,13 @@ impl PresentPass {
 
       // start render pass
       let scope_id = exec_ctx.cmd_begin_scope(pass_name);
-      exec_ctx.cmd_start_render_pass(&self.render_pass, &self.pipeline, &framebuffer, &size, &[]);
+      exec_ctx.cmd_start_render_pass(
+        &self.render_pass,
+        &self.pipeline,
+        &framebuffer,
+        &size,
+        &[clear_values],
+      );
 
       // bind uniforms (do not move this)
       self.bind_uniforms(
