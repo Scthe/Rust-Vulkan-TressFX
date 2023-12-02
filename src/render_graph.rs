@@ -169,6 +169,9 @@ impl RenderGraph {
     // get next swapchain image (view and framebuffer)
     // https://themaister.net/blog/2023/11/12/my-scuffed-game-streaming-adventure-pyrofling/
     let swapchain_image_index: usize = unsafe {
+      // We *should* check the result for `VK_ERROR_OUT_OF_DATE_KHR`.
+      // Recreate swapchain if that happens (usually after window resize/minimize).
+      // Current code works on my PC so..
       swapchain
         .swapchain_loader
         .acquire_next_image(
@@ -189,9 +192,12 @@ impl RenderGraph {
     update_tfx_uniform_buffers(config, scene, swapchain_image_index);
 
     // sync between frames
-    // since we have usually 3 frames in flight, wait for queue submit
-    // of the frame that was 3 frames before.
-    // TODO [HIGH] shouldn't this be before we "update per-frame uniforms"?
+    // Since we have usually 3 frames in flight, wait for queue submit
+    // of the frame that was 3 frames before. Has to be done after
+    // 'acquire_next_image' as error handling for 'acquire_next_image'
+    // may have to recreate swapchain from scratch. We guarantee that
+    // after this fence, the swapchain is in 'stable' state.
+    // https://vulkan-tutorial.com/Drawing_a_triangle/Swap_chain_recreation#page_Fixing-a-deadlock
     unsafe {
       device
         .wait_for_fences(&[frame_sync.queue_submit_finished_fence], true, u64::MAX)

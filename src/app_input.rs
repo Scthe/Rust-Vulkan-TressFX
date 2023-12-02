@@ -15,6 +15,7 @@ pub struct AppInput {
   pub key_held: HashSet<VirtualKeyCode>,
   pub mouse_buttons_held: HashSet<MouseButton>,
   pub scroll_delta_y: f32,
+  pub is_minimized: bool,
   /// handle losing focus, cursor moving out of window etc.
   pub can_intercept_mouse_events: bool,
 }
@@ -26,6 +27,7 @@ impl AppInput {
       key_held: HashSet::new(),
       mouse_buttons_held: HashSet::new(),
       scroll_delta_y: 0.0,
+      is_minimized: false,
       can_intercept_mouse_events: false, // wait to make sure we REALLY have mouse focus
     }
   }
@@ -96,6 +98,13 @@ impl AppInput {
       WindowEvent::Focused(is_focused) => {
         info!("Window focus change. Are we in focus: {:?}", is_focused);
         self.can_intercept_mouse_events = false;
+      }
+      WindowEvent::Resized(next_size) => {
+        self.is_minimized = next_size.width == 0 && next_size.height == 0;
+        info!(
+          "Window resized. New size: {:?}, minimized: {}",
+          next_size, self.is_minimized
+        );
       }
       // cursor left
       WindowEvent::CursorLeft { .. } => {

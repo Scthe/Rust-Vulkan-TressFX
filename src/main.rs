@@ -95,7 +95,7 @@ fn main() {
         }
       }
       // redraw
-      Event::MainEventsCleared => {
+      Event::MainEventsCleared if !app_input.is_minimized => {
         // https://github.com/EmbarkStudios/kajiya/blob/main/crates/lib/kajiya-simple/src/main_loop.rs#L308
         timer.mark_start_frame();
         profiler.set_enabled(config.profile_next_frame);
