@@ -9,12 +9,36 @@ use crate::vk_utils::create_image_barrier;
 use super::VkMemoryResource;
 use super::VkStorageResourceBarrier;
 use super::VkTexture;
+use super::WithSetupCmdBuffer;
 
 // https://github.com/Tobski/simple_vulkan_synchronization/blob/main/thsvs_simpler_vulkan_synchronization.h
 // https://github.com/KhronosGroup/Vulkan-Docs/wiki/Synchronization-Examples-(Legacy-synchronization-APIs)
 // https://github.com/EmbarkStudios/kajiya/blob/main/crates/lib/kajiya-rg/src/graph.rs#L950
 
 impl VkTexture {
+  /// `VkImageCreateInfo.initialLayout` has to be `VK_IMAGE_LAYOUT_UNDEFINED` or `VK_IMAGE_LAYOUT_PREINITIALIZED`.
+  /// Change this here.
+  ///
+  /// * https://vulkan.lunarg.com/doc/view/1.3.261.1/windows/1.3-extensions/vkspec.html#VUID-VkImageCreateInfo-initialLayout-00993
+  pub(super) fn set_initial_image_layout(
+    &mut self,
+    with_setup_cb: &impl WithSetupCmdBuffer,
+    new_layout: vk::ImageLayout,
+  ) {
+    // not terribly efficient, but usually part of init code so..
+    #[allow(deprecated)]
+    let barrier = VkStorageResourceBarrier::full_pipeline_stall();
+
+    let vk_barrier = self.barrier_prepare_for_layout_transition(new_layout, barrier);
+    let barriers = [vk_barrier];
+    with_setup_cb.with_setup_cb(|device, cmd_buf| {
+      unsafe {
+        let dep = vk::DependencyInfo::builder().image_memory_barriers(&barriers);
+        device.cmd_pipeline_barrier2(cmd_buf, &dep);
+      };
+    });
+  }
+
   /// The `srcStageMask` marks the stages to wait for in previous commands
   /// before allowing the stages given in `dstStageMask` to execute
   /// in subsequent commands.

@@ -31,17 +31,9 @@ pub unsafe fn execute_full_pipeline_barrier(
   device: &ash::Device,
   command_buffer: vk::CommandBuffer,
 ) -> () {
-  let mem_barrier = vk::MemoryBarrier2::builder()
-    .src_stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
-    .src_access_mask(vk::AccessFlags2::MEMORY_READ | vk::AccessFlags2::MEMORY_WRITE)
-    .dst_stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
-    .dst_access_mask(vk::AccessFlags2::MEMORY_READ | vk::AccessFlags2::MEMORY_WRITE)
-    .build();
-  let dependency_info = vk::DependencyInfo::builder()
-    .memory_barriers(&[mem_barrier])
-    .build();
-
-  device.cmd_pipeline_barrier2(command_buffer, &dependency_info);
+  #[allow(deprecated)]
+  let mem_barrier = VkStorageResourceBarrier::full_pipeline_stall();
+  cmd_storage_resource_barrier(device, command_buffer, mem_barrier);
 }
 
 /// Barrier mostly used for SSBO and storage images. No layout transitions etc.
@@ -59,6 +51,17 @@ impl VkStorageResourceBarrier {
       previous_op: (vk::PipelineStageFlags2::empty(), vk::AccessFlags2::empty()),
       next_op: (vk::PipelineStageFlags2::empty(), vk::AccessFlags2::empty()),
     }
+  }
+
+  /// DANGEROUS! WILL STALL EVERYTHING. WILL FLUSH AND INVALIDATE ALL CACHES.
+  #[deprecated(note = "Extremely suboptimal performance")]
+  pub fn full_pipeline_stall() -> Self {
+    let mut barrier = VkStorageResourceBarrier::empty();
+    barrier.previous_op.0 = vk::PipelineStageFlags2::ALL_COMMANDS;
+    barrier.previous_op.1 = vk::AccessFlags2::MEMORY_READ | vk::AccessFlags2::MEMORY_WRITE;
+    barrier.next_op.0 = vk::PipelineStageFlags2::ALL_COMMANDS;
+    barrier.next_op.1 = vk::AccessFlags2::MEMORY_READ | vk::AccessFlags2::MEMORY_WRITE;
+    barrier
   }
 }
 

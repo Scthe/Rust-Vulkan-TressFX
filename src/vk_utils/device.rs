@@ -143,7 +143,7 @@ pub fn pick_physical_device_and_queue_family_idx(
   });
 
   match result.next() {
-    None => panic!("No devices for Vulkan 1.2 found"),
+    None => panic!("No devices for Vulkan 1.3 found"),
     Some((p_device, idx)) => {
       let props = unsafe { instance.get_physical_device_properties(p_device) };
       let device_name = from_c_str(&props.device_name);

@@ -54,7 +54,7 @@ pub fn create_surface_khr(
   }
 }
 
-/// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPresentModeKHR.html
+/// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSurfaceFormatKHR.html
 pub fn get_swapchain_format(
   surface_loader: &Surface,
   surface_khr: vk::SurfaceKHR,
@@ -111,6 +111,7 @@ fn get_pre_transform(
   }
 }
 
+/// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPresentModeKHR.html
 /// https://github.com/EmbarkStudios/kajiya/blob/main/crates/lib/kajiya-backend/src/vulkan/swapchain.rs#L85
 pub fn get_present_mode(
   surface_loader: &Surface,

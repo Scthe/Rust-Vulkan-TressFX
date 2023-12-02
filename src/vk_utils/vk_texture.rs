@@ -13,7 +13,7 @@ use crate::vk_utils::create_image_view;
 
 use super::{
   determine_gpu_allocation_info, get_persistently_mapped_pointer, MemoryMapPointer,
-  VkMemoryPreference, VkMemoryResource, VkStorageResourceBarrier, WithSetupCmdBuffer,
+  VkMemoryPreference, VkMemoryResource, WithSetupCmdBuffer,
 };
 
 pub struct VkTexture {
@@ -67,6 +67,8 @@ impl VkTexture {
       .format(format)
       .tiling(tiling)
       .usage(usage)
+      // https://vulkan.lunarg.com/doc/view/1.3.261.1/windows/1.3-extensions/vkspec.html#VUID-VkImageCreateInfo-initialLayout-00993
+      // has to be VK_IMAGE_LAYOUT_UNDEFINED or VK_IMAGE_LAYOUT_PREINITIALIZED
       // https://stackoverflow.com/questions/76945200/how-to-properly-use-vk-image-layout-preinitialized
       .initial_layout(vk::ImageLayout::PREINITIALIZED) // required by validation layers
       // verbose properties, but vulkan requires
@@ -248,45 +250,6 @@ impl VkTexture {
     });
 
     unsafe { scratch_texture.delete(device, allocator) };
-  }
-
-  /// This whole fn is a giant hack
-  fn set_initial_image_layout(
-    &mut self,
-    app_init: &impl WithSetupCmdBuffer,
-    target_layout: vk::ImageLayout,
-  ) {
-    let mut barrier = VkStorageResourceBarrier::empty();
-
-    if self.layout == vk::ImageLayout::TRANSFER_DST_OPTIMAL {
-      // we were a target of a write. Usually 3D object textures that are read-only.
-      // read-after-write - execution dependency
-      barrier.previous_op.0 = vk::PipelineStageFlags2::TRANSFER;
-      barrier.next_op.0 = vk::PipelineStageFlags2::TOP_OF_PIPE;
-    } else {
-      // (hack part begins now)
-      // we were either written from the host (for scratch buffers) or
-      // we are an empty buffer and there was no previous op
-
-      // https://vulkan-tutorial.com/Texture_mapping/Images#page_Transition-barrier-masks
-      // as early as possible
-      barrier.previous_op.0 = vk::PipelineStageFlags2::HOST;
-      barrier.previous_op.1 = vk::AccessFlags2::HOST_WRITE;
-      barrier.next_op.0 = vk::PipelineStageFlags2::HOST;
-      barrier.next_op.1 = vk::AccessFlags2::HOST_WRITE;
-    }
-
-    self.trace_log_layout_transition(target_layout, &barrier);
-
-    let vk_barrier = self.barrier_prepare_for_layout_transition(target_layout, barrier);
-    let barriers = [vk_barrier];
-
-    app_init.with_setup_cb(|device, cmd_buf| {
-      unsafe {
-        let dep = vk::DependencyInfo::builder().image_memory_barriers(&barriers);
-        device.cmd_pipeline_barrier2(cmd_buf, &dep);
-      };
-    });
   }
 
   pub fn image_view(&self) -> vk::ImageView {
