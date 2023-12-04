@@ -15,6 +15,46 @@ libs
   - https://github.com/h3r2tic/vk-sync-rs/blob/master/src/lib.rs
 */
 
+/// fence - used to wait on CPU till it is signaled
+pub fn create_fence(device: &ash::Device) -> vk::Fence {
+  let create_info = vk::FenceCreateInfo::builder().flags(vk::FenceCreateFlags::SIGNALED);
+  unsafe {
+    device
+      .create_fence(&create_info, None)
+      .expect("Failed to create fence")
+  }
+}
+
+pub fn create_fences(device: &ash::Device, count: usize) -> Vec<vk::Fence> {
+  let mut result = Vec::<vk::Fence>::with_capacity(count);
+  for _ in 0..count {
+    let obj = create_fence(device);
+    result.push(obj);
+  }
+  result
+}
+
+/// semaphore - used to synchronize work between queues (including present op.)
+pub fn create_semaphore(device: &ash::Device) -> vk::Semaphore {
+  let semaphore_create_info = vk::SemaphoreCreateInfo::builder()
+    .flags(vk::SemaphoreCreateFlags::empty())
+    .build();
+  unsafe {
+    device
+      .create_semaphore(&semaphore_create_info, None)
+      .expect("Failed to create semaphore")
+  }
+}
+
+pub fn create_semaphores(device: &ash::Device, count: usize) -> Vec<vk::Semaphore> {
+  let mut result = Vec::<vk::Semaphore>::with_capacity(count);
+  for _ in 0..count {
+    let obj = create_semaphore(device);
+    result.push(obj);
+  }
+  result
+}
+
 #[allow(dead_code)]
 /// You should **ONLY USE THIS FOR DEBUGGING** - this is not something
 /// that should ever ship in real code, this will flush
