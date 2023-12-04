@@ -14,13 +14,13 @@ pub struct VkCtxSwapchain {
 }
 
 impl VkCtxSwapchain {
+  /// Will also destroy images. From validation layers:
+  /// VK_OBJECT_TYPE_IMAGE; is a presentable image and it is controlled by the implementation and is destroyed with vkDestroySwapchainKHR.
   pub unsafe fn destroy(&self, device: &ash::Device) {
     for &image_view in &self.image_views {
       device.destroy_image_view(image_view, None);
     }
 
-    // Will also destroy images. From validation layers:
-    // VK_OBJECT_TYPE_IMAGE; is a presentable image and it is controlled by the implementation and is destroyed with vkDestroySwapchainKHR.
     self
       .swapchain_loader
       .destroy_swapchain(self.swapchain, None);

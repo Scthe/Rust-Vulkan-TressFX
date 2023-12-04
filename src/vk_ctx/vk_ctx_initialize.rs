@@ -6,7 +6,6 @@ use ash::extensions::khr::{PushDescriptor, Surface, Swapchain};
 use ash::vk::{self};
 
 use crate::vk_ctx::vk_ctx::VkCtx;
-use crate::vk_ctx::vk_ctx_command_buffers::VkCtxCommandBuffers;
 use crate::vk_ctx::vk_ctx_device::VkCtxDevice;
 use crate::vk_ctx::vk_ctx_swapchain::VkCtxSwapchain;
 use crate::vk_ctx::vk_ctx_synchronize::VkCtxSynchronize;
@@ -89,15 +88,15 @@ pub fn vk_ctx_initialize(
     &device,
     swapchain_format.format,
   );
-  let frames_in_flight = swapchain_images.len() as u32;
-  info!("Will use {} frames in flight", frames_in_flight);
+  let swapchain_img_cnt = swapchain_images.len() as u32;
+  info!("Will use {} frames in flight", swapchain_img_cnt);
 
   // command buffers
-  let cmd_pool = create_command_pool(&device, queue_family_index);
-  let cmd_bufs = create_command_buffers(&device, cmd_pool, frames_in_flight);
+  let command_pool = create_command_pool(&device, queue_family_index);
+  let command_buffers = create_command_buffers(&device, command_pool, swapchain_img_cnt);
 
   // setup cmd buffer
-  let setup_cbs = create_command_buffers(&device, cmd_pool, 1);
+  let setup_cb = create_command_buffer(&device, command_pool);
 
   // gpu memory allocator
   let allocator_create_info = vma::AllocatorCreateInfo::new(&instance, &device, phys_device);
@@ -125,6 +124,9 @@ pub fn vk_ctx_initialize(
     entry,
     instance,
     allocator,
+    command_pool,
+    setup_cb,
+    command_buffers,
     swapchain: VkCtxSwapchain {
       swapchain_loader,
       swapchain,
@@ -133,17 +135,12 @@ pub fn vk_ctx_initialize(
       image_views: swapchain_image_views,
       images: swapchain_images,
     },
-    synchronize: VkCtxSynchronize::new(&device, frames_in_flight as usize),
+    synchronize: VkCtxSynchronize::new(&device, swapchain_img_cnt as usize),
     device: VkCtxDevice {
       phys_device,
       queue_family_index,
       device,
       queue,
-    },
-    command_buffers: VkCtxCommandBuffers {
-      pool: cmd_pool,
-      setup_cb: setup_cbs[0],
-      cmd_buffers: cmd_bufs,
     },
     pipeline_cache,
     push_descriptor,

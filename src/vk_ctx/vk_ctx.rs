@@ -33,7 +33,12 @@ pub struct VkCtx {
   // rest of fields
   pub swapchain: VkCtxSwapchain,
   pub synchronize: VkCtxSynchronize,
-  pub command_buffers: VkCtxCommandBuffers,
+  pub command_pool: vk::CommandPool,
+  // Special command buffer used for resource init
+  pub setup_cb: vk::CommandBuffer,
+  // one per each swapchain image:
+  #[deprecated(note = "Invalid place for this, move to PerFrameData")]
+  pub command_buffers: Vec<vk::CommandBuffer>,
   pub pipeline_cache: vk::PipelineCache,
   pub push_descriptor: PushDescriptor,
   /// C'mon you will not use non-linear/nearest sampling anyway, can just create global objects..
@@ -66,8 +71,9 @@ impl VkCtx {
     self.debug_utils.as_ref().map(|dbg| callback(&dbg.0));
   }
 
+  #[deprecated(note = "Remove")]
   pub fn data_per_frame(&self, frame_idx: FrameInFlightId) -> VkCtxPerSwapchainImageData {
-    let cmd_bufs = &self.command_buffers.cmd_buffers;
+    let cmd_bufs = &self.command_buffers;
     let syncs = &self.synchronize;
 
     VkCtxPerSwapchainImageData {
@@ -95,7 +101,7 @@ impl VkCtx {
     let device = &self.device.device;
 
     self.synchronize.destroy(device);
-    self.command_buffers.destroy(device);
+    device.destroy_command_pool(self.command_pool, None);
     self.swapchain.destroy(device);
     device.destroy_pipeline_cache(self.pipeline_cache, None);
     self.surface_loader.destroy_surface(self.surface_khr, None);
@@ -126,7 +132,7 @@ impl WithSetupCmdBuffer for VkCtx {
   fn with_setup_cb(&self, callback: impl FnOnce(&ash::Device, vk::CommandBuffer)) {
     let device = &self.device.device;
     let queue = self.device.queue;
-    let cmd_buf = self.command_buffers.setup_cb;
+    let cmd_buf = self.setup_cb;
     unsafe { execute_setup_cmd_buf(device, queue, cmd_buf, callback) };
   }
 }

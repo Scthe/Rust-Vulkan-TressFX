@@ -60,7 +60,7 @@ impl AppUI {
       vk_app.device.phys_device,
       vk_app.device.device.clone(),
       vk_app.device.queue,
-      vk_app.command_buffers.pool,
+      vk_app.command_pool,
       render_pass,
       &mut imgui,
       Some(Options {
