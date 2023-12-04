@@ -349,7 +349,6 @@ impl ShadowMapPass {
 
   unsafe fn bind_hair_ubos(&self, exec_ctx: &PassExecContext, entity: &TfxObject) {
     let config_buffer = exec_ctx.config_buffer;
-    let frame_id = exec_ctx.swapchain_image_idx;
 
     let uniform_resouces = [
       BindableResource::Buffer {
@@ -370,7 +369,7 @@ impl ShadowMapPass {
       BindableResource::Buffer {
         usage: BindableBufferUsage::UBO,
         binding: TfxForwardPass::BINDING_INDEX_TFX_PARAMS_UBO,
-        buffer: &entity.get_tfx_params_ubo_buffer(frame_id),
+        buffer: &entity.get_tfx_params_ubo_buffer(exec_ctx.frame_in_flight_id),
       },
     ];
 

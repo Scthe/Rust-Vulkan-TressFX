@@ -8,7 +8,7 @@ use crate::{
   config::Config,
   render_graph::ForwardModelUBO,
   vk_ctx::VkCtx,
-  vk_utils::{VkBuffer, VkMemoryPreference, VkMemoryResource},
+  vk_utils::{FrameInFlightId, VkBuffer, VkMemoryPreference, VkMemoryResource},
 };
 
 use super::{BoundingBox, Camera, Material};
@@ -39,14 +39,19 @@ impl WorldEntity {
     })
   }
 
-  pub fn get_ubo_buffer(&self, frame_id: usize) -> &VkBuffer {
-    &self.model_ubo[frame_id]
+  pub fn get_ubo_buffer(&self, frame_in_flight_id: FrameInFlightId) -> &VkBuffer {
+    &self.model_ubo[frame_in_flight_id]
   }
 
-  pub fn update_ubo_data(&self, frame_id: usize, config: &Config, camera: &Camera) {
+  pub fn update_ubo_data(
+    &self,
+    frame_in_flight_id: FrameInFlightId,
+    config: &Config,
+    camera: &Camera,
+  ) {
     let data = ForwardModelUBO::new(config, self, camera);
     let data_bytes = bytemuck::bytes_of(&data);
-    let buffer = self.get_ubo_buffer(frame_id);
+    let buffer = self.get_ubo_buffer(frame_in_flight_id);
     buffer.write_to_mapped(data_bytes);
   }
 
@@ -69,10 +74,10 @@ impl WorldEntity {
   }
 }
 
-fn allocate_model_ubo(vk_ctx: &VkCtx, name: &str, frame_idx: usize) -> VkBuffer {
+fn allocate_model_ubo(vk_ctx: &VkCtx, name: &str, frame_in_flight_id: FrameInFlightId) -> VkBuffer {
   let size = size_of::<ForwardModelUBO>() as _;
   vk_ctx.create_buffer_empty(
-    format!("{}.model_ubo#{}", name, frame_idx),
+    format!("{}.model_ubo#{}", name, frame_in_flight_id),
     size,
     vk::BufferUsageFlags::UNIFORM_BUFFER,
     VkMemoryPreference::GpuMappable,
@@ -80,8 +85,8 @@ fn allocate_model_ubo(vk_ctx: &VkCtx, name: &str, frame_idx: usize) -> VkBuffer 
 }
 
 pub fn allocate_model_ubo_vec(vk_ctx: &VkCtx, name: &str) -> Vec<VkBuffer> {
-  let in_flight_frames = vk_ctx.frames_in_flight();
-  (0..in_flight_frames)
+  let frames_in_flight = vk_ctx.swapchain_images_count();
+  (0..frames_in_flight)
     .map(|i| allocate_model_ubo(vk_ctx, &name, i))
     .collect::<Vec<_>>()
 }

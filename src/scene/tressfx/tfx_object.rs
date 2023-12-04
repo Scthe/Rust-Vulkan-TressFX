@@ -9,7 +9,7 @@ use crate::{
   either,
   render_graph::TfxParamsUBO,
   vk_ctx::VkCtx,
-  vk_utils::{VkBuffer, VkMemoryPreference, VkMemoryResource, WithSetupCmdBuffer},
+  vk_utils::{FrameInFlightId, VkBuffer, VkMemoryPreference, VkMemoryResource, WithSetupCmdBuffer},
 };
 
 #[allow(deprecated)]
@@ -89,7 +89,7 @@ impl TfxObject {
     let tangents_buffer = create_tangents_buffer(vk_ctx, &name, data, true);
     let (index_buffer, triangle_count) = create_index_buffer(vk_ctx, &name, data);
 
-    let tfx_params_ubo = allocate_params_ubo_vec(vk_ctx, name);
+    let tfx_params_ubo = allocate_params_ubo_vec(vk_ctx, vk_ctx.swapchain_images_count(), name);
 
     let positions_0_buffer =
       create_simulation_positions_buffer(vk_ctx, &format!("{}.tfx_positions_0", name), data);
@@ -151,8 +151,8 @@ impl TfxObject {
     self.positions_2_buffer.delete(allocator);
   }
 
-  pub fn get_tfx_params_ubo_buffer(&self, frame_id: usize) -> &VkBuffer {
-    &self.tfx_params_ubo[frame_id]
+  pub fn get_tfx_params_ubo_buffer(&self, frame_in_flight_id: FrameInFlightId) -> &VkBuffer {
+    &self.tfx_params_ubo[frame_in_flight_id]
   }
 
   pub unsafe fn cmd_draw_mesh(&self, device: &ash::Device, command_buffer: vk::CommandBuffer) {
@@ -168,10 +168,10 @@ impl TfxObject {
     device.cmd_draw_indexed(command_buffer, index_count, instance_count, 0, 0, 0);
   }
 
-  pub fn update_params_uniform_buffer(&self, frame_id: usize, config: &Config) {
+  pub fn update_params_uniform_buffer(&self, frame_in_flight_id: FrameInFlightId, config: &Config) {
     let data = TfxParamsUBO::new(config, self);
     let data_bytes = bytemuck::bytes_of(&data);
-    let buffer = self.get_tfx_params_ubo_buffer(frame_id);
+    let buffer = self.get_tfx_params_ubo_buffer(frame_in_flight_id);
     buffer.write_to_mapped(data_bytes);
   }
 
@@ -398,8 +398,11 @@ fn allocate_params_ubo(vk_ctx: &VkCtx, name: &str, frame_idx: usize) -> VkBuffer
   )
 }
 
-pub fn allocate_params_ubo_vec(vk_ctx: &VkCtx, name: &str) -> Vec<VkBuffer> {
-  let in_flight_frames = vk_ctx.frames_in_flight();
+pub fn allocate_params_ubo_vec(
+  vk_ctx: &VkCtx,
+  in_flight_frames: usize,
+  name: &str,
+) -> Vec<VkBuffer> {
   (0..in_flight_frames)
     .map(|i| allocate_params_ubo(vk_ctx, &name, i))
     .collect::<Vec<_>>()

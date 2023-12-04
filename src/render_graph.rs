@@ -69,7 +69,7 @@ pub struct RenderGraph {
 impl RenderGraph {
   pub fn new(vk_app: &VkCtx, config: &Config) -> Self {
     let image_format = vk_app.swapchain.surface_format.format;
-    let in_flight_frames = vk_app.frames_in_flight();
+    let in_flight_frames = vk_app.swapchain_images_count();
 
     // create passes
     let shadow_map_pass = ShadowMapPass::new(vk_app);
@@ -144,26 +144,25 @@ impl RenderGraph {
     &mut self,
     window: &winit::window::Window,
     vk_app: &VkCtx,
-    frame_idx: usize,
     config: &mut Config,
     scene: &mut World,
     app_ui: &mut AppUI,
     timer: &AppTimer,
     profiler: &mut GpuProfiler,
   ) {
-    // 'heavy' ash's objects
     let device = vk_app.vk_device();
     let swapchain = &vk_app.swapchain;
-
-    // 'light' vulkan objects (just pointers really)
     let queue = vk_app.device.queue;
+    let frame_idx = timer.frame_idx();
+    let frame_in_flight_id: FrameInFlightId =
+      (frame_idx % (vk_app.swapchain_images_count() as u64)) as _;
 
     // Per frame data so we can have many frames in processing at the same time.
     // All of this is for synchronization between the in-flight-frames.
     // For anything else, use `swapchain_image_index` as it is connected to particular
     // OS-window framebuffer, which in turn has passess/barriers connecting it to other
     // per-frame resources.
-    let frame_sync = vk_app.data_per_frame(frame_idx % vk_app.frames_in_flight());
+    let frame_sync = vk_app.data_per_frame(frame_in_flight_id);
     let cmd_buf = frame_sync.command_buffer;
 
     // get next swapchain image (view and framebuffer)
@@ -224,7 +223,7 @@ impl RenderGraph {
 
     // pass ctx
     let mut pass_ctx = PassExecContext {
-      swapchain_image_idx: swapchain_image_index,
+      frame_in_flight_id: swapchain_image_index,
       vk_app,
       config,
       scene,
@@ -410,119 +409,121 @@ impl RenderGraph {
     profiler.end_frame(device);
   }
 
+  /// initialize resources used per frame-in-flight
   fn initialize_per_frame_resources(&mut self, vk_app: &VkCtx, config: &Config) {
-    let swapchain_image_views = &vk_app.swapchain.image_views;
+    let frames_in_flight = vk_app.swapchain_images_count();
     let window_size = &vk_app.window_size();
 
-    swapchain_image_views
-      .iter()
-      .enumerate()
-      .for_each(|(frame_id, &iv)| {
-        let ssao_result_size = config.get_ssao_viewport_size();
+    (0..frames_in_flight).for_each(|frame_id| {
+      let ssao_result_size = config.get_ssao_viewport_size();
 
-        // textures
-        let sss_ping_result_tex = ForwardPass::create_diffuse_attachment_tex::<SSSBlurPass>(
-          vk_app,
-          "sss_blur_tmp",
-          frame_id,
-          window_size,
-        );
-        let ssao_ping_result_tex =
-          SSAOPass::create_result_texture(vk_app, &ssao_result_size, frame_id, true);
+      // textures
+      let sss_ping_result_tex = ForwardPass::create_diffuse_attachment_tex::<SSSBlurPass>(
+        vk_app,
+        "sss_blur_tmp",
+        frame_id,
+        window_size,
+      );
+      let ssao_ping_result_tex =
+        SSAOPass::create_result_texture(vk_app, &ssao_result_size, frame_id, true);
 
-        // fbos
-        // shadow + shadow-like SSS
-        let shadow_map_pass = self.shadow_map_pass.create_framebuffer::<ShadowMapPass>(
-          vk_app,
-          frame_id,
-          config.shadows.shadowmap_size,
-        );
-        let sss_depth_pass = self.sss_depth_pass.create_framebuffer(
-          vk_app,
-          frame_id,
-          &self.shadow_map_pass,
-          config.sss_forward_scatter.depthmap_size,
-        );
-        // forward
-        let forward_pass = self
-          .forward_pass
+      // fbos
+      // shadow + shadow-like SSS
+      let shadow_map_pass = self.shadow_map_pass.create_framebuffer::<ShadowMapPass>(
+        vk_app,
+        frame_id,
+        config.shadows.shadowmap_size,
+      );
+      let sss_depth_pass = self.sss_depth_pass.create_framebuffer(
+        vk_app,
+        frame_id,
+        &self.shadow_map_pass,
+        config.sss_forward_scatter.depthmap_size,
+      );
+      // forward
+      let forward_pass = self
+        .forward_pass
+        .create_framebuffer(vk_app, frame_id, window_size);
+      // tfx
+      let tfx_ppll_build_pass = self.tfx_ppll_build_pass.create_framebuffer(
+        vk_app,
+        frame_id,
+        &forward_pass.depth_stencil_tex,
+      );
+      let tfx_ppll_resolve_pass = self.tfx_ppll_resolve_pass.create_framebuffer(
+        vk_app,
+        &forward_pass.depth_stencil_tex,
+        &forward_pass.diffuse_tex,
+        &forward_pass.normals_tex,
+      );
+
+      let tfx_depth_only_pass = self
+        .tfx_depth_only_pass
+        .create_framebuffer(vk_app, &forward_pass.depth_stencil_tex);
+      // sss blur
+      let sss_blur_fbo0 = self.sss_blur_pass.create_framebuffer(
+        vk_app,
+        &forward_pass.depth_stencil_tex,
+        &sss_ping_result_tex,
+      );
+      let sss_blur_fbo1 = self.sss_blur_pass.create_framebuffer(
+        vk_app,
+        &forward_pass.depth_stencil_tex,
+        &forward_pass.diffuse_tex,
+      );
+      // linear depth
+      let linear_depth_pass =
+        self
+          .linear_depth_pass
           .create_framebuffer(vk_app, frame_id, window_size);
-        // tfx
-        let tfx_ppll_build_pass = self.tfx_ppll_build_pass.create_framebuffer(
-          vk_app,
-          frame_id,
-          &forward_pass.depth_stencil_tex,
-        );
-        let tfx_ppll_resolve_pass = self.tfx_ppll_resolve_pass.create_framebuffer(
-          vk_app,
-          &forward_pass.depth_stencil_tex,
-          &forward_pass.diffuse_tex,
-          &forward_pass.normals_tex,
-        );
-
-        let tfx_depth_only_pass = self
-          .tfx_depth_only_pass
-          .create_framebuffer(vk_app, &forward_pass.depth_stencil_tex);
-        // sss blur
-        let sss_blur_fbo0 = self.sss_blur_pass.create_framebuffer(
-          vk_app,
-          &forward_pass.depth_stencil_tex,
-          &sss_ping_result_tex,
-        );
-        let sss_blur_fbo1 = self.sss_blur_pass.create_framebuffer(
-          vk_app,
-          &forward_pass.depth_stencil_tex,
-          &forward_pass.diffuse_tex,
-        );
-        // linear depth
-        let linear_depth_pass =
-          self
-            .linear_depth_pass
-            .create_framebuffer(vk_app, frame_id, window_size);
-        // ssao
-        let ssao_pass = self
-          .ssao_pass
-          .create_framebuffer(vk_app, frame_id, &ssao_result_size);
-        let ssao_blur_fbo0 = self
-          .ssao_blur_pass
-          .create_framebuffer(vk_app, &ssao_ping_result_tex);
-        let ssao_blur_fbo1 = self
-          .ssao_blur_pass
-          .create_framebuffer(vk_app, &ssao_pass.ssao_tex);
-        // tonemap
-        let tonemapping_pass =
-          self
-            .tonemapping_pass
-            .create_framebuffer(vk_app, frame_id, window_size);
-        let present_pass = self
+      // ssao
+      let ssao_pass = self
+        .ssao_pass
+        .create_framebuffer(vk_app, frame_id, &ssao_result_size);
+      let ssao_blur_fbo0 = self
+        .ssao_blur_pass
+        .create_framebuffer(vk_app, &ssao_ping_result_tex);
+      let ssao_blur_fbo1 = self
+        .ssao_blur_pass
+        .create_framebuffer(vk_app, &ssao_pass.ssao_tex);
+      // tonemap
+      let tonemapping_pass =
+        self
+          .tonemapping_pass
+          .create_framebuffer(vk_app, frame_id, window_size);
+      // present pass
+      // TODO [NOW] This assumes frames-in-flight == swapchain_images_count
+      let swapchain_image_view = vk_app.swapchain.image_views[frame_id];
+      let present_pass =
+        self
           .present_pass
-          .create_framebuffer(vk_app, iv, window_size);
+          .create_framebuffer(vk_app, swapchain_image_view, window_size);
 
-        // config buffer
-        let config_uniform_buffer = allocate_config_uniform_buffer(vk_app, frame_id);
+      // config buffer
+      let config_uniform_buffer = allocate_config_uniform_buffer(vk_app, frame_id);
 
-        self.resources_per_frame.push(PerFrameResources {
-          config_uniform_buffer,
-          // fbos
-          shadow_map_pass,
-          sss_depth_pass,
-          sss_blur_fbo0,
-          sss_blur_fbo1,
-          forward_pass,
-          tfx_ppll_build_pass,
-          tfx_ppll_resolve_pass,
-          tfx_depth_only_pass,
-          linear_depth_pass,
-          ssao_pass,
-          ssao_blur_fbo0,
-          ssao_blur_fbo1,
-          tonemapping_pass,
-          present_pass,
-          // textures
-          sss_ping_result_tex,
-          ssao_ping_result_tex,
-        });
+      self.resources_per_frame.push(PerFrameResources {
+        config_uniform_buffer,
+        // fbos
+        shadow_map_pass,
+        sss_depth_pass,
+        sss_blur_fbo0,
+        sss_blur_fbo1,
+        forward_pass,
+        tfx_ppll_build_pass,
+        tfx_ppll_resolve_pass,
+        tfx_depth_only_pass,
+        linear_depth_pass,
+        ssao_pass,
+        ssao_blur_fbo0,
+        ssao_blur_fbo1,
+        tonemapping_pass,
+        present_pass,
+        // textures
+        sss_ping_result_tex,
+        ssao_ping_result_tex,
       });
+    });
 
     transition_window_framebuffers_for_present_khr(vk_app);
   }
@@ -555,15 +556,19 @@ fn update_config_uniform_buffer(
   vk_buffer.write_to_mapped(data_bytes);
 }
 
-fn update_model_uniform_buffers(config: &Config, scene: &World, frame_id: usize) {
+fn update_model_uniform_buffers(
+  config: &Config,
+  scene: &World,
+  frame_in_flight_id: FrameInFlightId,
+) {
   let camera = &scene.camera;
   scene.entities.iter().for_each(|entity| {
-    entity.update_ubo_data(frame_id, config, camera);
+    entity.update_ubo_data(frame_in_flight_id, config, camera);
   });
 }
 
-fn update_tfx_uniform_buffers(config: &Config, scene: &World, frame_id: usize) {
+fn update_tfx_uniform_buffers(config: &Config, scene: &World, frame_in_flight_id: FrameInFlightId) {
   scene.tressfx_objects.iter().for_each(|entity| {
-    entity.update_params_uniform_buffer(frame_id, config);
+    entity.update_params_uniform_buffer(frame_in_flight_id, config);
   });
 }

@@ -23,6 +23,8 @@ const SHADER_PATHS: (&str, &str) = (
   "./assets/shaders-compiled/sss_blur.frag.spv",
 );
 
+// TODO [NOW] fails the sync validation from debug layers?
+
 /// Blur SSS, so a blur, but with a special per-channel profile.
 /// `SSSSBlurPS` from Jimenez, Gutierrez, see `_separableSSSSS.glsl` for full docs.
 pub struct SSSBlurPass {

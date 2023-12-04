@@ -6,7 +6,7 @@ use ash::vk;
 use ash::{self, extensions::khr::PushDescriptor};
 
 use super::*;
-use crate::vk_utils::{execute_setup_cmd_buf, WithSetupCmdBuffer};
+use crate::vk_utils::{execute_setup_cmd_buf, FrameInFlightId, WithSetupCmdBuffer};
 
 fn get_resource_at_idx<T: std::marker::Copy>(res_name: &str, arr: &Vec<T>, idx: usize) -> T {
   let obj = arr.get(idx);
@@ -49,7 +49,8 @@ pub struct VkCtx {
 }
 
 impl VkCtx {
-  pub fn frames_in_flight(&self) -> usize {
+  #[deprecated(note = "This is used as frames-in-flight, which is incorrect")]
+  pub fn swapchain_images_count(&self) -> usize {
     self.swapchain.image_views.len()
   }
 
@@ -65,7 +66,7 @@ impl VkCtx {
     self.debug_utils.as_ref().map(|dbg| callback(&dbg.0));
   }
 
-  pub fn data_per_frame(&self, frame_idx: usize) -> VkCtxPerSwapchainImageData {
+  pub fn data_per_frame(&self, frame_idx: FrameInFlightId) -> VkCtxPerSwapchainImageData {
     let cmd_bufs = &self.command_buffers.cmd_buffers;
     let syncs = &self.synchronize;
 

@@ -68,7 +68,6 @@ fn main() {
 
   // last pre-run ops
   info!("Starting event loop");
-  let mut current_frame_in_flight_idx: usize = 0;
 
   // start event loop
   event_loop.run(move |event, _, control_flow| {
@@ -113,14 +112,12 @@ fn main() {
         render_graph.execute_render_graph(
           &window,
           &vk_app,
-          current_frame_in_flight_idx,
           &mut config,
           &mut scene,
           &mut app_ui,
           &timer,
           &mut profiler,
         );
-        current_frame_in_flight_idx = (current_frame_in_flight_idx + 1) % vk_app.frames_in_flight();
 
         // clear input events after processed
         app_input.reset_transient_state();

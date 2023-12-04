@@ -64,7 +64,7 @@ impl AppUI {
       render_pass,
       &mut imgui,
       Some(Options {
-        in_flight_frames: vk_app.frames_in_flight(),
+        in_flight_frames: vk_app.swapchain_images_count(),
         ..Default::default()
       }),
     )

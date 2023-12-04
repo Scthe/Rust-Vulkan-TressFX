@@ -42,3 +42,5 @@ pub use vk_buffer::*;
 pub use vk_memory_resource::*;
 pub use vk_texture::*;
 pub use vk_texture_sync::*;
+
+pub type FrameInFlightId = usize;

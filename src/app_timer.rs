@@ -32,7 +32,6 @@ impl AppTimer {
     }
   }
 
-  #[allow(dead_code)]
   pub fn frame_idx(&self) -> FrameIdx {
     self.frame_idx - 1 // we start at 0 and immediately INC in `mark_start_frame` - fix it here
   }

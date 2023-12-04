@@ -10,18 +10,18 @@ use crate::{
   scene::World,
   vk_ctx::VkCtx,
   vk_utils::{
-    cmd_begin_render_pass_for_framebuffer, debug::add_pass_debug_label, ResouceBinder, VkBuffer,
+    cmd_begin_render_pass_for_framebuffer, debug::add_pass_debug_label, FrameInFlightId,
+    ResouceBinder, VkBuffer,
   },
 };
 
 /// All the kitchen sink that we might want to use in the render pass.
 /// Created so we do not have to provide it all one-by-one.
 pub struct PassExecContext<'a> {
-  /// Index of the swapchain image, range: [0, frames_in_flight)
-  pub swapchain_image_idx: usize,
+  pub frame_in_flight_id: FrameInFlightId,
   pub vk_app: &'a VkCtx,
-  pub config: &'a mut Config, // `mut` cause UI
-  pub scene: &'a mut World,   // `mut` cause UI
+  pub config: &'a mut Config, // `mut` cause UI TODO [NOW] use RefCell
+  pub scene: &'a mut World,   // `mut` cause UI TODO [NOW] use RefCell
   pub command_buffer: vk::CommandBuffer,
   pub size: vk::Extent2D,
   pub config_buffer: &'a VkBuffer,
