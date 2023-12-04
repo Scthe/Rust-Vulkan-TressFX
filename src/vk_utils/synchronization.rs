@@ -25,15 +25,6 @@ pub fn create_fence(device: &ash::Device) -> vk::Fence {
   }
 }
 
-pub fn create_fences(device: &ash::Device, count: usize) -> Vec<vk::Fence> {
-  let mut result = Vec::<vk::Fence>::with_capacity(count);
-  for _ in 0..count {
-    let obj = create_fence(device);
-    result.push(obj);
-  }
-  result
-}
-
 /// semaphore - used to synchronize work between queues (including present op.)
 pub fn create_semaphore(device: &ash::Device) -> vk::Semaphore {
   let semaphore_create_info = vk::SemaphoreCreateInfo::builder()
@@ -44,15 +35,6 @@ pub fn create_semaphore(device: &ash::Device) -> vk::Semaphore {
       .create_semaphore(&semaphore_create_info, None)
       .expect("Failed to create semaphore")
   }
-}
-
-pub fn create_semaphores(device: &ash::Device, count: usize) -> Vec<vk::Semaphore> {
-  let mut result = Vec::<vk::Semaphore>::with_capacity(count);
-  for _ in 0..count {
-    let obj = create_semaphore(device);
-    result.push(obj);
-  }
-  result
 }
 
 #[allow(dead_code)]

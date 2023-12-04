@@ -8,7 +8,7 @@ use ash::vk::{self};
 use crate::vk_ctx::vk_ctx::VkCtx;
 use crate::vk_ctx::vk_ctx_device::VkCtxDevice;
 use crate::vk_ctx::vk_ctx_swapchain::VkCtxSwapchain;
-use crate::vk_ctx::vk_ctx_synchronize::VkCtxSynchronize;
+use crate::vk_ctx::VkCtxSwapchainImage;
 
 use crate::vk_utils::debug::setup_debug_reporting;
 use crate::vk_utils::*;
@@ -89,11 +89,16 @@ pub fn vk_ctx_initialize(
     swapchain_format.format,
   );
   let swapchain_img_cnt = swapchain_images.len() as u32;
-  info!("Will use {} frames in flight", swapchain_img_cnt);
+  info!("Will use {} swapchain images", swapchain_img_cnt);
+
+  let per_swapchain_image_data: Vec<VkCtxSwapchainImage> = swapchain_images
+    .iter()
+    .zip(swapchain_image_views.iter())
+    .map(|(image, image_view)| VkCtxSwapchainImage::new(&device, *image, *image_view))
+    .collect();
 
   // command buffers
   let command_pool = create_command_pool(&device, queue_family_index);
-  let command_buffers = create_command_buffers(&device, command_pool, swapchain_img_cnt);
 
   // setup cmd buffer
   let setup_cb = create_command_buffer(&device, command_pool);
@@ -126,16 +131,13 @@ pub fn vk_ctx_initialize(
     allocator,
     command_pool,
     setup_cb,
-    command_buffers,
     swapchain: VkCtxSwapchain {
       swapchain_loader,
       swapchain,
       size: window_size,
       surface_format: swapchain_format,
-      image_views: swapchain_image_views,
-      images: swapchain_images,
     },
-    synchronize: VkCtxSynchronize::new(&device, swapchain_img_cnt as usize),
+    swapchain_images: per_swapchain_image_data,
     device: VkCtxDevice {
       phys_device,
       queue_family_index,

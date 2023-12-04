@@ -69,7 +69,7 @@ pub struct RenderGraph {
 impl RenderGraph {
   pub fn new(vk_app: &VkCtx, config: &Config) -> Self {
     let image_format = vk_app.swapchain.surface_format.format;
-    let in_flight_frames = vk_app.swapchain_images_count();
+    let frames_in_flight = vk_app.swapchain_images_count();
 
     // create passes
     let shadow_map_pass = ShadowMapPass::new(vk_app);
@@ -90,7 +90,7 @@ impl RenderGraph {
     let present_pass = PresentPass::new(vk_app, image_format);
 
     let mut render_graph = RenderGraph {
-      resources_per_frame: Vec::with_capacity(in_flight_frames),
+      resources_per_frame: Vec::with_capacity(frames_in_flight),
       shadow_map_pass,
       sss_depth_pass,
       sss_blur_pass,
@@ -157,38 +157,14 @@ impl RenderGraph {
     let frame_in_flight_id: FrameInFlightId =
       (frame_idx % (vk_app.swapchain_images_count() as u64)) as _;
 
-    // Per frame data so we can have many frames in processing at the same time.
-    // All of this is for synchronization between the in-flight-frames.
-    // For anything else, use `swapchain_image_index` as it is connected to particular
-    // OS-window framebuffer, which in turn has passess/barriers connecting it to other
-    // per-frame resources.
-    let frame_sync = vk_app.data_per_frame(frame_in_flight_id);
-    let cmd_buf = frame_sync.command_buffer;
-
-    // get next swapchain image (view and framebuffer)
-    // https://themaister.net/blog/2023/11/12/my-scuffed-game-streaming-adventure-pyrofling/
-    let swapchain_image_index: usize = unsafe {
-      // We *should* check the result for `VK_ERROR_OUT_OF_DATE_KHR`.
-      // Recreate swapchain if that happens (usually after window resize/minimize).
-      // Current code works on my PC so..
-      swapchain
-        .swapchain_loader
-        .acquire_next_image(
-          swapchain.swapchain,
-          u64::MAX,
-          frame_sync.swapchain_image_acquired_semaphore, // 'acquire_semaphore'
-          vk::Fence::null(),
-        )
-        .expect("Failed to acquire next swapchain image")
-        .0 as _
-    };
+    let (swapchain_image_index, swapchain_image) = vk_app.acquire_next_swapchain_image(frame_idx);
 
     // update per-frame uniforms
-    let frame_resources = &mut self.resources_per_frame[swapchain_image_index];
+    let frame_resources = &mut self.resources_per_frame[frame_in_flight_id];
     let config_vk_buffer = &frame_resources.config_uniform_buffer;
     update_config_uniform_buffer(vk_app, config, timer, scene, config_vk_buffer);
-    update_model_uniform_buffers(config, scene, swapchain_image_index);
-    update_tfx_uniform_buffers(config, scene, swapchain_image_index);
+    update_model_uniform_buffers(config, scene, frame_in_flight_id);
+    update_tfx_uniform_buffers(config, scene, frame_in_flight_id);
 
     // sync between frames
     // Since we have usually 3 frames in flight, wait for queue submit
@@ -199,15 +175,20 @@ impl RenderGraph {
     // https://vulkan-tutorial.com/Drawing_a_triangle/Swap_chain_recreation#page_Fixing-a-deadlock
     unsafe {
       device
-        .wait_for_fences(&[frame_sync.queue_submit_finished_fence], true, u64::MAX)
+        .wait_for_fences(
+          &[frame_resources.queue_submit_finished_fence],
+          true,
+          u64::MAX,
+        )
         .expect("vkWaitForFences at frame start failed");
       device
-        .reset_fences(&[frame_sync.queue_submit_finished_fence])
+        .reset_fences(&[frame_resources.queue_submit_finished_fence])
         .expect("vkResetFences at frame start failed");
     }
 
     //
     // start record command buffer
+    let cmd_buf = frame_resources.command_buffer;
     let cmd_buf_begin_info = vk::CommandBufferBeginInfo::builder()
       // can be one time submit bit for optimization We will rerecord cmds before next submit
       .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT)
@@ -223,7 +204,7 @@ impl RenderGraph {
 
     // pass ctx
     let mut pass_ctx = PassExecContext {
-      frame_in_flight_id: swapchain_image_index,
+      frame_in_flight_id,
       vk_app,
       config,
       scene,
@@ -376,17 +357,17 @@ impl RenderGraph {
 
     // submit command buffers to the queue
     let submit_info = vk::SubmitInfo::builder()
-      .wait_semaphores(&[frame_sync.swapchain_image_acquired_semaphore])
+      .wait_semaphores(&[swapchain_image.acquire_semaphore])
       .wait_dst_stage_mask(&[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT])
       .command_buffers(&[cmd_buf])
-      .signal_semaphores(&[frame_sync.queue_submit_finished_semaphore]) // release_semaphore
+      .signal_semaphores(&[swapchain_image.rendering_complete_semaphore])
       .build();
     unsafe {
       device
         .queue_submit(
           queue,
           &[submit_info],
-          frame_sync.queue_submit_finished_fence,
+          frame_resources.queue_submit_finished_fence,
         )
         .expect("Failed queue_submit()");
     }
@@ -396,7 +377,7 @@ impl RenderGraph {
       .image_indices(&[swapchain_image_index as _])
       // .results(results) // p_results: ptr::null_mut(),
       .swapchains(&[swapchain.swapchain])
-      .wait_semaphores(&[frame_sync.queue_submit_finished_semaphore])
+      .wait_semaphores(&[swapchain_image.rendering_complete_semaphore])
       .build();
 
     unsafe {
@@ -493,16 +474,20 @@ impl RenderGraph {
           .create_framebuffer(vk_app, frame_id, window_size);
       // present pass
       // TODO [NOW] This assumes frames-in-flight == swapchain_images_count
-      let swapchain_image_view = vk_app.swapchain.image_views[frame_id];
+      let swpch_img = &vk_app.swapchain_images[frame_id];
       let present_pass =
         self
           .present_pass
-          .create_framebuffer(vk_app, swapchain_image_view, window_size);
+          .create_framebuffer(vk_app, swpch_img.image_view, window_size);
 
-      // config buffer
+      // misc
+      let device = vk_app.vk_device();
       let config_uniform_buffer = allocate_config_uniform_buffer(vk_app, frame_id);
+      let command_buffer = create_command_buffer(device, vk_app.command_pool);
 
       self.resources_per_frame.push(PerFrameResources {
+        queue_submit_finished_fence: create_fence(device),
+        command_buffer,
         config_uniform_buffer,
         // fbos
         shadow_map_pass,

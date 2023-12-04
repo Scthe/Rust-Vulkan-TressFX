@@ -15,7 +15,8 @@ use crate::vk_utils::{VkBuffer, VkTexture};
 
 /// One instance per frame-in-flight.
 pub struct PerFrameResources {
-  // global ubos
+  pub queue_submit_finished_fence: vk::Fence,
+  pub command_buffer: vk::CommandBuffer,
   /// Refreshed once every frame. Contains e.g. all config settings, camera data
   pub config_uniform_buffer: VkBuffer,
 
@@ -47,9 +48,6 @@ impl PerFrameResources {
     let device = vk_app.vk_device();
     let allocator = &vk_app.allocator;
 
-    // buffers
-    self.config_uniform_buffer.delete(allocator);
-
     // passes framebuffers
     self.shadow_map_pass.destroy(vk_app);
     self.sss_depth_pass.destroy(vk_app);
@@ -69,5 +67,7 @@ impl PerFrameResources {
     // misc
     self.sss_ping_result_tex.delete(device, allocator);
     self.ssao_ping_result_tex.delete(device, allocator);
+    self.config_uniform_buffer.delete(allocator);
+    device.destroy_fence(self.queue_submit_finished_fence, None);
   }
 }
