@@ -151,7 +151,8 @@ impl SSAOPass {
     let vk_app = exec_ctx.vk_app;
     let command_buffer = exec_ctx.command_buffer;
     let device = vk_app.vk_device();
-    let size = exec_ctx.config.get_ssao_viewport_size();
+    let config = exec_ctx.config.borrow();
+    let size = config.get_ssao_viewport_size();
     let pass_name = &get_simple_type_name::<Self>();
 
     unsafe {

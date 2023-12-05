@@ -145,7 +145,7 @@ impl TfxForwardPass {
       );
 
       // draw calls
-      let scene = &*exec_ctx.scene;
+      let scene = exec_ctx.scene.borrow();
       for entity in &scene.tressfx_objects {
         self.bind_entity_ubos(exec_ctx, entity, shadow_map_texture, ao_texture);
         entity.cmd_draw_mesh(device, command_buffer);

@@ -223,6 +223,7 @@ impl ShadowMapPass {
   ) -> () {
     let vk_app = exec_ctx.vk_app;
     let command_buffer = exec_ctx.command_buffer;
+    let config = exec_ctx.config.borrow();
     let device = vk_app.vk_device();
     let pass_name = &get_simple_type_name::<PassType>();
 
@@ -251,7 +252,7 @@ impl ShadowMapPass {
       );
 
       // draw meshes
-      let scene = &*exec_ctx.scene;
+      let scene = exec_ctx.scene.borrow();
       for entity in &scene.entities {
         self.bind_push_constants(
           exec_ctx,
@@ -280,7 +281,7 @@ impl ShadowMapPass {
             exec_ctx,
             shadow_source,
             &entity.model_matrix,
-            exec_ctx.config.shadows.hair_tfx_radius_multipler,
+            config.shadows.hair_tfx_radius_multipler,
             shadow_source.position(),
             size,
           );

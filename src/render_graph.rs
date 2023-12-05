@@ -190,11 +190,11 @@ impl RenderGraph {
     profiler.begin_frame(device, cmd_buf);
 
     // pass ctx
-    let mut pass_ctx = PassExecContext {
+    let pass_ctx = PassExecContext {
       frame_in_flight_id,
       vk_app,
-      config,
-      scene,
+      config: RefCell::new(config),
+      scene: RefCell::new(scene),
       command_buffer: cmd_buf,
       size: vk_app.window_size(),
       config_buffer: config_vk_buffer,
@@ -214,7 +214,7 @@ impl RenderGraph {
     self.shadow_map_pass.execute::<ShadowMapPass>(
       &pass_ctx,
       &mut res.shadow_map_pass,
-      &pass_ctx.config.shadows.shadow_source,
+      &pass_ctx.config.borrow().shadows.shadow_source,
       true,
     );
 
@@ -223,7 +223,7 @@ impl RenderGraph {
       &pass_ctx,
       &mut res.sss_depth_pass,
       &self.shadow_map_pass,
-      &pass_ctx.config.sss_forward_scatter.source,
+      &pass_ctx.config.borrow().sss_forward_scatter.source,
     );
 
     // forward rendering
@@ -245,7 +245,11 @@ impl RenderGraph {
 
     // sss blur
     // skip SSSBlur pass for special debug modes
-    if !pass_ctx.config.preserve_original_forward_pass_result() {
+    if !pass_ctx
+      .config
+      .borrow()
+      .preserve_original_forward_pass_result()
+    {
       self.sss_blur_pass.execute(
         &pass_ctx,
         &mut res.sss_blur_fbo0,
@@ -261,7 +265,7 @@ impl RenderGraph {
     // we have to do it after SSS, as it would create depth discontinuities
     // that are hard to get rid off. Since this pass writes to depth buffer,
     // we have to update linear depth render target too
-    if pass_ctx.config.is_hair_using_ppll() {
+    if pass_ctx.config.borrow().is_hair_using_ppll() {
       execute_tfx_ppll(
         &self.tfx_ppll_build_pass,
         &self.tfx_ppll_resolve_pass,
@@ -309,11 +313,11 @@ impl RenderGraph {
       &mut res.ssao_blur_fbo1,
       &mut res.ssao_pass.ssao_tex,
       &mut res.ssao_ping_result_tex,
-      pass_ctx.config.get_ssao_viewport_size(),
+      pass_ctx.config.borrow().get_ssao_viewport_size(),
       &mut res.linear_depth_pass.linear_depth_tex,
-      pass_ctx.config.ssao.blur_radius,
-      pass_ctx.config.ssao.blur_max_depth_distance,
-      pass_ctx.config.ssao.blur_gauss_sigma,
+      pass_ctx.config.borrow().ssao.blur_radius,
+      pass_ctx.config.borrow().ssao.blur_max_depth_distance,
+      pass_ctx.config.borrow().ssao.blur_gauss_sigma,
     );
 
     // color grading + tonemapping
@@ -326,7 +330,7 @@ impl RenderGraph {
     // final pass to render output to OS window framebuffer
     let present_fbo = self.present_fbos[swapchain_image_index];
     self.present_pass.execute(
-      &mut pass_ctx,
+      &pass_ctx,
       &present_fbo,
       app_ui,
       &mut res.forward_pass.diffuse_tex,

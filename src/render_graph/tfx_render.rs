@@ -41,7 +41,7 @@ pub fn execute_tfx_ppll(
   ao_texture: &mut VkTexture,
   shadow_map_texture: &mut VkTexture,
 ) {
-  let scene = &*pass_ctx.scene;
+  let scene = pass_ctx.scene.borrow();
   for entity in &scene.tressfx_objects {
     tfx_ppll_build_pass.execute(pass_ctx, fbo_build, depth_stencil_tex, entity);
 

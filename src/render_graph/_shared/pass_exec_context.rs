@@ -20,8 +20,8 @@ use crate::{
 pub struct PassExecContext<'a> {
   pub frame_in_flight_id: FrameInFlightId,
   pub vk_app: &'a VkCtx,
-  pub config: &'a mut Config, // `mut` cause UI TODO [NOW] use RefCell
-  pub scene: &'a mut World,   // `mut` cause UI TODO [NOW] use RefCell
+  pub config: RefCell<&'a mut Config>, // `mut` cause UI
+  pub scene: RefCell<&'a mut World>,   // `mut` cause UI
   pub command_buffer: vk::CommandBuffer,
   pub size: vk::Extent2D,
   pub config_buffer: &'a VkBuffer,
@@ -74,7 +74,7 @@ impl PassExecContext<'_> {
   /// * Sets profiling scope,
   /// * (single frame mode) Prints name of the pass
   pub unsafe fn cmd_begin_scope(&self, name: &str) -> ScopeId {
-    if self.config.only_first_frame {
+    if self.config.borrow().only_first_frame {
       info!("Start {}", name);
     }
     self.vk_app.with_debug_loader(|debug_utils_loader| {

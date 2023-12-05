@@ -4,7 +4,6 @@ use log::info;
 
 use crate::app_ui::AppUI;
 use crate::config::Config;
-use crate::gpu_profiler::GpuProfiler;
 use crate::utils::get_simple_type_name;
 use crate::vk_ctx::VkCtx;
 use crate::{either, vk_utils::*};
@@ -132,7 +131,7 @@ impl PresentPass {
 
   pub fn execute(
     &self,
-    exec_ctx: &mut PassExecContext,
+    exec_ctx: &PassExecContext,
     framebuffer: &vk::Framebuffer,
     app_ui: &mut AppUI,
     forward_pass_result: &mut VkTexture,
@@ -148,7 +147,7 @@ impl PresentPass {
     let command_buffer = exec_ctx.command_buffer;
     let device = vk_app.vk_device();
     let size = exec_ctx.size;
-    let clear_values = exec_ctx.config.clear_swapchain_color();
+    let clear_values = exec_ctx.config.borrow().clear_swapchain_color();
     let pass_name = &get_simple_type_name::<Self>();
 
     unsafe {
@@ -191,15 +190,7 @@ impl PresentPass {
       cmd_draw_fullscreen_triangle(device, &command_buffer);
 
       // ui
-      let profiler: &GpuProfiler = &exec_ctx.profiler.borrow();
-      app_ui.render_ui(
-        exec_ctx.window,
-        command_buffer,
-        exec_ctx.config,
-        exec_ctx.timer,
-        profiler,
-        &mut exec_ctx.scene,
-      );
+      app_ui.render_ui(exec_ctx, command_buffer);
 
       // end
       exec_ctx.cmd_end_render_pass(scope_id);

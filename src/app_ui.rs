@@ -20,7 +20,8 @@ use crate::{
   },
   either,
   gpu_profiler::{GpuProfiler, GpuProfilerReport},
-  scene::{TfxObject, World, WorldEntity},
+  render_graph::PassExecContext,
+  scene::{TfxObject, WorldEntity},
   utils::{first_letters, vec3_to_pretty_str},
   vk_ctx::VkCtx,
 };
@@ -89,19 +90,18 @@ impl AppUI {
   }
 
   /// https://github.com/Scthe/WebFX/blob/master/src/UISystem.ts
-  pub fn render_ui(
-    &mut self,
-    window: &winit::window::Window,
-    command_buffer: vk::CommandBuffer,
-    config: &mut Config,
-    timer: &AppTimer,
-    profiler: &GpuProfiler,
-    scene: &mut World,
-  ) {
+  pub fn render_ui(&mut self, exec_ctx: &PassExecContext, command_buffer: vk::CommandBuffer) {
+    let window = exec_ctx.window;
+    let config: &mut Config = &mut exec_ctx.config.borrow_mut();
+    let timer = exec_ctx.timer;
+    let profiler = &mut exec_ctx.profiler.borrow_mut();
+    let scene = &mut exec_ctx.scene.borrow_mut();
+
     self
       .platform
       .prepare_frame(self.imgui.io_mut(), &window)
       .expect("Failed to prepare frame");
+
     {
       let ui = self.imgui.frame();
 

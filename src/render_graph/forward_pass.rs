@@ -231,7 +231,7 @@ impl ForwardPass {
     ao_texture: &mut VkTexture,
   ) -> () {
     let vk_app = exec_ctx.vk_app;
-    let config = &exec_ctx.config;
+    let config = exec_ctx.config.borrow();
     let command_buffer = exec_ctx.command_buffer;
     let size = exec_ctx.size;
     let device = vk_app.vk_device();
@@ -265,7 +265,7 @@ impl ForwardPass {
       );
 
       // draw calls
-      let scene = &*exec_ctx.scene;
+      let scene = &*exec_ctx.scene.borrow();
       for entity in &scene.entities {
         self.bind_entity_ubos(
           exec_ctx,

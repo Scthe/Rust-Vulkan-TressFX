@@ -31,8 +31,12 @@ pub fn execute_tfx_simulation(
   tfx_sim2: &TfxSim2Pass,
   tfx_sim3: &TfxSim3Pass,
 ) {
-  let scene = &*pass_ctx.scene;
-  let local_shape_iterations = pass_ctx.config.tfx_simulation.local_stiffness_iterations;
+  let scene = pass_ctx.scene.borrow();
+  let local_shape_iterations = pass_ctx
+    .config
+    .borrow()
+    .tfx_simulation
+    .local_stiffness_iterations;
 
   for entity in &scene.tressfx_objects {
     cmd_barrier_prepare_for_simulation(pass_ctx.vk_app.vk_device(), pass_ctx.command_buffer);
