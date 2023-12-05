@@ -55,6 +55,7 @@ pub enum HairSolidDisplayMode {
 pub struct Config {
   /// crash program after first frame to read init errors
   pub only_first_frame: bool,
+  pub frames_in_flight: usize,
   /// build type: debug or release
   is_release: bool,
   /// run profiler
@@ -125,6 +126,7 @@ impl Config {
 
     Config {
       only_first_frame: Self::ONLY_FIRST_FRAME,
+      frames_in_flight: 2,
       is_release: false, // TODO [CRITICAL] from Cargo build type or cmd line args. Apply to `compile_shaders.py` too
       profile_next_frame: Self::PROFILE_FIRST_FRAME,
       reset_tfx_simulation_next_frame: false,

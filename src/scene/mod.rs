@@ -30,9 +30,10 @@ mod world_entity;
 
 pub fn load_scene(vk_ctx: &VkCtx, config: &Config) -> World {
   let scale = config.model_scale;
+  let frames_in_flight = config.frames_in_flight;
   let model_matrix = Mat4::from_scale(Vec3::new(scale, scale, scale));
-  let sintel = load_sintel(vk_ctx, model_matrix);
-  let sintel_eyes = load_sintel_eyes(vk_ctx, model_matrix);
+  let sintel = load_sintel(vk_ctx, frames_in_flight, model_matrix);
+  let sintel_eyes = load_sintel_eyes(vk_ctx, frames_in_flight, model_matrix);
 
   // tressfx
   let sintel_tfx_file = load_tressfx_file(std::path::Path::new(
@@ -58,7 +59,7 @@ pub fn load_scene(vk_ctx: &VkCtx, config: &Config) -> World {
   }
 }
 
-fn load_sintel(vk_ctx: &VkCtx, model_matrix: Mat4) -> WorldEntity {
+fn load_sintel(vk_ctx: &VkCtx, frames_in_flight: usize, model_matrix: Mat4) -> WorldEntity {
   let tex_diffuse = vk_ctx.create_texture_from_file(
     Path::new("./assets/sintel_lite_v2_1/textures/sintel_skin_diff.jpg"),
     vk::Format::R8G8B8A8_SRGB,
@@ -78,7 +79,7 @@ fn load_sintel(vk_ctx: &VkCtx, model_matrix: Mat4) -> WorldEntity {
     &model_matrix,
   );
   let name = "sintel".to_string();
-  let model_ubo = allocate_model_ubo_vec(vk_ctx, &name);
+  let model_ubo = allocate_model_ubo_vec(vk_ctx, frames_in_flight, &name);
 
   WorldEntity {
     name,
@@ -92,7 +93,7 @@ fn load_sintel(vk_ctx: &VkCtx, model_matrix: Mat4) -> WorldEntity {
   }
 }
 
-fn load_sintel_eyes(vk_ctx: &VkCtx, model_matrix: Mat4) -> WorldEntity {
+fn load_sintel_eyes(vk_ctx: &VkCtx, frames_in_flight: usize, model_matrix: Mat4) -> WorldEntity {
   let tex_diffuse = vk_ctx.create_texture_from_file(
     Path::new("./assets/sintel_lite_v2_1/textures/sintel_eyeball_diff.jpg"),
     vk::Format::R8G8B8A8_SRGB,
@@ -106,7 +107,7 @@ fn load_sintel_eyes(vk_ctx: &VkCtx, model_matrix: Mat4) -> WorldEntity {
     &model_matrix,
   );
   let name = "sintel_eyes".to_string();
-  let model_ubo = allocate_model_ubo_vec(vk_ctx, &name);
+  let model_ubo = allocate_model_ubo_vec(vk_ctx, frames_in_flight, &name);
 
   WorldEntity {
     name,

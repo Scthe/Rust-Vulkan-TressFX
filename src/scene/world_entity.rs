@@ -84,8 +84,11 @@ fn allocate_model_ubo(vk_ctx: &VkCtx, name: &str, frame_in_flight_id: FrameInFli
   )
 }
 
-pub fn allocate_model_ubo_vec(vk_ctx: &VkCtx, name: &str) -> Vec<VkBuffer> {
-  let frames_in_flight = vk_ctx.swapchain_images_count();
+pub fn allocate_model_ubo_vec(
+  vk_ctx: &VkCtx,
+  frames_in_flight: usize,
+  name: &str,
+) -> Vec<VkBuffer> {
   (0..frames_in_flight)
     .map(|i| allocate_model_ubo(vk_ctx, &name, i))
     .collect::<Vec<_>>()

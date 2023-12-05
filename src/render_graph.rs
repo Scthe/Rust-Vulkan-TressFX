@@ -45,7 +45,10 @@ use self::{_shared::GlobalConfigUBO, present_pass::PresentPass};
 
 /// https://github.com/Scthe/WebFX/blob/master/src/main.ts#L144
 pub struct RenderGraph {
+  // 1 per frame-in-flight
   resources_per_frame: Vec<PerFrameResources>,
+  /// 1 per swapchain image
+  present_fbos: Vec<vk::Framebuffer>,
 
   // passes
   shadow_map_pass: ShadowMapPass,
@@ -69,7 +72,6 @@ pub struct RenderGraph {
 impl RenderGraph {
   pub fn new(vk_app: &VkCtx, config: &Config) -> Self {
     let image_format = vk_app.swapchain.surface_format.format;
-    let frames_in_flight = vk_app.swapchain_images_count();
 
     // create passes
     let shadow_map_pass = ShadowMapPass::new(vk_app);
@@ -90,7 +92,8 @@ impl RenderGraph {
     let present_pass = PresentPass::new(vk_app, image_format);
 
     let mut render_graph = RenderGraph {
-      resources_per_frame: Vec::with_capacity(frames_in_flight),
+      resources_per_frame: Vec::with_capacity(config.frames_in_flight),
+      present_fbos: Vec::with_capacity(vk_app.swapchain_images_count()),
       shadow_map_pass,
       sss_depth_pass,
       sss_blur_pass,
@@ -110,6 +113,7 @@ impl RenderGraph {
     };
 
     render_graph.initialize_per_frame_resources(vk_app, config);
+    render_graph.initialize_per_swapchain_img_resources(vk_app);
     render_graph
   }
 
@@ -138,6 +142,10 @@ impl RenderGraph {
     self.resources_per_frame.iter_mut().for_each(|res| {
       res.destroy(vk_app);
     });
+    // per swapchain resources
+    self.present_fbos.iter_mut().for_each(|res| {
+      device.destroy_framebuffer(*res, None);
+    });
   }
 
   pub fn execute_render_graph(
@@ -154,8 +162,7 @@ impl RenderGraph {
     let swapchain = &vk_app.swapchain;
     let queue = vk_app.device.queue;
     let frame_idx = timer.frame_idx();
-    let frame_in_flight_id: FrameInFlightId =
-      (frame_idx % (vk_app.swapchain_images_count() as u64)) as _;
+    let frame_in_flight_id: FrameInFlightId = (frame_idx % (config.frames_in_flight as u64)) as _;
 
     let (swapchain_image_index, swapchain_image) = vk_app.acquire_next_swapchain_image(frame_idx);
 
@@ -333,9 +340,10 @@ impl RenderGraph {
     );
 
     // final pass to render output to OS window framebuffer
+    let present_fbo = self.present_fbos[swapchain_image_index];
     self.present_pass.execute(
       &mut pass_ctx,
-      &mut frame_resources.present_pass,
+      &present_fbo,
       app_ui,
       &mut frame_resources.forward_pass.diffuse_tex,
       &mut frame_resources.tonemapping_pass.tonemapped_tex,
@@ -392,7 +400,7 @@ impl RenderGraph {
 
   /// initialize resources used per frame-in-flight
   fn initialize_per_frame_resources(&mut self, vk_app: &VkCtx, config: &Config) {
-    let frames_in_flight = vk_app.swapchain_images_count();
+    let frames_in_flight = config.frames_in_flight;
     let window_size = &vk_app.window_size();
 
     (0..frames_in_flight).for_each(|frame_id| {
@@ -472,13 +480,6 @@ impl RenderGraph {
         self
           .tonemapping_pass
           .create_framebuffer(vk_app, frame_id, window_size);
-      // present pass
-      // TODO [NOW] This assumes frames-in-flight == swapchain_images_count
-      let swpch_img = &vk_app.swapchain_images[frame_id];
-      let present_pass =
-        self
-          .present_pass
-          .create_framebuffer(vk_app, swpch_img.image_view, window_size);
 
       // misc
       let device = vk_app.vk_device();
@@ -503,14 +504,48 @@ impl RenderGraph {
         ssao_blur_fbo0,
         ssao_blur_fbo1,
         tonemapping_pass,
-        present_pass,
         // textures
         sss_ping_result_tex,
         ssao_ping_result_tex,
       });
     });
+  }
 
-    transition_window_framebuffers_for_present_khr(vk_app);
+  /// initialize resources used per swapchain image
+  fn initialize_per_swapchain_img_resources(&mut self, vk_app: &VkCtx) {
+    let window_size = &vk_app.window_size();
+
+    let barriers = vk_app
+      .swapchain_images
+      .iter()
+      .map(|swapchain_image| {
+        // create fbo
+        let fbo =
+          self
+            .present_pass
+            .create_framebuffer(vk_app, swapchain_image.image_view, window_size);
+        self.present_fbos.push(fbo);
+
+        // barrier to transition to `PipelineStageFlags2::FRAGMENT_SHADER`
+        let mut barrier = VkStorageResourceBarrier::empty();
+        barrier.previous_op.0 = vk::PipelineStageFlags2::TOP_OF_PIPE;
+        barrier.next_op.0 = vk::PipelineStageFlags2::FRAGMENT_SHADER;
+
+        create_image_barrier(
+          swapchain_image.image,
+          vk::ImageAspectFlags::COLOR,
+          vk::ImageLayout::UNDEFINED,
+          vk::ImageLayout::PRESENT_SRC_KHR,
+          barrier,
+        )
+      })
+      .collect::<Vec<_>>();
+
+    // do the transitions
+    vk_app.with_setup_cb(|device, cmd_buf| {
+      let dep = vk::DependencyInfo::builder().image_memory_barriers(&barriers);
+      unsafe { device.cmd_pipeline_barrier2(cmd_buf, &dep) };
+    });
   }
 
   pub fn get_ui_draw_render_pass(&self) -> vk::RenderPass {

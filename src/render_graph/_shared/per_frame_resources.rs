@@ -14,6 +14,7 @@ use crate::vk_ctx::VkCtx;
 use crate::vk_utils::{VkBuffer, VkTexture};
 
 /// One instance per frame-in-flight.
+/// TODO [CRITICAL] remove framebuffers from here
 pub struct PerFrameResources {
   pub queue_submit_finished_fence: vk::Fence,
   pub command_buffer: vk::CommandBuffer,
@@ -34,12 +35,11 @@ pub struct PerFrameResources {
   pub linear_depth_pass: LinearDepthPassFramebuffer,
   pub ssao_pass: SSAOPassFramebuffer,
   pub tonemapping_pass: TonemappingPassFramebuffer,
-  pub present_pass: vk::Framebuffer,
 
   // misc
   /// SSS - first result attachment in ping-pong
   pub sss_ping_result_tex: VkTexture,
-  // SSAO - first result attachment in ping-pong
+  /// SSAO - first result attachment in ping-pong
   pub ssao_ping_result_tex: VkTexture,
 }
 
@@ -62,7 +62,6 @@ impl PerFrameResources {
     self.linear_depth_pass.destroy(vk_app);
     self.ssao_pass.destroy(vk_app);
     self.tonemapping_pass.destroy(vk_app);
-    device.destroy_framebuffer(self.present_pass, None);
 
     // misc
     self.sss_ping_result_tex.delete(device, allocator);

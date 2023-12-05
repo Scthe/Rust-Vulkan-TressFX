@@ -89,7 +89,7 @@ impl TfxObject {
     let tangents_buffer = create_tangents_buffer(vk_ctx, &name, data, true);
     let (index_buffer, triangle_count) = create_index_buffer(vk_ctx, &name, data);
 
-    let tfx_params_ubo = allocate_params_ubo_vec(vk_ctx, vk_ctx.swapchain_images_count(), name);
+    let tfx_params_ubo = allocate_params_ubo_vec(vk_ctx, config.frames_in_flight, name);
 
     let positions_0_buffer =
       create_simulation_positions_buffer(vk_ctx, &format!("{}.tfx_positions_0", name), data);

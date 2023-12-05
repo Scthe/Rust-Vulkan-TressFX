@@ -39,7 +39,6 @@ pub struct VkCtx {
 }
 
 impl VkCtx {
-  #[deprecated(note = "This is used as frames-in-flight, which is incorrect")]
   pub fn swapchain_images_count(&self) -> usize {
     self.swapchain_images.len()
   }
@@ -59,6 +58,9 @@ impl VkCtx {
   /// get next swapchain image
   /// https://themaister.net/blog/2023/11/12/my-scuffed-game-streaming-adventure-pyrofling/
   pub fn acquire_next_swapchain_image(&self, frame_idx: FrameIdx) -> (usize, &VkCtxSwapchainImage) {
+    // TODO [CRITICAL] handle image_index that is out of order.
+    //      i.e. the image_view should be based on `swapchain_image_index`,
+    //      not `frame_idx % (self.swapchain_images.len() as u64)`
     let idx = frame_idx % (self.swapchain_images.len() as u64);
     let swapchain_image = &self.swapchain_images[idx as usize];
     let swapchain = &self.swapchain;
