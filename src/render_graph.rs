@@ -45,10 +45,11 @@ use self::{_shared::GlobalConfigUBO, present_pass::PresentPass};
 
 /// https://github.com/Scthe/WebFX/blob/master/src/main.ts#L144
 pub struct RenderGraph {
-  // 1 per frame-in-flight
-  resources_per_frame: Vec<PerFrameResources>,
+  /// 1 per frame-in-flight
+  per_frame_data: Vec<FrameData>,
   /// 1 per swapchain image
   present_fbos: Vec<vk::Framebuffer>,
+  rg_resources: Option<RenderGraphResources>,
 
   // passes
   shadow_map_pass: ShadowMapPass,
@@ -92,8 +93,9 @@ impl RenderGraph {
     let present_pass = PresentPass::new(vk_app, image_format);
 
     let mut render_graph = RenderGraph {
-      resources_per_frame: Vec::with_capacity(config.frames_in_flight),
+      per_frame_data: Vec::with_capacity(config.frames_in_flight),
       present_fbos: Vec::with_capacity(vk_app.swapchain_images_count()),
+      rg_resources: None,
       shadow_map_pass,
       sss_depth_pass,
       sss_blur_pass,
@@ -112,6 +114,7 @@ impl RenderGraph {
       present_pass,
     };
 
+    render_graph.rg_resources = Some(RenderGraphResources::new(vk_app, config, &render_graph));
     render_graph.initialize_per_frame_resources(vk_app, config);
     render_graph.initialize_per_swapchain_img_resources(vk_app);
     render_graph
@@ -138,8 +141,10 @@ impl RenderGraph {
     self.sss_blur_pass.destroy(device);
     self.shadow_map_pass.destroy(device);
 
+    self.rg_resources.as_mut().map(|res| res.destroy(vk_app));
+
     // per frame resources
-    self.resources_per_frame.iter_mut().for_each(|res| {
+    self.per_frame_data.iter_mut().for_each(|res| {
       res.destroy(vk_app);
     });
     // per swapchain resources
@@ -167,44 +172,19 @@ impl RenderGraph {
     let (swapchain_image_index, swapchain_image) = vk_app.acquire_next_swapchain_image(frame_idx);
 
     // update per-frame uniforms
-    let frame_resources = &mut self.resources_per_frame[frame_in_flight_id];
-    let config_vk_buffer = &frame_resources.config_uniform_buffer;
+    let frame_data = &self.per_frame_data[frame_in_flight_id];
+    let config_vk_buffer = &frame_data.config_uniform_buffer;
     update_config_uniform_buffer(vk_app, config, timer, scene, config_vk_buffer);
     update_model_uniform_buffers(config, scene, frame_in_flight_id);
     update_tfx_uniform_buffers(config, scene, frame_in_flight_id);
 
     // sync between frames
-    // Since we have usually 3 frames in flight, wait for queue submit
-    // of the frame that was 3 frames before. Has to be done after
-    // 'acquire_next_image' as error handling for 'acquire_next_image'
-    // may have to recreate swapchain from scratch. We guarantee that
-    // after this fence, the swapchain is in 'stable' state.
-    // https://vulkan-tutorial.com/Drawing_a_triangle/Swap_chain_recreation#page_Fixing-a-deadlock
-    unsafe {
-      device
-        .wait_for_fences(
-          &[frame_resources.queue_submit_finished_fence],
-          true,
-          u64::MAX,
-        )
-        .expect("vkWaitForFences at frame start failed");
-      device
-        .reset_fences(&[frame_resources.queue_submit_finished_fence])
-        .expect("vkResetFences at frame start failed");
-    }
+    self.wait_for_previous_frame_in_flight(vk_app, frame_data);
 
     //
     // start record command buffer
-    let cmd_buf = frame_resources.command_buffer;
-    let cmd_buf_begin_info = vk::CommandBufferBeginInfo::builder()
-      // can be one time submit bit for optimization We will rerecord cmds before next submit
-      .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT)
-      .build();
-    unsafe {
-      device
-      .begin_command_buffer(cmd_buf, &cmd_buf_begin_info) // also resets command buffer
-      .expect("Failed - begin_command_buffer");
-    }
+    let cmd_buf = frame_data.command_buffer;
+    begin_command_buffer_for_one_time_submit(device, cmd_buf);
 
     // execute render graph passes
     profiler.begin_frame(device, cmd_buf);
@@ -222,6 +202,10 @@ impl RenderGraph {
       timer,
       profiler: RefCell::new(profiler),
     };
+    let res = &mut self
+      .rg_resources
+      .as_mut()
+      .expect("RenderGraph resources were not initialized before starting to render a frame");
 
     // simulate
     execute_tfx_simulation(&pass_ctx, &self.tfx_sim0, &self.tfx_sim2, &self.tfx_sim3);
@@ -229,7 +213,7 @@ impl RenderGraph {
     // shadow map generate pass
     self.shadow_map_pass.execute::<ShadowMapPass>(
       &pass_ctx,
-      &mut frame_resources.shadow_map_pass,
+      &mut res.shadow_map_pass,
       &pass_ctx.config.shadows.shadow_source,
       true,
     );
@@ -237,7 +221,7 @@ impl RenderGraph {
     // sss forward scatter depth map generate pass
     self.sss_depth_pass.execute(
       &pass_ctx,
-      &mut frame_resources.sss_depth_pass,
+      &mut res.sss_depth_pass,
       &self.shadow_map_pass,
       &pass_ctx.config.sss_forward_scatter.source,
     );
@@ -245,18 +229,18 @@ impl RenderGraph {
     // forward rendering
     self.forward_pass.execute(
       &pass_ctx,
-      &mut frame_resources.forward_pass,
-      &mut frame_resources.shadow_map_pass.depth_tex,
-      &mut frame_resources.sss_depth_pass.depth_tex,
-      &mut frame_resources.ssao_pass.ssao_tex,
+      &mut res.forward_pass,
+      &mut res.shadow_map_pass.depth_tex,
+      &mut res.sss_depth_pass.depth_tex,
+      &mut res.ssao_pass.ssao_tex,
     );
 
     // linear depth
     self.linear_depth_pass.execute(
       &pass_ctx,
-      &mut frame_resources.linear_depth_pass,
-      &mut frame_resources.forward_pass.depth_stencil_tex,
-      frame_resources.forward_pass.depth_image_view,
+      &mut res.linear_depth_pass,
+      &mut res.forward_pass.depth_stencil_tex,
+      res.forward_pass.depth_image_view,
     );
 
     // sss blur
@@ -264,12 +248,12 @@ impl RenderGraph {
     if !pass_ctx.config.preserve_original_forward_pass_result() {
       self.sss_blur_pass.execute(
         &pass_ctx,
-        &mut frame_resources.sss_blur_fbo0,
-        &mut frame_resources.sss_blur_fbo1,
-        &mut frame_resources.forward_pass.diffuse_tex, // 1st read, 2nd write
-        &mut frame_resources.sss_ping_result_tex,      // 1st write, 2nd read
-        &mut frame_resources.forward_pass.depth_stencil_tex, // write (stencil source)
-        &mut frame_resources.linear_depth_pass.linear_depth_tex, // read
+        &mut res.sss_blur_fbo0,
+        &mut res.sss_blur_fbo1,
+        &mut res.forward_pass.diffuse_tex, // 1st read, 2nd write
+        &mut res.sss_ping_result_tex,      // 1st write, 2nd read
+        &mut res.forward_pass.depth_stencil_tex, // write (stencil source)
+        &mut res.linear_depth_pass.linear_depth_tex, // read
       );
     }
 
@@ -283,50 +267,50 @@ impl RenderGraph {
         &self.tfx_ppll_resolve_pass,
         &self.tfx_depth_only_pass,
         &pass_ctx,
-        &mut frame_resources.tfx_ppll_build_pass,
-        &mut frame_resources.tfx_ppll_resolve_pass,
-        frame_resources.tfx_depth_only_pass,
-        &mut frame_resources.forward_pass.depth_stencil_tex,
-        &mut frame_resources.forward_pass.diffuse_tex,
-        &mut frame_resources.ssao_pass.ssao_tex,
-        &mut frame_resources.shadow_map_pass.depth_tex,
+        &mut res.tfx_ppll_build_pass,
+        &mut res.tfx_ppll_resolve_pass,
+        res.tfx_depth_only_pass,
+        &mut res.forward_pass.depth_stencil_tex,
+        &mut res.forward_pass.diffuse_tex,
+        &mut res.ssao_pass.ssao_tex,
+        &mut res.shadow_map_pass.depth_tex,
       );
     } else {
       self.tfx_forward_pass.execute(
         &pass_ctx,
-        &mut frame_resources.forward_pass,
-        &mut frame_resources.shadow_map_pass.depth_tex,
-        &mut frame_resources.ssao_pass.ssao_tex,
+        &mut res.forward_pass,
+        &mut res.shadow_map_pass.depth_tex,
+        &mut res.ssao_pass.ssao_tex,
       );
     }
 
     // linear depth again, after hair has written to original depth buffer
     self.linear_depth_pass.execute(
       &pass_ctx,
-      &mut frame_resources.linear_depth_pass,
-      &mut frame_resources.forward_pass.depth_stencil_tex,
-      frame_resources.forward_pass.depth_image_view,
+      &mut res.linear_depth_pass,
+      &mut res.forward_pass.depth_stencil_tex,
+      res.forward_pass.depth_image_view,
     );
 
     // ssao
     self.ssao_pass.execute(
       &pass_ctx,
-      &mut frame_resources.ssao_pass,
-      &mut frame_resources.forward_pass.depth_stencil_tex,
-      frame_resources.forward_pass.depth_image_view,
-      &mut frame_resources.forward_pass.normals_tex,
+      &mut res.ssao_pass,
+      &mut res.forward_pass.depth_stencil_tex,
+      res.forward_pass.depth_image_view,
+      &mut res.forward_pass.normals_tex,
     );
 
     // ssao blur
     self.ssao_blur_pass.execute(
       &pass_ctx,
       "SSAO",
-      &mut frame_resources.ssao_blur_fbo0,
-      &mut frame_resources.ssao_blur_fbo1,
-      &mut frame_resources.ssao_pass.ssao_tex,
-      &mut frame_resources.ssao_ping_result_tex,
+      &mut res.ssao_blur_fbo0,
+      &mut res.ssao_blur_fbo1,
+      &mut res.ssao_pass.ssao_tex,
+      &mut res.ssao_ping_result_tex,
       pass_ctx.config.get_ssao_viewport_size(),
-      &mut frame_resources.linear_depth_pass.linear_depth_tex,
+      &mut res.linear_depth_pass.linear_depth_tex,
       pass_ctx.config.ssao.blur_radius,
       pass_ctx.config.ssao.blur_max_depth_distance,
       pass_ctx.config.ssao.blur_gauss_sigma,
@@ -335,8 +319,8 @@ impl RenderGraph {
     // color grading + tonemapping
     self.tonemapping_pass.execute(
       &pass_ctx,
-      &mut frame_resources.tonemapping_pass,
-      &mut frame_resources.forward_pass.diffuse_tex,
+      &mut res.tonemapping_pass,
+      &mut res.forward_pass.diffuse_tex,
     );
 
     // final pass to render output to OS window framebuffer
@@ -345,14 +329,14 @@ impl RenderGraph {
       &mut pass_ctx,
       &present_fbo,
       app_ui,
-      &mut frame_resources.forward_pass.diffuse_tex,
-      &mut frame_resources.tonemapping_pass.tonemapped_tex,
-      &mut frame_resources.forward_pass.normals_tex,
-      &mut frame_resources.ssao_pass.ssao_tex,
-      &mut frame_resources.forward_pass.depth_stencil_tex,
-      frame_resources.forward_pass.depth_image_view,
-      &mut frame_resources.shadow_map_pass.depth_tex,
-      &mut frame_resources.linear_depth_pass.linear_depth_tex,
+      &mut res.forward_pass.diffuse_tex,
+      &mut res.tonemapping_pass.tonemapped_tex,
+      &mut res.forward_pass.normals_tex,
+      &mut res.ssao_pass.ssao_tex,
+      &mut res.forward_pass.depth_stencil_tex,
+      res.forward_pass.depth_image_view,
+      &mut res.shadow_map_pass.depth_tex,
+      &mut res.linear_depth_pass.linear_depth_tex,
     );
 
     unsafe {
@@ -375,7 +359,7 @@ impl RenderGraph {
         .queue_submit(
           queue,
           &[submit_info],
-          frame_resources.queue_submit_finished_fence,
+          frame_data.queue_submit_finished_fence,
         )
         .expect("Failed queue_submit()");
     }
@@ -398,115 +382,32 @@ impl RenderGraph {
     profiler.end_frame(device);
   }
 
+  /// `vkWaitForFences`
+  fn wait_for_previous_frame_in_flight(&self, vk_app: &VkCtx, frame_data: &FrameData) {
+    let device = vk_app.vk_device();
+    unsafe {
+      device
+        .wait_for_fences(&[frame_data.queue_submit_finished_fence], true, u64::MAX)
+        .expect("vkWaitForFences at frame start failed");
+      device
+        .reset_fences(&[frame_data.queue_submit_finished_fence])
+        .expect("vkResetFences at frame start failed");
+    }
+  }
+
   /// initialize resources used per frame-in-flight
   fn initialize_per_frame_resources(&mut self, vk_app: &VkCtx, config: &Config) {
     let frames_in_flight = config.frames_in_flight;
-    let window_size = &vk_app.window_size();
 
     (0..frames_in_flight).for_each(|frame_id| {
-      let ssao_result_size = config.get_ssao_viewport_size();
-
-      // textures
-      let sss_ping_result_tex = ForwardPass::create_diffuse_attachment_tex::<SSSBlurPass>(
-        vk_app,
-        "sss_blur_tmp",
-        frame_id,
-        window_size,
-      );
-      let ssao_ping_result_tex =
-        SSAOPass::create_result_texture(vk_app, &ssao_result_size, frame_id, true);
-
-      // fbos
-      // shadow + shadow-like SSS
-      let shadow_map_pass = self.shadow_map_pass.create_framebuffer::<ShadowMapPass>(
-        vk_app,
-        frame_id,
-        config.shadows.shadowmap_size,
-      );
-      let sss_depth_pass = self.sss_depth_pass.create_framebuffer(
-        vk_app,
-        frame_id,
-        &self.shadow_map_pass,
-        config.sss_forward_scatter.depthmap_size,
-      );
-      // forward
-      let forward_pass = self
-        .forward_pass
-        .create_framebuffer(vk_app, frame_id, window_size);
-      // tfx
-      let tfx_ppll_build_pass = self.tfx_ppll_build_pass.create_framebuffer(
-        vk_app,
-        frame_id,
-        &forward_pass.depth_stencil_tex,
-      );
-      let tfx_ppll_resolve_pass = self.tfx_ppll_resolve_pass.create_framebuffer(
-        vk_app,
-        &forward_pass.depth_stencil_tex,
-        &forward_pass.diffuse_tex,
-        &forward_pass.normals_tex,
-      );
-
-      let tfx_depth_only_pass = self
-        .tfx_depth_only_pass
-        .create_framebuffer(vk_app, &forward_pass.depth_stencil_tex);
-      // sss blur
-      let sss_blur_fbo0 = self.sss_blur_pass.create_framebuffer(
-        vk_app,
-        &forward_pass.depth_stencil_tex,
-        &sss_ping_result_tex,
-      );
-      let sss_blur_fbo1 = self.sss_blur_pass.create_framebuffer(
-        vk_app,
-        &forward_pass.depth_stencil_tex,
-        &forward_pass.diffuse_tex,
-      );
-      // linear depth
-      let linear_depth_pass =
-        self
-          .linear_depth_pass
-          .create_framebuffer(vk_app, frame_id, window_size);
-      // ssao
-      let ssao_pass = self
-        .ssao_pass
-        .create_framebuffer(vk_app, frame_id, &ssao_result_size);
-      let ssao_blur_fbo0 = self
-        .ssao_blur_pass
-        .create_framebuffer(vk_app, &ssao_ping_result_tex);
-      let ssao_blur_fbo1 = self
-        .ssao_blur_pass
-        .create_framebuffer(vk_app, &ssao_pass.ssao_tex);
-      // tonemap
-      let tonemapping_pass =
-        self
-          .tonemapping_pass
-          .create_framebuffer(vk_app, frame_id, window_size);
-
-      // misc
       let device = vk_app.vk_device();
       let config_uniform_buffer = allocate_config_uniform_buffer(vk_app, frame_id);
       let command_buffer = create_command_buffer(device, vk_app.command_pool);
 
-      self.resources_per_frame.push(PerFrameResources {
+      self.per_frame_data.push(FrameData {
         queue_submit_finished_fence: create_fence(device),
         command_buffer,
         config_uniform_buffer,
-        // fbos
-        shadow_map_pass,
-        sss_depth_pass,
-        sss_blur_fbo0,
-        sss_blur_fbo1,
-        forward_pass,
-        tfx_ppll_build_pass,
-        tfx_ppll_resolve_pass,
-        tfx_depth_only_pass,
-        linear_depth_pass,
-        ssao_pass,
-        ssao_blur_fbo0,
-        ssao_blur_fbo1,
-        tonemapping_pass,
-        // textures
-        sss_ping_result_tex,
-        ssao_ping_result_tex,
       });
     });
   }

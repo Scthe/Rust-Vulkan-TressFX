@@ -36,3 +36,16 @@ pub fn create_command_buffer(device: &ash::Device, cmd_pool: vk::CommandPool) ->
   };
   cmd_buffers[0]
 }
+
+/// Prepare command buffer for recording. Also resets command buffer.
+pub fn begin_command_buffer_for_one_time_submit(device: &ash::Device, cmd_buf: vk::CommandBuffer) {
+  // can be one time submit bit for optimization We will rerecord cmds before next submit
+  let cmd_buf_begin_info = vk::CommandBufferBeginInfo::builder()
+    .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT)
+    .build();
+  unsafe {
+    device
+      .begin_command_buffer(cmd_buf, &cmd_buf_begin_info)
+      .expect("Failed - begin_command_buffer");
+  }
+}

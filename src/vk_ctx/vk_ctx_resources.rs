@@ -91,7 +91,6 @@ impl VkCtx {
   pub fn create_attachment<PassType>(
     &self,
     name: &str,
-    frame_id: usize,
     format: vk::Format,
     size: vk::Extent2D,
   ) -> VkTexture {
@@ -120,7 +119,7 @@ impl VkCtx {
     );
 
     self.create_texture_empty(
-      get_attachment_name::<PassType>(name, frame_id),
+      get_attachment_name::<PassType>(name),
       size,
       format,
       vk::ImageTiling::OPTIMAL,

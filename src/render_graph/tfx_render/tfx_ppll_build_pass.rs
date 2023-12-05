@@ -177,7 +177,6 @@ impl TfxPpllBuildPass {
   pub fn create_framebuffer(
     &self,
     vk_app: &VkCtx,
-    frame_id: usize,
     depth_stencil_tex: &VkTexture,
   ) -> TfxPpllBuildPassFramebuffer {
     let device = vk_app.vk_device();
@@ -192,7 +191,7 @@ impl TfxPpllBuildPass {
     // head pointers texture
     // https://github.com/SaschaWillems/Vulkan/blob/master/examples/oit/oit.cpp#L228
     let head_pointers_image = vk_app.create_texture_empty(
-      format!("TfxPpllBuildPass.head_pointers_image#{}", frame_id),
+      create_per_object_pass_name::<Self>("head_pointers_image"),
       size,
       vk::Format::R32_UINT,
       vk::ImageTiling::OPTIMAL,
@@ -206,7 +205,7 @@ impl TfxPpllBuildPass {
     // https://github.com/SaschaWillems/Vulkan/blob/master/examples/oit/oit.cpp#L281
     let ppll_size = Self::get_ppll_data_nodes_count(size) * Self::PPLL_NODE_BYTES;
     let ppll_data = vk_app.create_buffer_empty(
-      format!("TfxPpllBuildPass.ppll_data#{}", frame_id),
+      create_per_object_pass_name::<Self>("ppll_data"),
       ppll_size as _,
       vk::BufferUsageFlags::STORAGE_BUFFER,
       VkMemoryPreference::GpuOnly,
@@ -214,7 +213,7 @@ impl TfxPpllBuildPass {
 
     // single atomic uint
     let ppll_next_free_entry_atomic = vk_app.create_buffer_empty(
-      format!("TfxPpllBuildPass.ppll_next_free_entry_atomic#{}", frame_id),
+      create_per_object_pass_name::<Self>("ppll_next_free_entry_atomic"),
       Self::PPLL_ATOMIC_COUNTER_BYTES,
       // will be cleared every frame:
       vk::BufferUsageFlags::STORAGE_BUFFER | vk::BufferUsageFlags::TRANSFER_DST,

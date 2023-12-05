@@ -102,13 +102,12 @@ impl LinearDepthPass {
   pub fn create_framebuffer(
     &self,
     vk_app: &VkCtx,
-    frame_id: usize,
     size: &vk::Extent2D,
   ) -> LinearDepthPassFramebuffer {
     let device = vk_app.vk_device();
 
     let linear_depth_tex =
-      vk_app.create_attachment::<Self>("linear_depth", frame_id, RESULT_TEXTURE_FORMAT, *size);
+      vk_app.create_attachment::<Self>("linear_depth", RESULT_TEXTURE_FORMAT, *size);
 
     let fbo = create_framebuffer(
       device,

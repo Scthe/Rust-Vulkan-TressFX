@@ -95,9 +95,9 @@ pub fn get_simple_type_name<T>() -> String {
   simple_name.to_string()
 }
 
-pub fn get_attachment_name<PassType>(name: &str, frame_id: usize) -> String {
+pub fn get_attachment_name<PassType>(name: &str) -> String {
   let pass_name = get_simple_type_name::<PassType>();
-  format!("{}.{}#{}", pass_name, name, frame_id)
+  format!("{}.{}", pass_name, name)
 }
 
 pub fn create_per_object_pass_name<PassType>(entity_name: &str) -> String {

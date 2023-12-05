@@ -198,7 +198,6 @@ impl ShadowMapPass {
   pub fn create_framebuffer<PassType>(
     &self,
     vk_app: &VkCtx,
-    frame_id: usize,
     size_px: u32,
   ) -> ShadowMapPassFramebuffer {
     let device = vk_app.vk_device();
@@ -207,8 +206,7 @@ impl ShadowMapPass {
       height: size_px,
     };
 
-    let depth_tex =
-      vk_app.create_attachment::<PassType>("depth", frame_id, DEPTH_TEXTURE_FORMAT, size);
+    let depth_tex = vk_app.create_attachment::<PassType>("depth", DEPTH_TEXTURE_FORMAT, size);
 
     let fbo = create_framebuffer(device, self.render_pass, &[depth_tex.image_view()], &size);
 

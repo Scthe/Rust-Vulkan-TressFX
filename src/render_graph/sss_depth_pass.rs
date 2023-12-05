@@ -28,11 +28,10 @@ impl SSSDepthPass {
   pub fn create_framebuffer(
     &self,
     vk_app: &VkCtx,
-    frame_id: usize,
     shadow_pass: &ShadowMapPass,
     size_px: u32,
   ) -> SSSDepthPassFramebuffer {
-    shadow_pass.create_framebuffer::<Self>(vk_app, frame_id, size_px)
+    shadow_pass.create_framebuffer::<Self>(vk_app, size_px)
   }
 
   pub fn execute(

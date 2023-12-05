@@ -103,13 +103,12 @@ impl TonemappingPass {
   pub fn create_framebuffer(
     &self,
     vk_app: &VkCtx,
-    frame_id: usize,
     size: &vk::Extent2D,
   ) -> TonemappingPassFramebuffer {
     let device = vk_app.vk_device();
 
     let tonemapped_tex =
-      vk_app.create_attachment::<Self>("tonemapped", frame_id, RESULT_TEXTURE_FORMAT, *size);
+      vk_app.create_attachment::<Self>("tonemapped", RESULT_TEXTURE_FORMAT, *size);
 
     let fbo = create_framebuffer(
       device,

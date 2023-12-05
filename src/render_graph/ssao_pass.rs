@@ -124,22 +124,16 @@ impl SSAOPass {
   pub fn create_result_texture(
     vk_app: &VkCtx,
     size: &vk::Extent2D,
-    frame_id: usize,
     is_ping_pass: bool,
   ) -> VkTexture {
     let name = either!(is_ping_pass, "ssao_blur_tmp", "ssao");
-    vk_app.create_attachment::<Self>(name, frame_id, Self::RESULT_TEXTURE_FORMAT, *size)
+    vk_app.create_attachment::<Self>(name, Self::RESULT_TEXTURE_FORMAT, *size)
   }
 
-  pub fn create_framebuffer(
-    &self,
-    vk_app: &VkCtx,
-    frame_id: usize,
-    size: &vk::Extent2D,
-  ) -> SSAOPassFramebuffer {
+  pub fn create_framebuffer(&self, vk_app: &VkCtx, size: &vk::Extent2D) -> SSAOPassFramebuffer {
     let device = vk_app.vk_device();
 
-    let ssao_tex = Self::create_result_texture(vk_app, &size, frame_id, false);
+    let ssao_tex = Self::create_result_texture(vk_app, &size, false);
 
     let fbo = create_framebuffer(device, self.render_pass, &[ssao_tex.image_view()], &size);
 

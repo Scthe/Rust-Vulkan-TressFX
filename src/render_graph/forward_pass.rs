@@ -184,27 +184,20 @@ impl ForwardPass {
   pub fn create_diffuse_attachment_tex<PassType>(
     vk_app: &VkCtx,
     name: &str,
-    frame_id: usize,
     size: &vk::Extent2D,
   ) -> VkTexture {
-    vk_app.create_attachment::<PassType>(name, frame_id, Self::DIFFUSE_TEXTURE_FORMAT, *size)
+    vk_app.create_attachment::<PassType>(name, Self::DIFFUSE_TEXTURE_FORMAT, *size)
   }
 
-  pub fn create_framebuffer(
-    &self,
-    vk_app: &VkCtx,
-    frame_id: usize,
-    size: &vk::Extent2D,
-  ) -> ForwardPassFramebuffer {
+  pub fn create_framebuffer(&self, vk_app: &VkCtx, size: &vk::Extent2D) -> ForwardPassFramebuffer {
     let device = vk_app.vk_device();
 
     let depth_stencil_tex =
-      vk_app.create_attachment::<Self>("depth", frame_id, Self::DEPTH_TEXTURE_FORMAT, *size);
-    let diffuse_tex =
-      Self::create_diffuse_attachment_tex::<Self>(vk_app, "diffuse", frame_id, size);
+      vk_app.create_attachment::<Self>("depth", Self::DEPTH_TEXTURE_FORMAT, *size);
+    let diffuse_tex = Self::create_diffuse_attachment_tex::<Self>(vk_app, "diffuse", size);
 
     let normals_tex =
-      vk_app.create_attachment::<Self>("normal", frame_id, Self::NORMALS_TEXTURE_FORMAT, *size);
+      vk_app.create_attachment::<Self>("normal", Self::NORMALS_TEXTURE_FORMAT, *size);
 
     let fbo = create_framebuffer(
       device,
