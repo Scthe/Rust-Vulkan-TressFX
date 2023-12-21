@@ -164,7 +164,7 @@ fn get_layout_for_read(tex: &VkTexture) -> vk::ImageLayout {
 
 /// read-after-write
 fn get_access_read(tex: &VkTexture) -> VkStorageResourceBarrier {
-  // TODO Vulkan tools complain cause validation layer has bug. Need to update validation layer.
+  // TODO [LOW, VERIFY] Vulkan tools complain cause validation layer has bug. Need to update validation layer.
   // https://stackoverflow.com/questions/75743040/vulkan-sync-hazard-read-after-write-despite-full-pipeline-barrier-between-opera
   let mut barrier = VkStorageResourceBarrier::empty();
 

@@ -169,17 +169,18 @@ impl RenderGraph {
     let frame_idx = timer.frame_idx();
     let frame_in_flight_id: FrameInFlightId = (frame_idx % (config.frames_in_flight as u64)) as _;
 
-    let (swapchain_image_index, swapchain_image) = vk_app.acquire_next_swapchain_image(frame_idx);
+    // sync between frames
+    let frame_data = &self.per_frame_data[frame_in_flight_id];
+    self.wait_for_previous_frame_in_flight(vk_app, frame_data);
 
     // update per-frame uniforms
-    let frame_data = &self.per_frame_data[frame_in_flight_id];
     let config_vk_buffer = &frame_data.config_uniform_buffer;
     update_config_uniform_buffer(vk_app, config, timer, scene, config_vk_buffer);
     update_model_uniform_buffers(config, scene, frame_in_flight_id);
     update_tfx_uniform_buffers(config, scene, frame_in_flight_id);
 
-    // sync between frames
-    self.wait_for_previous_frame_in_flight(vk_app, frame_data);
+    // acquire next swapchain image
+    let swapchain_image = vk_app.acquire_next_swapchain_image(frame_data);
 
     //
     // start record command buffer
@@ -328,7 +329,7 @@ impl RenderGraph {
     );
 
     // final pass to render output to OS window framebuffer
-    let present_fbo = self.present_fbos[swapchain_image_index];
+    let present_fbo = self.present_fbos[swapchain_image.index];
     self.present_pass.execute(
       &pass_ctx,
       &present_fbo,
@@ -353,10 +354,10 @@ impl RenderGraph {
 
     // submit command buffers to the queue
     let submit_info = vk::SubmitInfo::builder()
-      .wait_semaphores(&[swapchain_image.acquire_semaphore])
+      .wait_semaphores(&[frame_data.acquire_semaphore])
       .wait_dst_stage_mask(&[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT])
       .command_buffers(&[cmd_buf])
-      .signal_semaphores(&[swapchain_image.rendering_complete_semaphore])
+      .signal_semaphores(&[frame_data.rendering_complete_semaphore])
       .build();
     unsafe {
       device
@@ -370,10 +371,10 @@ impl RenderGraph {
 
     // present queue result after queue finished work
     let present_info = vk::PresentInfoKHR::builder()
-      .image_indices(&[swapchain_image_index as _])
+      .image_indices(&[swapchain_image.index as _])
       // .results(results) // p_results: ptr::null_mut(),
       .swapchains(&[swapchain.swapchain])
-      .wait_semaphores(&[swapchain_image.rendering_complete_semaphore])
+      .wait_semaphores(&[frame_data.rendering_complete_semaphore])
       .build();
 
     unsafe {
@@ -404,15 +405,10 @@ impl RenderGraph {
     let frames_in_flight = config.frames_in_flight;
 
     (0..frames_in_flight).for_each(|frame_id| {
-      let device = vk_app.vk_device();
       let config_uniform_buffer = allocate_config_uniform_buffer(vk_app, frame_id);
-      let command_buffer = create_command_buffer(device, vk_app.command_pool);
-
-      self.per_frame_data.push(FrameData {
-        queue_submit_finished_fence: create_fence(device),
-        command_buffer,
-        config_uniform_buffer,
-      });
+      self
+        .per_frame_data
+        .push(FrameData::new(vk_app, config_uniform_buffer));
     });
   }
 
@@ -431,18 +427,8 @@ impl RenderGraph {
             .create_framebuffer(vk_app, swapchain_image.image_view, window_size);
         self.present_fbos.push(fbo);
 
-        // barrier to transition to `PipelineStageFlags2::FRAGMENT_SHADER`
-        let mut barrier = VkStorageResourceBarrier::empty();
-        barrier.previous_op.0 = vk::PipelineStageFlags2::TOP_OF_PIPE;
-        barrier.next_op.0 = vk::PipelineStageFlags2::FRAGMENT_SHADER;
-
-        create_image_barrier(
-          swapchain_image.image,
-          vk::ImageAspectFlags::COLOR,
-          vk::ImageLayout::UNDEFINED,
-          vk::ImageLayout::PRESENT_SRC_KHR,
-          barrier,
-        )
+        // create barrier
+        swapchain_image.create_barrier_transition_to_present_layout()
       })
       .collect::<Vec<_>>();
 

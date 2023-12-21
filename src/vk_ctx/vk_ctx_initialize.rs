@@ -13,6 +13,7 @@ use crate::vk_ctx::VkCtxSwapchainImage;
 use crate::vk_utils::debug::setup_debug_reporting;
 use crate::vk_utils::*;
 
+// TODO [LOW] Move to src\vk_utils\os.rs
 #[cfg(all(windows))]
 fn get_window_size(window: &winit::window::Window) -> vk::Extent2D {
   use winapi::shared::windef::HWND;
@@ -43,6 +44,8 @@ fn get_window_size(window: &winit::window::Window) -> vk::Extent2D {
 ///
 /// Reference:
 /// - https://github.com/MaikKlein/ash/blob/master/examples/src/lib.rs#L332
+///
+/// TODO [LOW] Move to src\vk_ctx\vk_ctx.rs
 pub fn vk_ctx_initialize(
   window: &winit::window::Window,
   graphics_debugging: bool,
@@ -82,19 +85,13 @@ pub fn vk_ctx_initialize(
     queue_family_index,
     present_mode,
   );
-  let (swapchain_images, swapchain_image_views) = create_swapchain_images(
-    &swapchain_loader,
-    swapchain,
-    &device,
-    swapchain_format.format,
-  );
-  let swapchain_img_cnt = swapchain_images.len() as u32;
-  info!("Will use {} swapchain images", swapchain_img_cnt);
+  let swapchain_images = get_swapchain_images(&swapchain_loader, swapchain);
+  info!("Will use {} swapchain images", swapchain_images.len());
 
   let per_swapchain_image_data: Vec<VkCtxSwapchainImage> = swapchain_images
     .iter()
-    .zip(swapchain_image_views.iter())
-    .map(|(image, image_view)| VkCtxSwapchainImage::new(&device, *image, *image_view))
+    .enumerate()
+    .map(|(idx, image)| VkCtxSwapchainImage::new(&device, idx, *image, swapchain_format.format))
     .collect();
 
   // command buffers

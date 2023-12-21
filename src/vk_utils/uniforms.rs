@@ -8,7 +8,7 @@ use crate::vk_utils::VkBuffer;
 /*
 ////////////////////////////////////////
 /// NOTES FOR DESCRIPTOR SETS
-/// Obsolet as we use VK_KHR_push_descriptor, but still good to know
+/// Obsolete as we use VK_KHR_push_descriptor, but still good to know
 ////////////////////////////////////////
 
 https://vulkan-tutorial.com/Uniform_buffers/Descriptor_layout_and_buffer <3
@@ -42,6 +42,8 @@ DescriptorSetLayout is required during:
 ////////////////////////////////
 /// Layout utils
 ////////////////////////////////
+
+// TODO [IGNORE] declare_bindings(&[BindingDecl::UBO(0, VERTEX), BindingDecl::SSBO(1, FRAGMENT)])
 
 fn create_binding(
   binding: u32,

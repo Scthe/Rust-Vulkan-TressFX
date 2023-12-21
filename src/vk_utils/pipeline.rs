@@ -242,9 +242,9 @@ pub fn ps_depth_always_stencil_always() -> vk::PipelineDepthStencilStateCreateIn
 
 pub fn ps_stencil_write_if_touched(reference: u32, override_current: bool) -> vk::StencilOpState {
   let write_mask = if override_current {
-    reference
-  } else {
     0xffffffff
+  } else {
+    reference
   };
   vk::StencilOpState {
     // do not skip fields! Rust defaults masks to 0, so things do not work as expected
@@ -263,9 +263,9 @@ pub fn ps_stencil_write_if_depth_passed(
   override_current: bool,
 ) -> vk::StencilOpState {
   let write_mask = if override_current {
-    reference
-  } else {
     0xffffffff
+  } else {
+    reference
   };
   vk::StencilOpState {
     // do not skip fields! Rust defaults masks to 0, so things do not work as expected

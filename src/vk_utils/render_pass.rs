@@ -70,6 +70,7 @@ pub unsafe fn create_render_pass_from_attachments(
   colors: &[AttachmentDefinition],
 ) -> vk::RenderPass {
   // TODO [LOW] this fn can implicitly change layouts by itself - use instead of `cmd_transition_attachments_for_write_barrier`?
+  //      Though that would require knowledge of previous layout, which we only know at execution state
   let mut all_attachment_descs = Vec::<vk::AttachmentDescription>::with_capacity(colors.len() + 1);
   let mut src_stage_mask = vk::PipelineStageFlags::empty();
   let mut dst_stage_mask = vk::PipelineStageFlags::empty();

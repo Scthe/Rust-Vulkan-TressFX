@@ -201,28 +201,22 @@ pub fn create_swapchain_khr(
   swapchain
 }
 
-pub fn create_swapchain_images(
+pub fn get_swapchain_images(
   swapchain_loader: &Swapchain,
   swapchain: vk::SwapchainKHR,
-  device: &ash::Device,
-  image_format: vk::Format,
-) -> (Vec<vk::Image>, Vec<vk::ImageView>) {
-  // auto destroyed with swapchain
-  let swapchain_images = unsafe {
+) -> Vec<vk::Image> {
+  unsafe {
     swapchain_loader
       .get_swapchain_images(swapchain)
       .expect("Failed to get swapchain images from swapchain")
-  };
-  trace!("Will create {} swapchain images", swapchain_images.len());
+  }
+}
 
+pub fn create_swapchain_image_view(
+  device: &ash::Device,
+  swapchain_image: vk::Image,
+  image_format: vk::Format,
+) -> vk::ImageView {
   let aspect_mask_flags = vk::ImageAspectFlags::COLOR;
-  let swapchain_image_views: Vec<vk::ImageView> = swapchain_images
-    .iter()
-    .map(|&swapchain_image| {
-      create_image_view(device, swapchain_image, image_format, aspect_mask_flags)
-    })
-    .collect();
-
-  trace!("Swapchain images created");
-  (swapchain_images, swapchain_image_views)
+  create_image_view(device, swapchain_image, image_format, aspect_mask_flags)
 }

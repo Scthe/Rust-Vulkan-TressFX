@@ -6,10 +6,8 @@ use ash::vk;
 use ash::{self, extensions::khr::PushDescriptor};
 
 use super::*;
-use crate::app_timer::FrameIdx;
+use crate::render_graph::FrameData;
 use crate::vk_utils::{execute_setup_cmd_buf, WithSetupCmdBuffer};
-
-// TODO [CRITICAL] Check Vulkan validation layers: best practices, synchronization, portability, nsight-gpu-trace log
 
 /** Kitchen sink for Vulkan stuff */
 pub struct VkCtx {
@@ -57,31 +55,25 @@ impl VkCtx {
 
   /// get next swapchain image
   /// https://themaister.net/blog/2023/11/12/my-scuffed-game-streaming-adventure-pyrofling/
-  pub fn acquire_next_swapchain_image(&self, frame_idx: FrameIdx) -> (usize, &VkCtxSwapchainImage) {
-    // TODO [CRITICAL] handle image_index that is out of order.
-    //      i.e. the image_view should be based on `swapchain_image_index`,
-    //      not `frame_idx % (self.swapchain_images.len() as u64)`
-    let idx = frame_idx % (self.swapchain_images.len() as u64);
-    let swapchain_image = &self.swapchain_images[idx as usize];
-    let swapchain = &self.swapchain;
-
+  pub fn acquire_next_swapchain_image(&self, frame_data: &FrameData) -> &VkCtxSwapchainImage {
     let swapchain_image_index: usize = unsafe {
       // We *should* check the result for `VK_ERROR_OUT_OF_DATE_KHR`.
       // Recreate swapchain if that happens (usually after window resize/minimize).
       // Current code works on my PC so..
-      swapchain
+      self
+        .swapchain
         .swapchain_loader
         .acquire_next_image(
-          swapchain.swapchain,
+          self.swapchain.swapchain,
           u64::MAX,
-          swapchain_image.acquire_semaphore,
+          frame_data.acquire_semaphore,
           vk::Fence::null(),
         )
         .expect("Failed to acquire next swapchain image")
         .0 as _
     };
 
-    (swapchain_image_index, swapchain_image)
+    &self.swapchain_images[swapchain_image_index]
   }
 
   pub unsafe fn destroy(&mut self) {
