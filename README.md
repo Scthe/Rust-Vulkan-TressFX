@@ -21,6 +21,15 @@ https://github.com/Scthe/Rust-Vulkan-TressFX/assets/9325337/3f99198f-425c-4eb9-9
 *TressFX simulation: adjusting the wind strength*
 
 
+Based on this project, I've also written a series of Vulkan articles:
+
+* ["Vulkan initialization"](https://www.sctheblog.com/blog/vulkan-initialization/)
+* ["Vulkan synchronization"](https://www.sctheblog.com/blog/vulkan-synchronization/)
+* ["Vulkan resources"](https://www.sctheblog.com/blog/vulkan-resources/)
+* ["A typical Vulkan frame"](https://www.sctheblog.com/blog/vulkan-frame/)
+* ["Debugging Vulkan using RenderDoc"](https://www.sctheblog.com/blog/debugging-vulkan-using-renderdoc/)
+
+
 
 ## Usage
 
