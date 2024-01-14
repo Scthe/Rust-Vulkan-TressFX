@@ -6,15 +6,13 @@ use log::trace;
 use crate::vk_ctx::VkCtx;
 
 pub type ScopeId = u32;
+type ProfilerScope = String;
 /// Name of the scope and timing in milliseconds.
 pub type TimesScope = (String, f32);
 /// List of scopes and their times
 pub type GpuProfilerReport = Vec<TimesScope>;
 
-#[derive(Debug)]
-struct ProfilerScope {
-  name: String,
-}
+const NANO_TO_MILISECONDS: f32 = 0.000001;
 
 /// Big amount of queries to never have to carry about it
 const MAX_QUERY_COUNT: u32 = 1024;
@@ -31,15 +29,27 @@ const SCOPE_ID_IGNORED: ScopeId = MAX_QUERY_COUNT * 10;
 /// ### References
 /// - https://github.com/h3r2tic/gpu-profiler/blob/main/src/shared.rs
 pub struct GpuProfiler {
+  /// Profiler enabled for **current frame**. Please set it to `false` after!
   enabled: bool,
+  /// GPU queries pool.
   query_pool: vk::QueryPool,
+  /// "Number of nanoseconds required for a timestamp query to be incremented by 1."
+  /// Basically, multiply delta time by this to get nanoseconds.
+  timestamp_period: f32,
+  /// Names of the already-used scopes for **current frame**.
   scopes: Vec<ProfilerScope>,
+  /// Cached last report shown in the UI.
   last_report: Option<GpuProfilerReport>,
 }
 
 impl GpuProfiler {
   pub fn new(vk_ctx: &VkCtx) -> Self {
+    let instance = &vk_ctx.instance;
     let device = vk_ctx.vk_device();
+    let phys_device = vk_ctx.device.phys_device;
+
+    let device_props = unsafe { instance.get_physical_device_properties(phys_device) };
+
     let pool_info = vk::QueryPoolCreateInfo::builder()
       .query_type(vk::QueryType::TIMESTAMP)
       .query_count(TOTAL_MAX_QUERIES);
@@ -52,6 +62,7 @@ impl GpuProfiler {
     Self {
       enabled: false,
       query_pool,
+      timestamp_period: device_props.limits.timestamp_period,
       scopes: Vec::new(),
       last_report: None,
     }
@@ -96,9 +107,7 @@ impl GpuProfiler {
     }
 
     let query_id: u32 = self.scopes.len() as _;
-    self.scopes.push(ProfilerScope {
-      name: name.to_string(),
-    });
+    self.scopes.push(name.to_string());
 
     unsafe {
       device.cmd_write_timestamp(
@@ -165,10 +174,11 @@ impl GpuProfiler {
         let base_query = scope_idx * (QUERIES_PER_PASS as usize);
         let time_start = durations[base_query];
         let time_end = durations[base_query + 1];
-        let duration_nano = time_end - time_start;
-        let duration_ms = (duration_nano as f32) * 0.000001;
+        let delta = time_end - time_start;
+        let duration_nano = (delta as f32) * self.timestamp_period;
+        let duration_ms = duration_nano * NANO_TO_MILISECONDS;
         // trace!("'{}' took {:.2}ms", scope.name, duration_ms);
-        (scope.name.clone(), duration_ms)
+        (scope.clone(), duration_ms)
       })
       .collect();
 
