@@ -81,7 +81,6 @@ impl SSSBlurPass {
       ForwardPass::DIFFUSE_TEXTURE_FORMAT,
       vk::AttachmentLoadOp::LOAD,
       vk::AttachmentStoreOp::STORE,
-      false,
     );
 
     return unsafe {

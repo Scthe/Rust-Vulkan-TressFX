@@ -68,7 +68,6 @@ impl BlurPass {
       format,
       vk::AttachmentLoadOp::DONT_CARE,
       vk::AttachmentStoreOp::STORE,
-      false,
     );
 
     unsafe { create_render_pass_from_attachments(device, None, &[color_attachment]) }

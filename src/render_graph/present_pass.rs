@@ -67,13 +67,13 @@ impl PresentPass {
       vk::AttachmentLoadOp::CLEAR,
       vk::AttachmentLoadOp::DONT_CARE
     );
-    let color_attachment = create_color_attachment(
+    let mut color_attachment = create_color_attachment(
       0,
       image_format,
       load_op, // we override every pixel regardless
       vk::AttachmentStoreOp::STORE,
-      true,
     );
+    color_attachment.0.initial_layout = vk::ImageLayout::UNDEFINED;
 
     unsafe { create_render_pass_from_attachments(device, None, &[color_attachment]) }
   }

@@ -15,6 +15,10 @@ use super::WithSetupCmdBuffer;
 // https://github.com/KhronosGroup/Vulkan-Docs/wiki/Synchronization-Examples-(Legacy-synchronization-APIs)
 // https://github.com/EmbarkStudios/kajiya/blob/main/crates/lib/kajiya-rg/src/graph.rs#L950
 
+// Alternative API, though how does it handle color vs depth VK_ACCESS_FLAG_*? :
+// https://github.com/KhronosGroup/Vulkan-Samples/blob/d9a6b1069f8008e83a74ae6c08fc7b0235aa2830/framework/common/vk_common.cpp#L426
+// https://github.com/KhronosGroup/Vulkan-Samples/blob/d9a6b1069f8008e83a74ae6c08fc7b0235aa2830/framework/common/vk_common.cpp#L396
+
 impl VkTexture {
   /// `VkImageCreateInfo.initialLayout` has to be `VK_IMAGE_LAYOUT_UNDEFINED` or `VK_IMAGE_LAYOUT_PREINITIALIZED`.
   /// Change this here.

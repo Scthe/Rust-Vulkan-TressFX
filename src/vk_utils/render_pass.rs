@@ -11,26 +11,21 @@ pub fn create_color_attachment(
   image_format: vk::Format,
   load_op: vk::AttachmentLoadOp,
   store_op: vk::AttachmentStoreOp,
-  presentable: bool,
 ) -> AttachmentDefinition {
-  let final_layout = if presentable {
-    vk::ImageLayout::PRESENT_SRC_KHR
-  } else {
-    vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL
-  };
+  let layout = vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL;
 
   let attachment = vk::AttachmentDescription::builder()
   .format(image_format)
   .samples(vk::SampleCountFlags::TYPE_1) // single sampled
   .load_op(load_op)
   .store_op(store_op)
-  .initial_layout(final_layout)
-  .final_layout(final_layout)
+  .initial_layout(layout)
+  .final_layout(layout)
   .build();
 
   let attachment_reference = vk::AttachmentReference {
     attachment: attachment_idx,
-    layout: vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+    layout,
   };
 
   (attachment, attachment_reference)

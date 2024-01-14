@@ -83,7 +83,6 @@ impl SSAOPass {
       Self::RESULT_TEXTURE_FORMAT,
       vk::AttachmentLoadOp::DONT_CARE, // we override every pixel regardless
       vk::AttachmentStoreOp::STORE,
-      false,
     );
 
     unsafe { create_render_pass_from_attachments(device, None, &[color_attachment]) }

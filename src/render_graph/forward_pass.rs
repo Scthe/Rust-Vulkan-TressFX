@@ -99,14 +99,12 @@ impl ForwardPass {
       Self::DIFFUSE_TEXTURE_FORMAT,
       load_op,
       vk::AttachmentStoreOp::STORE,
-      false,
     );
     let normals_attachment = create_color_attachment(
       2,
       Self::NORMALS_TEXTURE_FORMAT,
       load_op,
       vk::AttachmentStoreOp::STORE,
-      false,
     );
 
     unsafe {

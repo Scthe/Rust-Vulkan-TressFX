@@ -10,7 +10,7 @@ use crate::app_ui::AppUI;
 use crate::config::Config;
 use crate::gpu_profiler::GpuProfiler;
 use crate::scene::World;
-use crate::vk_ctx::VkCtx;
+use crate::vk_ctx::{VkCtx, VkCtxSwapchainImage};
 use crate::vk_utils::*;
 
 mod _shared;
@@ -344,6 +344,9 @@ impl RenderGraph {
       &mut res.linear_depth_pass.linear_depth_tex,
     );
 
+    // transition swapchain image to vk::ImageLayout::PRESENT_SRC_KHR
+    self.transition_swapchain_image_for_present(cmd_buf, vk_app.vk_device(), swapchain_image);
+
     unsafe {
       device
         .end_command_buffer(cmd_buf)
@@ -416,31 +419,34 @@ impl RenderGraph {
   fn initialize_per_swapchain_img_resources(&mut self, vk_app: &VkCtx) {
     let window_size = &vk_app.window_size();
 
-    let barriers = vk_app
-      .swapchain_images
-      .iter()
-      .map(|swapchain_image| {
-        // create fbo
-        let fbo =
-          self
-            .present_pass
-            .create_framebuffer(vk_app, swapchain_image.image_view, window_size);
-        self.present_fbos.push(fbo);
-
-        // create barrier
-        swapchain_image.create_barrier_transition_to_present_layout()
-      })
-      .collect::<Vec<_>>();
-
-    // do the transitions
-    vk_app.with_setup_cb(|device, cmd_buf| {
-      let dep = vk::DependencyInfo::builder().image_memory_barriers(&barriers);
-      unsafe { device.cmd_pipeline_barrier2(cmd_buf, &dep) };
+    vk_app.swapchain_images.iter().for_each(|swapchain_image| {
+      // create fbo
+      let fbo =
+        self
+          .present_pass
+          .create_framebuffer(vk_app, swapchain_image.image_view, window_size);
+      self.present_fbos.push(fbo);
     });
   }
 
   pub fn get_ui_draw_render_pass(&self) -> vk::RenderPass {
     self.present_pass.render_pass
+  }
+
+  pub fn transition_swapchain_image_for_present(
+    &self,
+    cmd_buf: vk::CommandBuffer,
+    device: &ash::Device,
+    swapchain_image: &VkCtxSwapchainImage,
+  ) {
+    let swapchain_layout_present_barriers =
+      [swapchain_image.create_barrier_transition_to_present_layout()];
+    let dep =
+      vk::DependencyInfo::builder().image_memory_barriers(&swapchain_layout_present_barriers);
+
+    unsafe {
+      device.cmd_pipeline_barrier2(cmd_buf, &dep);
+    }
   }
 }
 
